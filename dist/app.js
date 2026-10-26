@@ -3919,6 +3919,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     RIGHT: 39,
     DOWN: 40,
     ENTER: 13,
+    IME_DONE: 65376,
+    IME_CANCEL: 65385,
     BACK: TIZEN ? 10009 : 461,
     // Samsung Return / LG Back
     ESC: 27,
@@ -4146,13 +4148,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var active = document.activeElement;
     var typing = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
     if (typing) {
-      if (code === KEY.ENTER) {
-        e.preventDefault();
+      if (code === KEY.ENTER || code === KEY.IME_DONE) {
+        if (code === KEY.ENTER) e.preventDefault();
         active.blur();
         if (active.__submit) active.__submit(active.value);
-      } else if (code === KEY.BACK || code === KEY.ESC) {
-        e.preventDefault();
+        return;
+      } else if (code === KEY.BACK || code === KEY.ESC || code === KEY.IME_CANCEL) {
+        if (code !== KEY.IME_CANCEL) e.preventDefault();
         active.blur();
+        return;
       } else if (code === KEY.UP || code === KEY.DOWN) {
         active.blur();
       } else return;
