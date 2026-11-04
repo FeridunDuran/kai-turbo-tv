@@ -109,6 +109,17 @@ function PlayerView(opts) {
     return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
   }
 
+  // Próximo episódio para o "continuar assistindo", com a regra do MetaItem::next_video do
+  // stremio-core: não pula de temporada normal para especiais (temporada 0) e ignora
+  // episódio ainda não lançado.
+  function nextVideoForResume() {
+    const nv = nextVideo();
+    if (!nv) return null;
+    if (nv.season === 0 && (video.season || 0) !== 0) return null;
+    if (nv.released && new Date(nv.released).getTime() > Date.now()) return null;
+    return nv;
+  }
+
   // ---------- Carregamento ----------
   function start() {
     setTitle();
@@ -252,7 +263,7 @@ function PlayerView(opts) {
     if (controlsOn) updateTimes();
   });
   videoEl.addEventListener('ended', () => {
-    saveProgress();
+    saveProgress(true);
     if (opts.isSeries && nextVideo()) playNext();
     else router.pop();
   });
@@ -865,7 +876,7 @@ function PlayerView(opts) {
   function playNext() {
     const nv = nextVideo();
     if (!nv) return;
-    saveProgress();
+    saveProgress(true);
     const group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
     showSpinner(true);
     message(t('Procurando o próximo episódio...'));
@@ -888,13 +899,14 @@ function PlayerView(opts) {
   }
 
   // ---------- Progresso ----------
-  function saveProgress() {
+  function saveProgress(final) {
     const d = videoEl.duration;
     if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
     const delta = watchedDelta;
     watchedDelta = 0;
     if (meta.id === 'dev') return; // teste de desenvolvimento: não mexe na biblioteca
-    stremio.saveProgress(meta, video.id, videoEl.currentTime * 1000, d * 1000, delta);
+    const nv = final && meta.type === 'series' ? nextVideoForResume() : null;
+    stremio.saveProgress(meta, video.id, videoEl.currentTime * 1000, d * 1000, delta, !!final, nv ? nv.id : null);
   }
 
   // ---------- Teclas ----------
@@ -994,6 +1006,7 @@ function PlayerView(opts) {
       return true;
     },
     destroy: () => {
+      if (alive) saveProgress(true);
       alive = false;
       clearInterval(ticker);
       clearInterval(saveTimer);

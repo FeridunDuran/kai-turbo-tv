@@ -27,9 +27,15 @@ export function HomeView() {
 
   let loadedBoard = false;
 
+  let cwKey = null;
+  function cwSignature(items) {
+    return items.map((it) => it._id + ':' + (it.state.video_id || '') + ':' + it.state.timeOffset).join('|');
+  }
+
   function renderContinue() {
     clear(cwRow);
     const items = stremio.continueWatching().slice(0, 20);
+    cwKey = cwSignature(items);
     if (!items.length) {
       cwRow.style.display = 'none';
       return;
@@ -123,6 +129,10 @@ export function HomeView() {
       loadedBoard = false;
     },
     onKey: (e) => heroUi.onKey(e),
+    // Chamado quando a biblioteca da conta chega do servidor; só redesenha se mudou.
+    refreshContinue: () => {
+      if (cwSignature(stremio.continueWatching().slice(0, 20)) !== cwKey) renderContinue();
+    },
     reload: () => {
       heroUi.load();
       renderBoard();
