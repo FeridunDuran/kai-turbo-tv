@@ -89,6 +89,7 @@ export function LibraryView() {
   const info = store.get('libraryMetaInfo', {});
   let fetching = null; // { done, total }
   let alive = true;
+  let returnSelection = null;
 
   function currentSort() {
     return SORTS.find((x) => x.id === sortId) || SORTS[0];
@@ -185,15 +186,36 @@ export function LibraryView() {
     );
   }
 
-  function renderGrid() {
+  function renderGrid(selection) {
+    const focused = nav.current();
+    const focusedId = focused && grid.contains(focused) && focused.getAttribute('data-library-id');
+    const restore = focusedId ? {
+      id: focusedId, index: Array.prototype.indexOf.call(grid.children, focused), scroll: scroller.scrollTop,
+    } : selection;
     clear(grid);
     const cmp = currentSort().cmp;
     const items = visibleItems().sort((a, b) => cmp(a, b, info));
     if (!items.length) {
       grid.appendChild(h('div.hint', { text: stremio.isLoggedIn() ? t('Sua biblioteca está vazia.') : t('Entre na sua conta em Ajustes para ver a biblioteca.') }));
+      if (restore) nav.focus(filters.firstChild);
       return;
     }
-    items.forEach((it) => grid.appendChild(card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id) })));
+    items.forEach((it, index) => {
+      const item = card({ name: it.name, poster: it.poster }, { onSelect: () => {
+        // A background refresh may replace these DOM nodes while Details is
+        // open. Save the item identity and scroll position, not only the node.
+        returnSelection = { id: it._id, index, scroll: scroller.scrollTop };
+        openDetails(it.type, it._id);
+      } });
+      item.setAttribute('data-library-id', it._id);
+      grid.appendChild(item);
+    });
+    if (restore) {
+      const index = items.findIndex((it) => it._id === restore.id);
+      const target = grid.children[index >= 0 ? index : Math.min(Math.max(0, restore.index), items.length - 1)];
+      nav.focus(target, { noScroll: true });
+      scroller.scrollTop = restore.scroll;
+    }
     loadVisibleImages(el, 400);
   }
 
@@ -204,7 +226,9 @@ export function LibraryView() {
   return {
     el: el,
     onShow: () => {
-      renderGrid();
+      const selection = returnSelection;
+      returnSelection = null;
+      renderGrid(selection);
       stremio
         .getLibrary()
         .then(() => {

@@ -13139,6 +13139,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var info2 = get("libraryMetaInfo", {});
     var fetching = null;
     var alive = true;
+    var returnSelection = null;
     function currentSort() {
       return SORTS.find(function (x) {
         return x.id === sortId;
@@ -13237,7 +13238,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: openSortMenu
       }));
     }
-    function renderGrid() {
+    function renderGrid(selection) {
+      var focused = current2();
+      var focusedId = focused && grid.contains(focused) && focused.getAttribute("data-library-id");
+      var restore = focusedId ? {
+        id: focusedId,
+        index: Array.prototype.indexOf.call(grid.children, focused),
+        scroll: scroller.scrollTop
+      } : selection;
       clear(grid);
       var cmp = currentSort().cmp;
       var items = visibleItems().sort(function (a, b) {
@@ -13247,18 +13255,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         grid.appendChild(h("div.hint", {
           text: isLoggedIn() ? t("Sua biblioteca está vazia.") : t("Entre na sua conta em Ajustes para ver a biblioteca.")
         }));
+        if (restore) focus(filters.firstChild);
         return;
       }
-      items.forEach(function (it) {
-        return grid.appendChild(card({
+      items.forEach(function (it, index) {
+        var item = card({
           name: it.name,
           poster: it.poster
         }, {
           onSelect: function onSelect() {
-            return openDetails(it.type, it._id);
+            returnSelection = {
+              id: it._id,
+              index: index,
+              scroll: scroller.scrollTop
+            };
+            openDetails(it.type, it._id);
           }
-        }));
+        });
+        item.setAttribute("data-library-id", it._id);
+        grid.appendChild(item);
       });
+      if (restore) {
+        var index = items.findIndex(function (it) {
+          return it._id === restore.id;
+        });
+        var target = grid.children[index >= 0 ? index : Math.min(Math.max(0, restore.index), items.length - 1)];
+        focus(target, {
+          noScroll: true
+        });
+        scroller.scrollTop = restore.scroll;
+      }
       loadVisibleImages(el, 400);
     }
     renderFilters();
@@ -13267,7 +13293,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return {
       el: el,
       onShow: function onShow() {
-        renderGrid();
+        var selection = returnSelection;
+        returnSelection = null;
+        renderGrid(selection);
         getLibrary().then(function () {
           renderGrid();
           ensureMeta();
@@ -13284,7 +13312,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T12:23:05.140Z";
+  var BUILD = "2026-11-05T12:27:35.781Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
