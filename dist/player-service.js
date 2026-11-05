@@ -17941,10 +17941,11 @@ var TV_TORRENT = (function () {
       this.headerPieces.push(this.first);
       if (/\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
     }
-    // One slot keeps the last piece read before a jump (see ensureWindow). TV trace: an MP4 read
-    // 0 MiB, ~6 MiB, then the moov at the end, then ~6 MiB again; the second piece had been
-    // evicted by the tail jump and was downloaded twice. Only when the cache has room for it.
-    this.returnSlot = slots >= 6 ? 1 : 0;
+    // One slot keeps the last piece read before a jump (see ensureWindow). TV traces: an MP4 read
+    // 0 MiB, ~6 MiB, the moov at the end, then ~6 MiB again; an MKV with 16 MiB pieces read the
+    // start, 8.5 KB at the end, then the start again. The piece had been evicted by the tail jump
+    // and was downloaded twice. Needs room for at least two window pieces besides it.
+    this.returnSlot = slots - this.headerPieces.length >= 3 ? 1 : 0;
     this.returnPiece = null;
     this.lastReadIndex = null;
     var windowSlots = Math.max(1, slots - this.headerPieces.length - this.returnSlot);
@@ -18429,6 +18430,16 @@ var TV_TORRENT = (function () {
   }
 
   return {
+    resumed: function (id) {
+      var s = sessions[id];
+      if (!s) return false;
+      if (s.resumePending) {
+        s.resumePending = false;
+        // Re-select the reader's piece so its normal read-ahead window starts now.
+        if (s.reader && !s.reader.destroyed) s.ensureWindow(Math.floor((s.file.offset + s.reader.pos) / s.pieceLength), true);
+      }
+      return true;
+    },
     stats: function (id) {
       var s = sessions[id];
       if (!s) return null;
@@ -18866,6 +18877,13 @@ function handle(req, res) {
         send(res, 200, result);
       });
     }, 8192);
+  }
+  if (url.pathname.indexOf('/torrent-resumed/') === 0) {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
+    var resumedId = url.pathname.slice('/torrent-resumed/'.length);
+    if (!/^[a-f0-9]{16}$/.test(resumedId) || typeof TV_TORRENT === 'undefined' || !TV_TORRENT.resumed) return send(res, 404, { error: 'not available' });
+    return send(res, TV_TORRENT.resumed(resumedId) ? 200 : 404, { ok: 1 });
   }
   if (url.pathname.indexOf('/torrent-status/') === 0) {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });

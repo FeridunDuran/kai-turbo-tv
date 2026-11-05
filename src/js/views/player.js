@@ -135,6 +135,8 @@ function PlayerView(opts) {
   let mediaReady = false;
   let failed = false;
   let userPaused = false;
+  let torrentReopens = 0;
+  let reopenBytes = 0;
   let lastPosition = 0;
   let backArmedAt = 0;
   // Startup timeline: milliseconds from start() to each player milestone, logged once.
@@ -226,6 +228,8 @@ function PlayerView(opts) {
     gaveUp = false;
     failed = false;
     userPaused = false;
+    torrentReopens = 0;
+    reopenBytes = 0;
     currentAudio = null;
     logPlaybackSummary();
     rebufferAt = 0;
@@ -256,8 +260,7 @@ function PlayerView(opts) {
     // Add-on subtitles do not depend on the local playback URL or torrent metadata.
     loadSubtitles();
     server
-      // Resume points within two minutes are close enough to the start to keep read-ahead.
-      .toPlayable(stream, seriesInfo(), { resume: pendingStart > 120000 })
+      .toPlayable(stream, seriesInfo(), { resume: pendingStart > 0 })
       .then((res) => {
         if (!alive || attempt !== startGeneration || (!startupTimer && !server.isTorrent(stream))) return;
         mediaUrl = res.url;
@@ -418,7 +421,11 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('canplaythrough', () => mark('canplaythrough'));
   videoEl.addEventListener('loadeddata', () => mark('firstFrame'));
-  videoEl.addEventListener('seeked', () => mark('seeked'));
+  videoEl.addEventListener('seeked', () => {
+    mark('seeked');
+    // The resume position is now being read: the engine may start its normal read-ahead.
+    if (server.isTorrent(stream) && mediaUrl) tvproxy.torrentResumed(mediaUrl);
+  });
   videoEl.addEventListener('timeupdate', () => {
     const now = Date.now();
     if (!videoEl.paused && lastTick) {
@@ -554,11 +561,38 @@ function PlayerView(opts) {
     });
     if (!alive) return;
     clearStartup();
+    const failedUrl = mediaUrl;
+    const failedAttempt = startGeneration;
+    // The TV's player reports error 4 after about 30 s without the first bytes (TV traces:
+    // error at 30 s, the torrent piece verified 3 s later). While the engine is still
+    // receiving data this is a slow start, not a failure: reopen the same local URL.
+    if (server.isTorrent(stream) && !hasPlayed && err && err.code === 4 && torrentReopens < 3) {
+      tvproxy.torrentStats(failedUrl).then((stats) => {
+        if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+        const bytes = stats ? stats.downloaded || 0 : 0;
+        if (stats && bytes > reopenBytes) {
+          reopenBytes = bytes;
+          torrentReopens++;
+          log.info('Torrent reopen after player no-data timeout', { n: torrentReopens, receivedMB: Math.round(bytes / 104857.6) / 10 });
+          try { videoEl.removeAttribute('src'); videoEl.load(); } catch (e) { /* ignore */ }
+          setTimeout(() => {
+            if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+            videoEl.autoplay = true;
+            videoEl.src = failedUrl;
+          }, 300);
+          return;
+        }
+        playbackFailed(err, failedUrl, failedAttempt);
+      });
+      return;
+    }
+    playbackFailed(err, failedUrl, failedAttempt);
+  });
+
+  function playbackFailed(err, failedUrl, failedAttempt) {
     // Smart Choice: before giving up, try its next-best source.
     if (tryFallback()) return;
     // Say what actually failed (network, server refusal, expired link, codec...).
-    const failedUrl = mediaUrl;
-    const failedAttempt = startGeneration;
     const explanation = server.isTorrent(stream)
       ? tvproxy.torrentStats(failedUrl).then((stats) => explainTorrentError(err && err.code, stats, videoEl.readyState))
       : explainVideoError(err && err.code, failedUrl);
@@ -567,7 +601,7 @@ function PlayerView(opts) {
       stopMedia();
       fail(why.title, why.hint);
     });
-  });
+  }
 
   // ---------- Pular abertura / recapitulação / encerramento ----------
   let segments = [];

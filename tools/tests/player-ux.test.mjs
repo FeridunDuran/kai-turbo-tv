@@ -10,6 +10,7 @@ const KEY = { BACK: 10009, ESC: 27, BACKSPACE: 8, ENTER: 13, PLAY: 415, PAUSE: 1
 async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false, remoteLog = false } = {}) {
   const nodes = [], events = {}, intervals = new Map(), timers = new Map(), lookups = [], plays = [], toasts = [], logs = [];
   let id = 0, view, focused, popped = 0, playCalls = 0, now = 1000000, statsCalls = 0;
+  const resumedCalls = [];
   function h(tag, props = {}, children = []) {
     const node = { tag, children: [], style: {}, textContent: '', html: '', classList: { add() {}, remove() {}, contains() { return false; } },
       setAttribute() {}, removeAttribute() {}, appendChild(child) { this.children.push(child); return child; },
@@ -34,10 +35,10 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
     nav: { KEY, focus: (n) => { focused = n; }, current: () => focused, topLayer: () => ({ root: view && view.el }) },
     luna: { closeHeavyBackgroundApps: () => Promise.resolve([]) },
     subs: { Renderer: () => ({ clear() {}, update() {}, setOffset() {}, set() {}, offset: () => 0 }) }, substyle: { apply() {} },
-    store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: {},
+    store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: { explainTorrentError: () => ({ title: 'Torrent playback failed.', hint: '' }), explainVideoError: () => Promise.resolve({ title: 'failed', hint: '' }) },
     server: { isTorrent: (s) => !!s.infoHash, isPlayableType: (s) => !!(s.infoHash || s.url), isAvailable: () => false,
-      toPlayable(s, series) { plays.push({ s, series, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
-    tvproxy: { isTorrentAvailable: () => true, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
+      toPlayable(s, series, options) { plays.push({ s, series, options, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
+    tvproxy: { isTorrentAvailable: () => true, torrentResumed: (url) => { resumedCalls.push(url); return Promise.resolve(true); }, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
     addons: { fetchStreams(type, episode, callback) { return new Promise((resolve, reject) => lookups.push({ episode, callback, resolve, reject })); }, fetchSubtitles: () => Promise.resolve([]) },
     stremio: { saveProgress() {} }, skip: {},
     ui: { toast: (s) => toasts.push(s), menu() {}, fmtTime: (s) => 't' + Math.round(s), timeHM: () => '' },
@@ -61,7 +62,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
   const byHtml = (text) => nodes.find((n) => n.html.includes(text));
   const tick = () => [...intervals.values()].find((t) => t.ms === 250).fn();
   const watchdog = () => [...intervals.values()].find((t) => t.ms === 2000).fn();
-  return { video, nodes, lookups, plays, toasts, logs, view, tick, watchdog, byHtml,
+  return { video, nodes, lookups, plays, toasts, logs, view, tick, watchdog, byHtml, resumedCalls, timers,
     key: (k) => view.onKey({ keyCode: k }), advance: (ms) => { now += ms; },
     get popped() { return popped; }, get playCalls() { return playCalls; }, get statsCalls() { return statsCalls; }, get changed() { return changed; },
     stageText: () => nodes.filter((n) => n.tag === 'div.p-stage-title' || n.tag === 'div.p-stage-detail').map((n) => n.textContent).join(' | '),
@@ -248,5 +249,32 @@ test('remote log records rebuffer start/end with service state and a playback su
   const summary = f.logs.find((l) => l[0] === 'Playback summary')[1];
   assert.equal(summary.rebuffers, 1); assert.equal(summary.rebufferMs, 25000);
   assert.equal(JSON.stringify(f.logs.filter((l) => /Rebuffer|Playback summary/.test(l[0]))).includes('127.0.0.1'), false, 'no stream URL in compact state');
+});
+
+test('resume opens tell the engine, and the resume seek releases its read-ahead', async () => {
+  const f = await fixture({ startTime: 86000 });
+  assert.equal(f.plays[0].options.resume, true);
+  f.video.duration = 1303; f.video.emit('loadedmetadata'); f.video.emit('seeked');
+  assert.equal(f.resumedCalls.length, 1);
+  const g = await fixture();
+  assert.equal(g.plays[0].options.resume, false);
+  f.close(); g.close();
+});
+
+test('player no-data timeout while the torrent is still downloading reopens the same URL instead of failing', async () => {
+  const stats = [{ downloaded: 5e6, ranges: [] }, { downloaded: 9e6, ranges: [] }, { downloaded: 9e6, ranges: [], peers: 3 }];
+  const f = await fixture({ statsSeq: stats });
+  const url = f.video.src;
+  f.video.error = { code: 4 }; f.video.emit('error'); await flush();
+  assert.ok(f.logs.some((l) => l[0] === 'Torrent reopen after player no-data timeout'));
+  [...f.timers.values()].filter((t) => t.ms === 300).forEach((t) => t.fn());
+  assert.equal(f.video.src, url, 'same local URL assigned again');
+  assert.ok(!f.byHtml('Try again'), 'no failure shown while data arrives');
+  f.video.emit('error'); await flush();
+  [...f.timers.values()].filter((t) => t.ms === 300).forEach((t) => t.fn());
+  assert.equal(f.logs.filter((l) => l[0] === 'Torrent reopen after player no-data timeout').length, 2);
+  f.video.emit('error'); await flush(); await flush(); await flush();
+  assert.ok(f.byHtml('Try again'), 'no new data since the last reopen: the failure is shown');
+  f.close();
 });
 

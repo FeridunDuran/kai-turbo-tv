@@ -133,3 +133,33 @@ test('engine diagnostics record discovery times, connection lifetimes and piece 
  const summary=context.TV_TORRENT.wireSummary({swarm:{wires:[{peerChoking:false,downloadSpeed:()=>102400},{peerChoking:true,downloadSpeed:()=>0}],downloadSpeed:()=>102400}});
  assert.deepEqual(JSON.parse(JSON.stringify(summary)),{connected:2,unchoked:1,topKBs:[100,0],rateKBs:100});
 });
+
+test('16 MiB pieces: start piece survives the tail read, and the resume signal opens read-ahead',()=>{
+ const removed=[],selected=[],engine=new EventEmitter();
+ const store={present:[209],remove(p){const i=this.present.indexOf(p);if(i<0)return false;this.present.splice(i,1);removed.push(p);return true;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:16777216},select:(from,to,priority)=>selected.push([from,to,priority]),deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:209*16777216+2282697,length:690305268},0);
+ assert.equal(s.returnSlot,1);s.resumePending=true;
+ s.ensureWindow(209);s.lastReadIndex=209;
+ store.present.push(250);s.ensureWindow(250,true);s.lastReadIndex=250;
+ assert.equal(removed.includes(209),false,'start piece kept across the 8.5 KB tail read');
+ s.ensureWindow(209);assert.ok(store.present.includes(209),'start re-read served from RAM');
+ selected.length=0;s.ensureWindow(211,true);
+ assert.deepEqual(selected.filter(x=>x[2]===1),[[211,211,1]],'resume piece only, no read-ahead before the signal');
+ const retained=new Set([s.returnPiece]);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);
+ assert.ok(retained.size*16777216<=48*1024*1024,'within the 48 MiB cache');
+});
+
+test('resume signal clears the pending state and selects the normal window from the reader position',()=>{
+ const selected=[],engine=new EventEmitter();const store={present:[],remove(){return false;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select:(from,to,priority)=>selected.push([from,to,priority]),deselect(){},release(){},swarm:{wires:[]}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session, registerForTest: function (s) { sessions[s.id] = s; }, supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'movie.mp4',offset:0,length:200*4194304},0);
+ s.id='a'.repeat(16);context.TV_TORRENT.registerForTest(s);s.resumePending=true;s.reader={pos:150*4194304,destroyed:false};
+ assert.equal(context.TV_TORRENT.resumed('b'.repeat(16)),false);
+ selected.length=0;assert.equal(context.TV_TORRENT.resumed(s.id),true);
+ assert.equal(s.resumePending,false);const w=selected.filter(x=>x[2]===1)[0];assert.equal(w[0],150);assert.ok(w[1]>150);
+});

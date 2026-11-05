@@ -114,13 +114,16 @@ episode list instead of the previous episode's sources.
   blocks, at most 64 per peer, as in WebTorrent/libtorrent). Before, a peer with more than 0.75 s
   round trip was held at 32 KiB per round trip. The 4 MiB engine-wide request cap is unchanged.
   This changes the TV player service: fully restart the TV after updating.
-- For MP4 files the piece read just before the jump to the index at the end of the file stays
-  in RAM in one reserved cache slot. The TV re-read it right after the jump and previously had
-  to download those 4 MiB again (about 2-5 s in two TV traces).
-- When playback will resume more than two minutes into the file, the TV downloads only the
-  pieces the player actually reads at the start and end of the file (header and index) until
-  the resume position is read. Before, it also downloaded 32 MiB of read-ahead from the start of
-  the file that resumed playback never used.
+- The piece read just before the jump to the index at the end of the file stays in RAM in one
+  reserved cache slot (also with 16 MiB pieces). The TV re-reads it right after the jump and
+  previously had to download it again (4 MiB / 2-5 s, and 16 MiB in an MKV trace).
+- When playback resumes later in the file, the TV downloads only the pieces the player actually
+  reads at the start and end of the file (header and index) until the player reports that it has
+  reached the resume position. Before, it also downloaded read-ahead from the start of the file
+  that resumed playback never used (16-32 MiB in TV traces).
+- The TV's player gives up after about 30 seconds without the first bytes. If the torrent engine
+  is still receiving data at that moment, the player reopens the same local stream (up to three
+  times, each time only if more data arrived) instead of showing an error.
 - Peers that actually delivered data for a torrent are remembered in the app's own storage
   (20 torrents, 30 peers each) and offered to the TV engine as connection hints the next time the
   same torrent opens, as libtorrent does with the peers in its resume data. Discovery through

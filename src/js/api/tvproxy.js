@@ -173,6 +173,14 @@ export function rememberPeers(infoHash, peers) {
   store.set(PEER_KEY, all);
 }
 
+// Tells the engine that the player has reached its resume position (local only; older services
+// answer 404, which is ignored).
+export function torrentResumed(url) {
+  const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
+  if (!match) return Promise.resolve(false);
+  return request(match[1] + '/torrent-resumed/' + match[2], 2500).then((r) => !!r, () => false);
+}
+
 export function torrentStats(url) {
   const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
   if (!match) return Promise.resolve(null);

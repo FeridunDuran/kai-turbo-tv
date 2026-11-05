@@ -7241,6 +7241,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     while (keys.length > PEER_TORRENTS) delete all2[keys.shift()];
     set(PEER_KEY, all2);
   }
+  function torrentResumed(url2) {
+    var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
+    if (!match) return Promise.resolve(false);
+    return request2(match[1] + "/torrent-resumed/" + match[2], 2500).then(function (r) {
+      return !!r;
+    }, function () {
+      return false;
+    });
+  }
   function torrentStats(url2) {
     var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
     if (!match) return Promise.resolve(null);
@@ -10201,6 +10210,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var mediaReady = false;
     var failed = false;
     var userPaused = false;
+    var torrentReopens = 0;
+    var reopenBytes = 0;
     var lastPosition = 0;
     var backArmedAt = 0;
     var startedAt = 0;
@@ -10305,6 +10316,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       gaveUp = false;
       failed = false;
       userPaused = false;
+      torrentReopens = 0;
+      reopenBytes = 0;
       currentAudio = null;
       logPlaybackSummary();
       rebufferAt = 0;
@@ -10344,7 +10357,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hideSkip();
       loadSubtitles();
       toPlayable(stream, seriesInfo(), {
-        resume: pendingStart > 12e4
+        resume: pendingStart > 0
       }).then(function (res) {
         if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
@@ -10509,7 +10522,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return mark("firstFrame");
     });
     videoEl.addEventListener("seeked", function () {
-      return mark("seeked");
+      mark("seeked");
+      if (isTorrent(stream) && mediaUrl) torrentResumed(mediaUrl);
     });
     videoEl.addEventListener("timeupdate", function () {
       var now = Date.now();
@@ -10654,9 +10668,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       if (!alive) return;
       clearStartup();
-      if (tryFallback()) return;
       var failedUrl = mediaUrl;
       var failedAttempt = startGeneration;
+      if (isTorrent(stream) && !hasPlayed && err && err.code === 4 && torrentReopens < 3) {
+        torrentStats(failedUrl).then(function (stats) {
+          if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+          var bytes = stats ? stats.downloaded || 0 : 0;
+          if (stats && bytes > reopenBytes) {
+            reopenBytes = bytes;
+            torrentReopens++;
+            log.info("Torrent reopen after player no-data timeout", {
+              n: torrentReopens,
+              receivedMB: Math.round(bytes / 104857.6) / 10
+            });
+            try {
+              videoEl.removeAttribute("src");
+              videoEl.load();
+            } catch (e) {}
+            setTimeout(function () {
+              if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+              videoEl.autoplay = true;
+              videoEl.src = failedUrl;
+            }, 300);
+            return;
+          }
+          playbackFailed(err, failedUrl, failedAttempt);
+        });
+        return;
+      }
+      playbackFailed(err, failedUrl, failedAttempt);
+    });
+    function playbackFailed(err, failedUrl, failedAttempt) {
+      if (tryFallback()) return;
       var explanation = isTorrent(stream) ? torrentStats(failedUrl).then(function (stats) {
         return explainTorrentError(err && err.code, stats, videoEl.readyState);
       }) : explainVideoError(err && err.code, failedUrl);
@@ -10665,7 +10708,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         stopMedia();
         fail(why.title, why.hint);
       });
-    });
+    }
     var segments = [];
     var segmentsLoaded = false;
     var activeSeg = null;
@@ -14039,7 +14082,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:08:35.181Z";
+  var BUILD = "2026-11-05T18:11:52.190Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

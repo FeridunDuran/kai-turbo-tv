@@ -190,3 +190,23 @@ into resume data ([write_resume_data.cpp](https://github.com/arvidn/libtorrent/b
 `add_torrent_params::peers`). Hints only add connection attempts; discovery is unchanged.
 Whether this shortens a cold start depends on the remembered peers still being online.
 
+## Third trace: 80 MB before playback (season pack, 16 MiB pieces, resume at 86 s)
+
+The file starts inside piece 209 and ends in piece 250. The browser read the start (piece 209),
+8.5 KB at the end (piece 250, which must still be downloaded whole to verify it), then the start
+again. With 16 MiB pieces the 48 MiB cache has three slots, so header pinning and the return
+slot were both disabled and piece 209 was downloaded twice. Because the resume point (86 s) was
+under the two-minute threshold, piece 210 was also fetched as start read-ahead and never used.
+Roughly 80 MB arrived before playback; about 32 MB of it was avoidable.
+
+- The return slot now applies whenever at least two other window slots remain (16 MiB pieces:
+  window of two pieces plus the return piece = 48 MiB).
+- Every resume (any position) opens with `resume`; the player calls the new local
+  `/torrent-resumed/<id>` endpoint at the resume seek, which releases the normal read-ahead. The
+  index-based heuristic remains as a fallback for older apps.
+
+The previous attempt in the same trace failed with error 4 exactly 30 s after the local URL was
+assigned, with no bytes delivered, while the engine kept downloading; the piece was verified 3 s
+later. An earlier HIMYM trace showed the same 30 s pattern. The player now reopens the same URL
+when the engine has received more data since the previous attempt (at most three times).
+
