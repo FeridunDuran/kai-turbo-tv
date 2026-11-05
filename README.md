@@ -114,6 +114,8 @@ episode list instead of the previous episode's sources.
   blocks, at most 64 per peer, as in WebTorrent/libtorrent). Before, a peer with more than 0.75 s
   round trip was held at 32 KiB per round trip. The 4 MiB engine-wide request cap is unchanged.
   This changes the TV player service: fully restart the TV after updating.
+- A peer may hold at most two seconds of its measured rate in blocks of the piece being played
+  (as libtorrent does for time-critical pieces); the rest of its queue serves read-ahead.
 - A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
   so the player no longer reopens it (and throws away its buffer) after 15 seconds.
 Piece verification and the 48 MiB cache limit are unchanged. These are code-path changes with
@@ -125,10 +127,12 @@ local tests; their effect on TV startup time has not been measured yet.
   information, jumping to the resume position, buffering, finding the next episode. For torrents
   a small line shows connected peers, data received and the current download rate, plus a note
   when the download is slower than the file's average bitrate. There are no estimated percentages.
-- A small line in the top-right corner shows connected peers, current download rate, the rate
-  the file needs on average, seconds buffered ahead and the video height. It stays during
-  playback without covering the picture; **Hide stats / Show stats** in the player buttons turns
-  it off or on (remembered).
+- While the player controls are visible, a small line in the top-right corner shows connected
+  peers, current download rate, the buffer the TV holds ahead (verified torrent data in RAM, with
+  an approximate time at the file's average bitrate), the file's average bitrate and the video
+  height. It is hidden during full-screen viewing; **Hide stats / Show stats** turns it off or on
+  (remembered). The average bitrate is not a minimum: scenes vary, so playback can keep up at a
+  lower download rate.
 - Each start logs a startup timeline (milliseconds to URL, metadata, seek, first frame,
   `canplay`, `canplaythrough`, playing) to the remote log when it is enabled.
 - After an error the Play button becomes **Try again** (same source, from the last position that

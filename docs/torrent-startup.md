@@ -129,3 +129,29 @@ Whether this was the cause of the TV's low rate is not established: no TV log of
 was available, and swarm size or peer upload limits can produce the same numbers. Local tests
 cover queue growth at 0.3-2.5 s RTT and reqq limits; the Node 4.4.3 loopback fixture still passes.
 
+## TV trace after the queue change (13.2 GB MKV, 4 MiB pieces, resume at 125 s)
+
+Startup timeline from the TV: local URL 1.4 s, metadata 10.7 s, resume seek done 27.6 s,
+`canplay` and playing 35.5 s. `canplay` and `canplaythrough` arrived together at `readyState=4`,
+so this TV's browser did not hold back playback after data was available; the earlier
+`canplay` change makes no difference here. The service trace shows the resume piece (piece 61)
+requested at about 9 s and first delivered about 17 s later, while about 17 MB arrived from 12
+peers, most of it for the 32 MiB read-ahead window. The file averages about 2 MB/s and the swarm
+delivered about 1 MB/s, so later stalls (for example 25 s at 152 s) match the deficit.
+
+Two changes follow from this and from [libtorrent's time-critical piece picker](https://libtorrent.org/streaming.html),
+which sends playhead requests to peers with the lowest estimated queue time and stops queueing
+on a peer once its queue exceeds two seconds:
+
+- A peer may hold at most two seconds of its measured rate in playhead (critical) blocks;
+  its remaining queue serves read-ahead. Faster peers, and hotswap from slower ones, take the
+  rest. Before a peer's rate is known the starting pipeline of 5 applies unchanged.
+- The stats line's buffer now comes from the service: verified bytes in RAM contiguous with the
+  reader's position. On the TV the browser's buffered ranges are byte-based estimates and showed
+  0 s even while paused.
+
+Reviewed and not adopted: [anacrolix/torrent's responsive reader](https://github.com/anacrolix/torrent/blob/master/reader.go)
+returns chunks before the piece is verified; it would break the verified-payload rule. Duplicate
+"busy" requests from libtorrent are already covered by the one-time urgent-block recovery.
+Whether these changes shorten the resume wait is not measured yet.
+

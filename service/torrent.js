@@ -629,6 +629,17 @@ var TV_TORRENT = (function () {
     });
   }, 30000);
 
+  // Verified bytes held in RAM directly after the service's read position (what the player can
+  // still receive without waiting for the swarm). Bytes already sent to the browser are not included.
+  function aheadBytes(s) {
+    var r = s.reader;
+    if (!r) return null;
+    var pos = s.file.offset + r.pos;
+    var i = Math.floor(pos / s.pieceLength);
+    while (i <= s.last && s.store.present.indexOf(i) >= 0) i++;
+    return Math.max(0, Math.min(i * s.pieceLength, s.file.offset + s.file.length) - pos);
+  }
+
   return {
     stats: function (id) {
       var s = sessions[id];
@@ -636,7 +647,7 @@ var TV_TORRENT = (function () {
       return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
-        cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
+        cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
         ranges: s.requests || [] };
     },
     supported: supported,

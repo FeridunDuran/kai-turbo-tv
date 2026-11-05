@@ -17012,6 +17012,16 @@ var TorrentEngine = function () {
         }
         return null;
       };
+      exports.criticalLimit = function (speed, reqq) {
+        var pipeline = exports.pipeline(speed, reqq);
+        if (!(speed > 0) || !isFinite(speed)) return pipeline;
+        return Math.max(2, Math.min(pipeline, Math.ceil(speed * 2 / 16384)));
+      };
+      exports.criticalCount = function (requests, critical) {
+        var count = 0;
+        for (var i = 0; i < requests.length; i++) if (critical[requests[i].piece]) count++;
+        return count;
+      };
     }
   });
 
@@ -17362,11 +17372,19 @@ var TorrentEngine = function () {
               return true;
             }
             var rank = speedRanker(wire);
+            var criticalLimit = streamPolicy.criticalLimit(wire.downloadSpeed(), wire.peerReqq);
+            var criticalHeld = streamPolicy.criticalCount(wire.requests, critical);
             for (var i = 0; i < engine.selection.length; i++) {
               var next = engine.selection[i];
               for (var j = next.from + next.offset; j <= next.to; j++) {
                 if (!wire.peerPieces[j] || !rank(j)) continue;
-                while (wire.requests.length < pipeline && onrequest(wire, j, critical[j] || hotswap)) {}
+                if (critical[j]) {
+                  while (wire.requests.length < pipeline && criticalHeld < criticalLimit && onrequest(wire, j, true)) criticalHeld++;
+                  if (wire.requests.length < pipeline) continue;
+                  if (next.priority) shufflePriority(i);
+                  return true;
+                }
+                while (wire.requests.length < pipeline && onrequest(wire, j, hotswap)) {}
                 if (wire.requests.length < pipeline) continue;
                 if (next.priority) shufflePriority(i);
                 return true;
@@ -18312,6 +18330,17 @@ var TV_TORRENT = (function () {
     });
   }, 30000);
 
+  // Verified bytes held in RAM directly after the service's read position (what the player can
+  // still receive without waiting for the swarm). Bytes already sent to the browser are not included.
+  function aheadBytes(s) {
+    var r = s.reader;
+    if (!r) return null;
+    var pos = s.file.offset + r.pos;
+    var i = Math.floor(pos / s.pieceLength);
+    while (i <= s.last && s.store.present.indexOf(i) >= 0) i++;
+    return Math.max(0, Math.min(i * s.pieceLength, s.file.offset + s.file.length) - pos);
+  }
+
   return {
     stats: function (id) {
       var s = sessions[id];
@@ -18319,7 +18348,7 @@ var TV_TORRENT = (function () {
       return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
-        cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
+        cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
         ranges: s.requests || [] };
     },
     supported: supported,

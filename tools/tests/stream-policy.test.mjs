@@ -42,3 +42,21 @@ test('hotswap cancels each actual block offset once and cleans the old wire queu
  const context={opts:{},falsy:()=>false,piece:{BLOCK_LENGTH:16384},reservations:[[slow,slow]],pieces:[{cancel:index=>cancelled.push(index)}],SPEED_THRESHOLD:49152,engine:{emit(){}}};
  vm.runInNewContext(source.slice(source.indexOf('var onhotswap ='),source.indexOf('var onupdatetick =')),context);assert.equal(context.onhotswap(fast,0),true);assert.deepEqual(cancelled,[0,1]);assert.equal(slow.requests.length,0);
 });
+
+test('a slow peer holds at most two seconds of playhead blocks; its spare queue serves read-ahead',()=>{
+ assert.equal(policy.criticalLimit(0),5,'unknown rate keeps the starting pipeline');
+ assert.equal(policy.criticalLimit(50000),7);assert.equal(policy.criticalLimit(1e7),64);assert.equal(policy.criticalLimit(1e7,20),20);
+ const remaining={10:256,11:256,12:256};
+ const context={streamPolicy:policy,swarm:{downloaded:0,downloadSpeed:()=>0},engine:{_flood:0,_pulse:Number.MAX_SAFE_INTEGER,
+  selection:[{from:10,to:10,offset:0,priority:2},{from:11,to:12,offset:0,priority:1}]},critical:{10:true,11:true},
+  speedRanker:()=>()=>true,shufflePriority(){},onrequest(wire,j){if(!remaining[j])return false;remaining[j]--;wire.requests.push({piece:j});return true;}};
+ vm.runInNewContext(source.slice(source.indexOf('var select = function'),source.indexOf('var onupdatewire =')),context);
+ const all={10:true,11:true,12:true},slow=peer(50000,all),fast=peer(1e6,all);
+ context.select(slow,false);
+ const slowCritical=slow.requests.filter(r=>r.piece===10||r.piece===11).length;
+ assert.equal(slow.requests.length,policy.pipeline(50000),'slow peer pipeline still filled');
+ assert.equal(slowCritical,7,'only two seconds of critical blocks on the slow peer');
+ assert.ok(slow.requests.some(r=>r.piece===12),'remaining capacity goes to read-ahead');
+ context.select(fast,false);
+ assert.equal(fast.requests.filter(r=>r.piece===10).length,64,'fast peer takes playhead blocks');
+});

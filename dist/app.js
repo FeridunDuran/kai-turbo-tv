@@ -5308,12 +5308,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "{n} peers": "{n} peers",
     "{mb} MB received": "{mb} MB received",
     "{rate} MB/s": "{rate} MB/s",
-    "slower than this video needs": "slower than this video needs",
     "Press Back again to stop watching": "Press Back again to stop watching",
     "Hide stats": "Hide stats",
     "Show stats": "Show stats",
-    "needs {rate} MB/s": "needs {rate} MB/s",
-    "buffer {n} s": "buffer {n} s"
+    "buffer {n} s": "buffer {n} s",
+    "buffer {mb} MB": "buffer {mb} MB",
+    "file average {rate} MB/s": "file average {rate} MB/s",
+    "below the file's average bitrate": "below the file's average bitrate"
   };
 
   // src/js/lib/i18n-ar.js
@@ -5845,12 +5846,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "{n} peers": "{n} أقران",
     "{mb} MB received": "تم استلام {mb} ميغابايت",
     "{rate} MB/s": "{rate} ميغابايت/ث",
-    "slower than this video needs": "أبطأ مما يحتاجه هذا الفيديو",
     "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
     "Hide stats": "إخفاء الإحصاءات",
     "Show stats": "إظهار الإحصاءات",
-    "needs {rate} MB/s": "يحتاج {rate} ميغابايت/ث",
-    "buffer {n} s": "المخزن المؤقت {n} ث"
+    "buffer {n} s": "المخزن المؤقت {n} ث",
+    "buffer {mb} MB": "المخزن المؤقت {mb} ميغابايت",
+    "file average {rate} MB/s": "متوسط الملف {rate} ميغابايت/ث",
+    "below the file's average bitrate": "أقل من متوسط معدل بت الملف"
   };
 
   // src/js/lib/i18n.js
@@ -10851,6 +10853,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         controlsOn = true;
         el.classList.add("controls-on");
         updateTimes();
+        updateStats();
         updatePlayBtn();
         if (!current2() || !overlay.contains(current2())) focus(focusEl || bar);
       } else if (focusEl) focus(focusEl);
@@ -10859,6 +10862,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function hideControls() {
       controlsOn = false;
       el.classList.remove("controls-on");
+      statsEl.style.display = "none";
       clearTimeout(hideTimer);
     }
     function scheduleHide() {
@@ -10914,7 +10918,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
         var d = videoEl.duration;
         var need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
-        if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 1e4) parts.push(t("slower than this video needs"));
+        if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 1e4) parts.push(t("below the file's average bitrate"));
       }
       stageDetail.textContent = parts.join("  ·  ");
     }
@@ -10934,6 +10938,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } else if (p.checkedAt && now - p.at > 4e3) p.rate = 0;
         p.bytes = Math.max(p.bytes, bytes);
         p.peers = stats.peers || 0;
+        p.ahead = typeof stats.aheadBytes === "number" ? stats.aheadBytes : null;
         p.length = stats.length || 0;
         p.delivered = (stats.ranges || []).reduce(function (sum, range) {
           return sum + (range.sent || 0);
@@ -10967,7 +10972,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return 0;
     }
     function updateStats() {
-      if (!statsOn() || !mediaUrl || failed) {
+      if (!statsOn() || !controlsOn || !mediaUrl || failed) {
         statsEl.style.display = "none";
         return;
       }
@@ -10975,6 +10980,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (isTorrent(stream)) {
         if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress(true);
         var p = torrentProgress;
+        var d = videoEl.duration;
+        var average = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
         if (p.checkedAt) {
           parts.push(t("{n} peers", {
             n: p.peers
@@ -10982,14 +10989,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           parts.push(t("{rate} MB/s", {
             rate: (p.rate / 1048576).toFixed(2)
           }));
+          if (p.ahead !== null && p.ahead !== void 0) {
+            parts.push(t("buffer {mb} MB", {
+              mb: mb(p.ahead)
+            }) + (average ? " (~" + t("{n} s", {
+              n: Math.round(p.ahead / average)
+            }) + ")" : ""));
+          }
         }
-        var d = videoEl.duration;
-        var need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
-        if (need) parts.push(t("needs {rate} MB/s", {
-          rate: (need / 1048576).toFixed(1)
+        if (average) parts.push(t("file average {rate} MB/s", {
+          rate: (average / 1048576).toFixed(1)
         }));
-      }
-      if (mediaReady) parts.push(t("buffer {n} s", {
+      } else if (mediaReady) parts.push(t("buffer {n} s", {
         n: Math.round(bufferedAhead())
       }));
       if (videoEl.videoHeight) parts.push(videoEl.videoHeight + "p");
@@ -13888,7 +13899,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T17:35:57.910Z";
+  var BUILD = "2026-11-05T17:50:59.160Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

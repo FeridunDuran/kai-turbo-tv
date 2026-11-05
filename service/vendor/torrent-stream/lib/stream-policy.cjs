@@ -30,3 +30,18 @@ exports.recovery = function (requests, wires, urgent, now) {
   }
   return null;
 };
+
+// Blocks of time-critical (playhead) pieces one peer may hold. libtorrent stops queueing a
+// time-critical request on a peer whose estimated queue time exceeds two seconds, so a slow peer
+// cannot hold the blocks that decide when the playhead piece completes. Its remaining pipeline
+// still serves read-ahead pieces. Before a rate is known the normal starting pipeline applies.
+exports.criticalLimit = function (speed, reqq) {
+  var pipeline = exports.pipeline(speed, reqq);
+  if (!(speed > 0) || !isFinite(speed)) return pipeline;
+  return Math.max(2, Math.min(pipeline, Math.ceil(speed * 2 / 16384)));
+};
+exports.criticalCount = function (requests, critical) {
+  var count = 0;
+  for (var i = 0; i < requests.length; i++) if (critical[requests[i].piece]) count++;
+  return count;
+};

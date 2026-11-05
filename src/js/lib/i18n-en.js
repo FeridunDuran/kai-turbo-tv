@@ -545,10 +545,11 @@ export const EN = {
   "{n} peers": "{n} peers",
   "{mb} MB received": "{mb} MB received",
   "{rate} MB/s": "{rate} MB/s",
-  "slower than this video needs": "slower than this video needs",
   "Press Back again to stop watching": "Press Back again to stop watching",
   "Hide stats": "Hide stats",
   "Show stats": "Show stats",
-  "needs {rate} MB/s": "needs {rate} MB/s",
   "buffer {n} s": "buffer {n} s",
+  "buffer {mb} MB": "buffer {mb} MB",
+  "file average {rate} MB/s": "file average {rate} MB/s",
+  "below the file's average bitrate": "below the file's average bitrate",
 };

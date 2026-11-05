@@ -72,3 +72,16 @@ test('cold MKV startup concentrates on the header and pins it across tail and re
  s.ensureWindow(777);s.ensureWindow(660);assert.ok(s.selTo>660);assert.deepEqual(removed,[]);
  const warm=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:578*2097152,length:200*2097152},0);warm.ensureWindow(578);assert.ok(warm.selTo>578);
 });
+
+test('buffer statistic counts verified RAM pieces contiguous with the reader position only',()=>{
+ const engine=new EventEmitter();const store={present:[410,411,413],bytes:0,remove(){return false;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select(){},deselect(){},release(){},swarm:{downloaded:0,wires:[]}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ const source=fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session, aheadBytes: aheadBytes, supported: supported,');vm.runInNewContext(source,context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'movie.mkv',offset:408*4194304,length:42*4194304},0);
+ assert.equal(context.TV_TORRENT.aheadBytes(s),null,'no reader yet');
+ s.reader={pos:2*4194304+1000};
+ assert.equal(context.TV_TORRENT.aheadBytes(s),2*4194304-1000,'pieces 410-411; the gap at 412 ends the buffer');
+ s.reader={pos:4*4194304};
+ assert.equal(context.TV_TORRENT.aheadBytes(s),0,'missing playhead piece means no buffer');
+});

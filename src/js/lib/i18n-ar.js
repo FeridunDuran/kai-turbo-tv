@@ -535,10 +535,11 @@ export const AR = {
   "{n} peers": "{n} أقران",
   "{mb} MB received": "تم استلام {mb} ميغابايت",
   "{rate} MB/s": "{rate} ميغابايت/ث",
-  "slower than this video needs": "أبطأ مما يحتاجه هذا الفيديو",
   "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
   "Hide stats": "إخفاء الإحصاءات",
   "Show stats": "إظهار الإحصاءات",
-  "needs {rate} MB/s": "يحتاج {rate} ميغابايت/ث",
   "buffer {n} s": "المخزن المؤقت {n} ث",
+  "buffer {mb} MB": "المخزن المؤقت {mb} ميغابايت",
+  "file average {rate} MB/s": "متوسط الملف {rate} ميغابايت/ث",
+  "below the file's average bitrate": "أقل من متوسط معدل بت الملف",
 };

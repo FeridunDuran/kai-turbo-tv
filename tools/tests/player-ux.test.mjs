@@ -196,12 +196,12 @@ test('next-episode streams are prefetched near the credits and reused by the cou
   f.close();
 });
 
-test('playback stats line shows peers, rate, required rate and buffered seconds, and can be hidden', async () => {
+test('playback stats line uses service buffer, shows only with controls, and can be hidden', async () => {
   const stats = [];
-  for (let i = 0; i < 20; i++) stats.push({ downloaded: (i + 1) * 524288, peers: 7, length: 1320000000, ranges: [{ sent: 1 }] });
+  for (let i = 0; i < 20; i++) stats.push({ downloaded: (i + 1) * 524288, peers: 7, length: 1320000000, aheadBytes: 8388608, ranges: [{ sent: 1 }] });
   const f = await fixture({ statsSeq: stats });
   f.video.duration = 6600; f.video.videoHeight = 1080; f.video.currentTime = 100;
-  f.video.buffered = { length: 1, start: () => 90, end: () => 112 };
+  f.video.buffered = { length: 1, start: () => 0, end: () => 50 };
   f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
   for (let i = 0; i < 4; i++) { for (let j = 0; j < 8; j++) f.tick(); f.advance(2000); await flush(); }
   for (let j = 0; j < 8; j++) f.tick();
@@ -209,9 +209,14 @@ test('playback stats line shows peers, rate, required rate and buffered seconds,
   assert.equal(line.style.display, '');
   assert.match(line.textContent, /7 peers/);
   assert.match(line.textContent, /0\.13 MB\/s/);
-  assert.match(line.textContent, /needs 0\.2 MB\/s/);
-  assert.match(line.textContent, /buffer 12 s/);
+  assert.match(line.textContent, /buffer 8\.0 MB \(~42 s\)/, 'buffer comes from the service, not the browser estimate');
+  assert.match(line.textContent, /file average 0\.2 MB\/s/);
   assert.match(line.textContent, /1080p/);
+  f.key(KEY.BACK);
+  assert.equal(line.style.display, 'none', 'hidden in full-screen viewing');
+  f.key(KEY.DOWN);
+  for (let j = 0; j < 8; j++) f.tick();
+  assert.equal(line.style.display, '');
   f.byHtml('Hide stats').__select();
   assert.equal(line.style.display, 'none');
   f.close();

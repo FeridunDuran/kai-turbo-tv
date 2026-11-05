@@ -833,6 +833,7 @@ function PlayerView(opts) {
       controlsOn = true;
       el.classList.add('controls-on');
       updateTimes();
+      updateStats();
       updatePlayBtn();
       if (!nav.current() || !overlay.contains(nav.current())) nav.focus(focusEl || bar);
     } else if (focusEl) nav.focus(focusEl);
@@ -842,6 +843,7 @@ function PlayerView(opts) {
   function hideControls() {
     controlsOn = false;
     el.classList.remove('controls-on');
+    statsEl.style.display = 'none';
     clearTimeout(hideTimer);
   }
 
@@ -895,7 +897,7 @@ function PlayerView(opts) {
       // Average rate the file needs, from its real size and duration (only once both are known).
       const d = videoEl.duration;
       const need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
-      if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 10000) parts.push(t('slower than this video needs'));
+      if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 10000) parts.push(t("below the file's average bitrate"));
     }
     stageDetail.textContent = parts.join('  ·  ');
   }
@@ -917,6 +919,7 @@ function PlayerView(opts) {
       } else if (p.checkedAt && now - p.at > 4000) p.rate = 0;
       p.bytes = Math.max(p.bytes, bytes);
       p.peers = stats.peers || 0;
+      p.ahead = typeof stats.aheadBytes === 'number' ? stats.aheadBytes : null;
       p.length = stats.length || 0;
       p.delivered = (stats.ranges || []).reduce((sum, range) => sum + (range.sent || 0), 0);
       p.checkedAt = now;
@@ -950,8 +953,9 @@ function PlayerView(opts) {
     return 0;
   }
 
+  // Shown only with the player controls, never over the picture during full-screen viewing.
   function updateStats() {
-    if (!statsOn() || !mediaUrl || failed) {
+    if (!statsOn() || !controlsOn || !mediaUrl || failed) {
       statsEl.style.display = 'none';
       return;
     }
@@ -959,15 +963,19 @@ function PlayerView(opts) {
     if (server.isTorrent(stream)) {
       if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress(true);
       const p = torrentProgress;
+      const d = videoEl.duration;
+      const average = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
       if (p.checkedAt) {
         parts.push(t('{n} peers', { n: p.peers }));
         parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(2) }));
+        // The browser's buffered ranges are byte-based estimates for torrents (they stayed at 0 s
+        // on the TV even while paused); the service's verified RAM ahead of its reader is exact.
+        if (p.ahead !== null && p.ahead !== undefined) {
+          parts.push(t('buffer {mb} MB', { mb: mb(p.ahead) }) + (average ? ' (~' + t('{n} s', { n: Math.round(p.ahead / average) }) + ')' : ''));
+        }
       }
-      const d = videoEl.duration;
-      const need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
-      if (need) parts.push(t('needs {rate} MB/s', { rate: (need / 1048576).toFixed(1) }));
-    }
-    if (mediaReady) parts.push(t('buffer {n} s', { n: Math.round(bufferedAhead()) }));
+      if (average) parts.push(t('file average {rate} MB/s', { rate: (average / 1048576).toFixed(1) }));
+    } else if (mediaReady) parts.push(t('buffer {n} s', { n: Math.round(bufferedAhead()) }));
     if (videoEl.videoHeight) parts.push(videoEl.videoHeight + 'p');
     statsEl.textContent = parts.join('  ·  ');
     statsEl.style.display = parts.length ? '' : 'none';

@@ -428,11 +428,21 @@ var torrentStream = function (link, opts, cb) {
 
       var rank = speedRanker(wire)
 
+      var criticalLimit = streamPolicy.criticalLimit(wire.downloadSpeed(), wire.peerReqq)
+      var criticalHeld = streamPolicy.criticalCount(wire.requests, critical)
+
       for (var i = 0; i < engine.selection.length; i++) {
         var next = engine.selection[i]
         for (var j = next.from + next.offset; j <= next.to; j++) {
           if (!wire.peerPieces[j] || !rank(j)) continue
-          while (wire.requests.length < pipeline && onrequest(wire, j, critical[j] || hotswap)) {}
+          if (critical[j]) {
+            // Leave further playhead blocks to peers that can deliver them sooner.
+            while (wire.requests.length < pipeline && criticalHeld < criticalLimit && onrequest(wire, j, true)) criticalHeld++
+            if (wire.requests.length < pipeline) continue
+            if (next.priority) shufflePriority(i)
+            return true
+          }
+          while (wire.requests.length < pipeline && onrequest(wire, j, hotswap)) {}
           if (wire.requests.length < pipeline) continue
           if (next.priority) shufflePriority(i)
           return true
