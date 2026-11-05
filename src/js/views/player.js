@@ -1136,7 +1136,7 @@ function PlayerView(opts) {
       aheadKB: typeof stats.aheadBytes === 'number' ? Math.round(stats.aheadBytes / 1024) : null,
       cachedKB: Math.round((stats.cachedBytes || 0) / 1024), window: [stats.windowFrom, stats.windowTo],
       pieceKB: Math.round((stats.pieceLength || 0) / 1024), resumePending: stats.resumePending,
-      probeCache: stats.probeCache, scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
+      network: stats.network, probeCache: stats.probeCache, scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
       lastRange: last ? { start: last.start, sentKB: Math.round(last.sent / 1024), closed: last.closed, closeReason: last.closeReason || null, readError: last.readError || null, ageMs: Date.now() - last.openedAt } : null,
       ranges: ranges.length,
       discovery: d.createdAt ? { firstPeerMs: d.firstPeerMs, firstWireMs: d.firstWireMs, firstUnchokeMs: d.firstUnchokeMs,

@@ -121,7 +121,7 @@ var TV_TORRENT = (function () {
         entry.at = t;
         batch++;
         if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
-        engine.connect(addr);
+        engine.connect(addr, 'retry');
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();
@@ -827,7 +827,7 @@ var TV_TORRENT = (function () {
     });
     (body.sources || []).forEach(function (source) {
       var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
-      if (match) { peerCount++; engine.connect(match[1]); }
+      if (match) { peerCount++; engine.connect(match[1], 'hint'); }
     });
     var timer;
     function metadataDeadline() {
@@ -997,6 +997,7 @@ var TV_TORRENT = (function () {
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
+        network: s.engine.discoveryStats ? s.engine.discoveryStats() : null,
         wires: wireSummary(s.engine), diag: s.engine.diag || null, resumePending: !!s.resumePending,
         goodPeers: s.engine.goodPeers || [], dhtNodes: dhtNodes(),
         ranges: s.requests || [] };

@@ -95,3 +95,29 @@ test('a recently productive choked peer is not discarded while alternatives wait
  vm.runInNewContext(source.slice(begin,end),c);c.onchoketimeout();assert.equal(closed,0);assert.equal(scheduled,1);
  wire.lastPieceAt=0;c.onchoketimeout();assert.equal(closed,1);
 });
+
+
+test('discovery funnel distinguishes offers, accepted peers, transport queue and productive sources without addresses',()=>{
+ const debug=require('../../service/vendor/torrent-stream/lib/discovery-debug.cjs');const engine=new EventEmitter(),discovery=new EventEmitter(),dht=new EventEmitter();
+ discovery.dht=dht;discovery._createTracker=function(){this.tracker=new EventEmitter();};
+ const swarm={size:5,queued:2,connections:[{},{}],_peers:{'SECRET-IP':{timeout:1}},kaiNetwork:{attempts:4,refused:2},wires:[{kaiSource:'pex',lastPieceAt:Date.now(),peerChoking:false,requests:[]},{kaiSource:'hint',kaiConnectedAt:Date.now()-5000,peerChoking:true,requests:[{}]}]};
+ const debugState=debug(engine,discovery,swarm,'a'.repeat(40));discovery._createTracker();discovery.tracker.emit('peer','SECRET-PEER');dht.emit('peer',{host:'SECRET'},Buffer.from('a'.repeat(40),'hex'));dht.emit('peer',{},Buffer.from('b'.repeat(40),'hex'));
+ discovery.emit('trackerAnnounce',{announce:'https://SECRET-TOKEN'});discovery.emit('warning',new Error('SECRET-CREDENTIAL'));
+ debugState.offer('pex',true);debugState.offer('pex',false);debugState.offer('hint',true);
+ const s=debugState.snapshot();assert.equal(s.sources.trackerSignals,1);assert.equal(s.sources.dhtSignals,1);assert.equal(s.sources.trackerAnnounces,1);assert.equal(s.sources.warnings,1);
+ assert.equal(s.offers.pex,2);assert.equal(s.accepted.pex,1);assert.equal(s.bySource.pex.active5s,1);assert.equal(s.bySource.hint.everSent,0);
+ assert.equal(s.queue.freeSlots,3);assert.equal(s.queue.reason,'queue-has-free-slots');assert.equal(s.queue.retryBackoff,1);assert.equal(s.payload.neverSent,1);assert.ok(!JSON.stringify(s).includes('SECRET'));
+ swarm.connections=Array(5);assert.equal(debugState.snapshot().queue.reason,'connection-limit');swarm.paused=true;assert.equal(debugState.snapshot().queue.reason,'paused');
+ assert.equal(dht.listenerCount('peer'),1);debugState.close();assert.equal(dht.listenerCount('peer'),0,'shared DHT debug listeners do not leak');
+});
+
+
+test('connect and handshake timeouts have separate transport counters',()=>{
+ const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/lib/peer-wire-swarm.cjs',import.meta.url),'utf8');
+ function fixture(){const timers=[],wire=new EventEmitter(),connection=new EventEmitter(),swarm={kaiNetwork:{connectTimeouts:0,handshakeTimeouts:0},connectTimeout:5000,handshakeTimeout:25000};
+ wire.pipe=()=>connection;wire.destroy=()=>{};connection.pipe=()=>wire;connection.destroy=()=>connection.emit('close');
+ const c={peerWireProtocol:()=>wire,setTimeout(fn,ms){const timer={fn,ms,unref(){}};timers.push(timer);return timer;},clearTimeout(t){if(t)t.cleared=true;}};
+ vm.runInNewContext(source.slice(source.indexOf('var onwire = function'),source.indexOf('var pools =')),c);c.onwire(swarm,connection,()=>{},false);return {timers,connection,swarm};}
+ const a=fixture();a.timers.find(t=>t.ms===5000).fn();assert.equal(a.swarm.kaiNetwork.connectTimeouts,1);assert.equal(a.swarm.kaiNetwork.handshakeTimeouts,0);
+ const b=fixture();b.connection.emit('connect');assert.equal(b.timers.find(t=>t.ms===5000).cleared,true);b.timers.find(t=>t.ms===25000).fn();assert.equal(b.swarm.kaiNetwork.connectTimeouts,0);assert.equal(b.swarm.kaiNetwork.handshakeTimeouts,1);
+});

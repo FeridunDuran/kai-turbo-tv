@@ -15,6 +15,7 @@ var rimraf = require('rimraf')
 var FSChunkStore = require('fs-chunk-store')
 var ImmediateChunkStore = require('immediate-chunk-store')
 var peerDiscovery = require('torrent-discovery')
+var discoveryDebug = require('./lib/discovery-debug.cjs')
 
 var blocklist = require('ip-set')
 var exchangeMetadata = require('./lib/exchange-metadata.cjs')
@@ -138,12 +139,15 @@ var torrentStream = function (link, opts, cb) {
   })
   var blocked = blocklist(opts.blocklist)
 
+  var discoveryTrace = discoveryDebug(engine, discovery, swarm, infoHash)
+  engine.discoveryStats = discoveryTrace.snapshot
+
   discovery.on('peer', function (addr) {
     if (blocked.contains(addr.split(':')[0])) {
       engine.emit('blocked-peer', addr)
     } else {
       engine.emit('peer', addr)
-      engine.connect(addr)
+      engine.connect(addr, 'discovery')
     }
   })
 
@@ -821,8 +825,10 @@ var torrentStream = function (link, opts, cb) {
     engine._pulse = Number.MAX_SAFE_INTEGER
   }
 
-  engine.connect = function (addr) {
-    swarm.add(addr)
+  engine.connect = function (addr, source) {
+    var added = swarm.add(addr)
+    if (added && swarm._peers[addr]) swarm._peers[addr].kaiSource = source || 'external'
+    discoveryTrace.offer(source || 'external', !!added)
   }
 
   engine.disconnect = function (addr) {
@@ -872,6 +878,7 @@ var torrentStream = function (link, opts, cb) {
     swarm.destroy()
     clearInterval(rechokeIntervalId)
     clearInterval(recoveryIntervalId)
+    discoveryTrace.close()
     discovery.stop()
     if (engine.store && engine.store.close) {
       engine.store.close(cb)

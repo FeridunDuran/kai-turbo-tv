@@ -114,6 +114,8 @@ function testUtpFallback(cb) {
           try {
             check(wire.transport === 'utp', 'expected a uTP wire, got ' + wire.transport);
             check(fallbacks === 1, 'expected one fallback');
+            check(swarm.kaiNetwork.tcpAttempts >= 1 && swarm.kaiNetwork.utpAttempts === 1, 'transport attempt counters');
+            check(swarm.kaiNetwork.refused >= 1 && swarm.kaiNetwork.handshakes === 1, 'refusal and handshake counters');
           } catch (e) { return cb(e); }
           results.utpFallback = { transport: wire.transport, fallbacks: fallbacks };
           swarm.destroy();
@@ -166,6 +168,8 @@ function testIncoming(cb) {
         var stats = context.TV_TORRENT.stats(result.id);
         try {
           check(stats.diag.incoming >= 1, 'incoming wire not counted');
+          check(stats.network.transport.handshakes >= 1, 'debug funnel handshake');
+          check(stats.network.bySource.incoming.everSent === 1, 'debug payload source');
           check(stats.diag.listenPort === engine.diag.listenPort, 'listen port');
           check(stats.diag.upnp !== 'mapped', 'UPnP must not reach a router in tests');
           var own = '127.0.0.1:' + engine.diag.listenPort;

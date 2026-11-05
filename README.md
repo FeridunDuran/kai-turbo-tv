@@ -534,3 +534,7 @@ Peer scheduling also considers queued work and observed block response time. Cho
 or queue-full peers cannot reserve preference over usable peers. The playhead piece's final
 blocks can recover earlier when another eligible peer has a shorter estimated delivery time.
 Remote diagnostics include bounded queue estimates and first-block response timings.
+
+Torrent remote logs also include a discovery funnel: DHT/tracker signals, new versus duplicate
+candidates, TCP/uTP and handshake results, queue/free-slot state, and actually productive peers
+by discovery route. Counts contain no peer addresses or tracker configuration URLs.

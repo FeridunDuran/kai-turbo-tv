@@ -461,3 +461,28 @@ three critical retries occurred, but transfer still came mostly from one341-477K
 small contributors. Four timeout uTP probes produced no uTP wire; the connection pool was not
 full so idle rotation correctly stayed zero. Startup remained about63s. This does not demonstrate
 a startup speed improvement or an increased number of productive peers.
+
+## Discovery funnel diagnostics (2026-11-06)
+
+The new network record separates:
+- Observed DHT/tracker peer signals and first-response times; successful announce counts,
+  announce protocols and categorical warning/error counts. Signals are event counts, not unique peers.
+- Candidate offers versus newly accepted candidates by discovery/PEX/hint/retry/external route.
+  Duplicate and invalid offers are separate from new candidates.
+- TCP/uTP attempts, outgoing transport connects, validated handshakes, connect versus handshake
+  timeouts, refused/reset/DNS/other errors and closes before handshake. These are cumulative.
+- Current queue size, known peers, retry backoff, transport slots, pending handshakes and free slots.
+  A reason distinguishes paused, connection-limit, queue-with-free-slots, awaiting connect/handshake,
+  and empty candidate queue. These are snapshots, not diagnoses by themselves.
+- Current peers that ever supplied payload, supplied in the last5s, never supplied payload,
+  and hold requests without recent payload. Productive counts are also grouped by candidate route.
+
+Interpretation: many duplicate offers with few accepted candidates means repeated discovery;
+connect timeouts mean transport reachability; transport connects without handshakes mean protocol
+setup; many choked handshakes with few active senders mean remote upload-slot availability.
+Queued candidates with free slots and no new attempts across samples warrant drain investigation.
+No peer addresses, tracker URLs or raw failure messages are added. Shared-DHT observation listeners
+are removed on engine destruction. Debugging adds no network requests or timers and does not tune
+connection policy.129 tests/build/ES5 pass. Node4 startup250ms and network1515ms fixtures pass;
+real loopback tests validate refusal/uTP/handshake counters and incoming payload attribution.
+TV must reload the service before these fields can be observed; live diagnosis remains pending.

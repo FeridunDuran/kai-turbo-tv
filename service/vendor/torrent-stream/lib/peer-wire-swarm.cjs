@@ -30,13 +30,17 @@ var toAddress = function(wire) {
 var onwire = function(swarm, connection, onhandshake, isServer) {
 	var wire = peerWireProtocol(swarm._pwp);
 
-	var destroy = function() {
-		connection.destroy();
+	var destroy = function(phase) {
+        if (swarm.kaiNetwork) {
+            if (phase === 'connect') swarm.kaiNetwork.connectTimeouts++;
+            else swarm.kaiNetwork.handshakeTimeouts++;
+        }
+        connection.destroy();
 		connection.emit('timeout');
 	};
 
-	var connectTimeout = !isServer && setTimeout(destroy, swarm.connectTimeout);
-	var handshakeTimeout = setTimeout(destroy, swarm.handshakeTimeout);
+	var connectTimeout = !isServer && setTimeout(function() { destroy('connect'); }, swarm.connectTimeout);
+	var handshakeTimeout = setTimeout(function() { destroy('handshake'); }, swarm.handshakeTimeout);
 
 	if (handshakeTimeout.unref) handshakeTimeout.unref();
 	if (connectTimeout.unref) connectTimeout.unref();
@@ -172,7 +176,10 @@ var Swarm = function(infoHash, peerId, options) {
 
 	this.downloaded = 0;
 	this.uploaded = 0;
-	this.connections = [];
+	this.kaiNetwork = { candidates: 0, accepted: 0, duplicates: 0, invalid: 0, attempts: 0,
+        tcpAttempts: 0, utpAttempts: 0, outgoingConnected: 0, handshakes: 0, connectTimeouts: 0,
+        handshakeTimeouts: 0, refused: 0, resets: 0, dns: 0, otherErrors: 0, closedBeforeHandshake: 0 };
+    this.connections = [];
 	this.wires = [];
 	this.paused = false;
 
@@ -223,10 +230,12 @@ Swarm.prototype.priority = function(addr, level) {
 };
 
 Swarm.prototype.add = function(addr) {
-	if (this._destroyed || this._peers[addr]) return;
+	this.kaiNetwork.candidates++;
+    if (this._destroyed) return false;
+    if (this._peers[addr]) { this.kaiNetwork.duplicates++; return false; }
 
-	var port = Number(addr.split(':')[1]);
-	if (!(port > 0 && port < 65535)) return;
+    var port = Number(addr.split(':')[1]);
+	if (!(port > 0 && port < 65535)) { this.kaiNetwork.invalid++; return false; }
 
 	this._peers[addr] = {
 		node: this._queues[0].push(addr),
@@ -238,7 +247,9 @@ Swarm.prototype.add = function(addr) {
 		noUtp: false,
 	};
 
+	this.kaiNetwork.accepted++;
 	this._drain();
+	return true;
 };
 
 Swarm.prototype.remove = function(addr) {
@@ -298,6 +309,8 @@ Swarm.prototype._drain = function() {
 	var connection;
 
 	var viaUtp = (this.utp && !peer.noUtp) || peer.useUtp;
+    this.kaiNetwork.attempts++;
+    if (viaUtp) this.kaiNetwork.utpAttempts++; else this.kaiNetwork.tcpAttempts++;
 	if (peer.useUtp) {
 		// Kai: one uTP attempt after TCP failed; no further fallback after it.
 		peer.useUtp = false;
@@ -326,9 +339,17 @@ Swarm.prototype._drain = function() {
 	var tcpRefused = false;
 	var tcpTimedOut = false;
 	connection.on("timeout", function() { tcpTimedOut = true; });
-	connection.once('connect', function() { opened = true; });
-	connection.on('error', function(err) {
-		if (err && (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET')) tcpRefused = true;
+	connection.once('connect', function() { opened = true; self.kaiNetwork.outgoingConnected++; });
+	var errorCounted = false;
+    connection.on('error', function(err) {
+        if (!errorCounted) {
+            errorCounted = true;
+            var code = err && err.code;
+            var key = code === 'ECONNREFUSED' ? 'refused' : code === 'ECONNRESET' ? 'resets'
+                : code === 'ENOTFOUND' || code === 'EAI_AGAIN' ? 'dns' : 'otherErrors';
+            self.kaiNetwork[key]++;
+        }
+        if (err && (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET')) tcpRefused = true;
 	});
 
 	var wire = onwire(this, connection, function(infoHash) {
@@ -336,6 +357,7 @@ Swarm.prototype._drain = function() {
 		peer.reconnect = true;
 		peer.retries = 0;
 		wire.transport = viaUtp ? 'utp' : 'tcp';
+        wire.kaiSource = peer.kaiSource || 'external';
 		wire.incoming = false;
 		self._onwire(connection, wire);
 	});
@@ -347,6 +369,7 @@ Swarm.prototype._drain = function() {
 	var onend = function() {
 		if (ended) return;
 		ended = true;
+        if (self.kaiNetwork && !wire.kaiHandshake) self.kaiNetwork.closedBeforeHandshake++;
 		if (peer.wire === wire) peer.wire = null;
 		if (self._peers[addr] !== peer) return;
 		var timeoutProbe = tcpTimedOut && (!self._lastUtpProbe || Date.now() - self._lastUtpProbe >= 15000);
@@ -403,6 +426,8 @@ Swarm.prototype._onconnection = function(connection) {
 
 Swarm.prototype._onwire = function(connection, wire) {
 	var self = this;
+    wire.kaiHandshake = true;
+    this.kaiNetwork.handshakes++;
 
 	wire.on('download', function(downloaded) {
 		self.downloaded += downloaded;

@@ -2465,12 +2465,19 @@ var TorrentEngine = function () {
       };
       var onwire = function onwire(swarm, connection, onhandshake, isServer) {
         var wire = peerWireProtocol(swarm._pwp);
-        var destroy = function destroy() {
+        var destroy = function destroy(phase) {
+          if (swarm.kaiNetwork) {
+            if (phase === "connect") swarm.kaiNetwork.connectTimeouts++;else swarm.kaiNetwork.handshakeTimeouts++;
+          }
           connection.destroy();
           connection.emit("timeout");
         };
-        var connectTimeout = !isServer && setTimeout(destroy, swarm.connectTimeout);
-        var handshakeTimeout = setTimeout(destroy, swarm.handshakeTimeout);
+        var connectTimeout = !isServer && setTimeout(function () {
+          destroy("connect");
+        }, swarm.connectTimeout);
+        var handshakeTimeout = setTimeout(function () {
+          destroy("handshake");
+        }, swarm.handshakeTimeout);
         if (handshakeTimeout.unref) handshakeTimeout.unref();
         if (connectTimeout.unref) connectTimeout.unref();
         connection.on("connect", function () {
@@ -2575,6 +2582,24 @@ var TorrentEngine = function () {
         this.peerId = toBuffer(peerId, "utf-8");
         this.downloaded = 0;
         this.uploaded = 0;
+        this.kaiNetwork = {
+          candidates: 0,
+          accepted: 0,
+          duplicates: 0,
+          invalid: 0,
+          attempts: 0,
+          tcpAttempts: 0,
+          utpAttempts: 0,
+          outgoingConnected: 0,
+          handshakes: 0,
+          connectTimeouts: 0,
+          handshakeTimeouts: 0,
+          refused: 0,
+          resets: 0,
+          dns: 0,
+          otherErrors: 0,
+          closedBeforeHandshake: 0
+        };
         this.connections = [];
         this.wires = [];
         this.paused = false;
@@ -2615,9 +2640,17 @@ var TorrentEngine = function () {
         return peer.priority = level;
       };
       _Swarm.prototype.add = function (addr) {
-        if (this._destroyed || this._peers[addr]) return;
+        this.kaiNetwork.candidates++;
+        if (this._destroyed) return false;
+        if (this._peers[addr]) {
+          this.kaiNetwork.duplicates++;
+          return false;
+        }
         var port = Number(addr.split(":")[1]);
-        if (!(port > 0 && port < 65535)) return;
+        if (!(port > 0 && port < 65535)) {
+          this.kaiNetwork.invalid++;
+          return false;
+        }
         this._peers[addr] = {
           node: this._queues[0].push(addr),
           wire: null,
@@ -2627,7 +2660,9 @@ var TorrentEngine = function () {
           retries: 0,
           noUtp: false
         };
+        this.kaiNetwork.accepted++;
         this._drain();
+        return true;
       };
       _Swarm.prototype.remove = function (addr) {
         this._remove(toAddress(addr));
@@ -2674,6 +2709,8 @@ var TorrentEngine = function () {
         var parts = addr.split(":");
         var connection;
         var viaUtp = this.utp && !peer.noUtp || peer.useUtp;
+        this.kaiNetwork.attempts++;
+        if (viaUtp) this.kaiNetwork.utpAttempts++;else this.kaiNetwork.tcpAttempts++;
         if (peer.useUtp) {
           peer.useUtp = false;
           connection = utp.connect(parts[1], parts[0]);
@@ -2697,8 +2734,16 @@ var TorrentEngine = function () {
         });
         connection.once("connect", function () {
           opened = true;
+          self.kaiNetwork.outgoingConnected++;
         });
+        var errorCounted = false;
         connection.on("error", function (err) {
+          if (!errorCounted) {
+            errorCounted = true;
+            var code = err && err.code;
+            var key = code === "ECONNREFUSED" ? "refused" : code === "ECONNRESET" ? "resets" : code === "ENOTFOUND" || code === "EAI_AGAIN" ? "dns" : "otherErrors";
+            self.kaiNetwork[key]++;
+          }
           if (err && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET")) tcpRefused = true;
         });
         var wire = onwire(this, connection, function (infoHash) {
@@ -2706,6 +2751,7 @@ var TorrentEngine = function () {
           peer.reconnect = true;
           peer.retries = 0;
           wire.transport = viaUtp ? "utp" : "tcp";
+          wire.kaiSource = peer.kaiSource || "external";
           wire.incoming = false;
           self._onwire(connection, wire);
         });
@@ -2713,6 +2759,7 @@ var TorrentEngine = function () {
         var onend = function onend() {
           if (ended) return;
           ended = true;
+          if (self.kaiNetwork && !wire.kaiHandshake) self.kaiNetwork.closedBeforeHandshake++;
           if (peer.wire === wire) peer.wire = null;
           if (self._peers[addr] !== peer) return;
           var timeoutProbe = tcpTimedOut && (!self._lastUtpProbe || Date.now() - self._lastUtpProbe >= 15e3);
@@ -2761,6 +2808,8 @@ var TorrentEngine = function () {
       };
       _Swarm.prototype._onwire = function (connection, wire) {
         var self = this;
+        wire.kaiHandshake = true;
+        this.kaiNetwork.handshakes++;
         wire.on("download", function (downloaded) {
           self.downloaded += downloaded;
           self.downloadSpeed(downloaded);
@@ -16417,6 +16466,173 @@ var TorrentEngine = function () {
     }
   });
 
+  // service/vendor/torrent-stream/lib/discovery-debug.cjs
+  var require_discovery_debug = __commonJS({
+    "service/vendor/torrent-stream/lib/discovery-debug.cjs"(exports, module) {
+      module.exports = function (engine, discovery, swarm, infoHash) {
+        var started = Date.now();
+        var counts = {
+          dhtSignals: 0,
+          trackerSignals: 0,
+          dhtAnnounces: 0,
+          trackerAnnounces: 0,
+          warnings: 0,
+          errors: 0,
+          firstDhtMs: null,
+          firstTrackerMs: null
+        };
+        var offers = {
+          discovery: 0,
+          pex: 0,
+          hint: 0,
+          retry: 0,
+          external: 0
+        };
+        var accepted = {
+          discovery: 0,
+          pex: 0,
+          hint: 0,
+          retry: 0,
+          external: 0
+        };
+        var tracker = null;
+        var failures = {
+          timeout: 0,
+          dns: 0,
+          refused: 0,
+          http4xx: 0,
+          http5xx: 0,
+          other: 0
+        };
+        var trackerProtocols = {
+          udp: 0,
+          http: 0,
+          https: 0,
+          other: 0
+        };
+        var failure = function failure(err) {
+          var text = String(err && (err.code || err.message) || "").toLowerCase();
+          var key = /timeout|timed.?out/.test(text) ? "timeout" : /notfound|eai_again/.test(text) ? "dns" : /refused/.test(text) ? "refused" : /http.*4[0-9][0-9]/.test(text) ? "http4xx" : /http.*5[0-9][0-9]/.test(text) ? "http5xx" : "other";
+          failures[key]++;
+        };
+        var watchTracker = function watchTracker() {
+          var current = discovery.tracker;
+          if (!current || typeof current.on !== "function" || current === tracker) return;
+          tracker = current;
+          tracker.on("peer", function () {
+            counts.trackerSignals++;
+            if (counts.firstTrackerMs === null) counts.firstTrackerMs = Date.now() - started;
+          });
+        };
+        var create = discovery._createTracker;
+        if (typeof create === "function") discovery._createTracker = function () {
+          var result = create.apply(this, arguments);
+          watchTracker();
+          return result;
+        };
+        watchTracker();
+        var dht = discovery.dht;
+        var onDht = function onDht(peer, hash) {
+          if (!hash || hash.toString("hex") !== infoHash) return;
+          counts.dhtSignals++;
+          if (counts.firstDhtMs === null) counts.firstDhtMs = Date.now() - started;
+        };
+        if (dht && typeof dht.on === "function") dht.on("peer", onDht);
+        discovery.on("trackerAnnounce", function (data) {
+          counts.trackerAnnounces++;
+          var protocol = String(data && data.announce || "").split(":")[0];
+          if (!Object.prototype.hasOwnProperty.call(trackerProtocols, protocol)) protocol = "other";
+          trackerProtocols[protocol]++;
+        });
+        discovery.on("dhtAnnounce", function () {
+          counts.dhtAnnounces++;
+        });
+        discovery.on("warning", function (err) {
+          counts.warnings++;
+          failure(err);
+        });
+        discovery.on("error", function (err) {
+          counts.errors++;
+          failure(err);
+        });
+        return {
+          offer: function offer(source, added) {
+            if (!Object.prototype.hasOwnProperty.call(offers, source)) source = "external";
+            offers[source]++;
+            if (added) accepted[source]++;
+          },
+          close: function close() {
+            if (dht && typeof dht.removeListener === "function") dht.removeListener("peer", onDht);
+          },
+          snapshot: function snapshot() {
+            var peers = swarm.wires || [],
+              choked = 0,
+              productive = 0,
+              active = 0,
+              waiting = 0;
+            var oldestEmptyMs = 0,
+              now = Date.now(),
+              bySource = {};
+            ["discovery", "pex", "hint", "retry", "external", "incoming"].forEach(function (k) {
+              bySource[k] = {
+                connected: 0,
+                everSent: 0,
+                active5s: 0
+              };
+            });
+            peers.forEach(function (w) {
+              var source = w.incoming ? "incoming" : w.kaiSource;
+              if (!Object.prototype.hasOwnProperty.call(bySource, source)) source = "external";
+              bySource[source].connected++;
+              if (w.lastPieceAt) bySource[source].everSent++;
+              if (w.lastPieceAt && now - w.lastPieceAt < 5e3) bySource[source].active5s++;
+              if (w.peerChoking) choked++;
+              if (w.lastPieceAt) productive++;
+              if (w.lastPieceAt && now - w.lastPieceAt < 5e3) active++;
+              if (w.requests && w.requests.length && (!w.lastPieceAt || now - w.lastPieceAt >= 5e3)) waiting++;
+              if (!w.lastPieceAt && w.kaiConnectedAt) oldestEmptyMs = Math.max(oldestEmptyMs, now - w.kaiConnectedAt);
+            });
+            var queued = swarm.queued || 0,
+              connections = (swarm.connections || []).length;
+            var known = Object.keys(swarm._peers || {}),
+              backoff = 0;
+            known.forEach(function (addr) {
+              if (swarm._peers[addr].timeout) backoff++;
+            });
+            var reason = swarm.paused ? "paused" : connections >= swarm.size ? "connection-limit" : queued ? "queue-has-free-slots" : connections > peers.length ? "awaiting-connection-or-handshake" : "candidate-queue-empty";
+            return {
+              sources: counts,
+              failures,
+              trackerProtocols,
+              offers,
+              accepted,
+              bySource,
+              transport: swarm.kaiNetwork || null,
+              queue: {
+                knownPeers: known.length,
+                retryBackoff: backoff,
+                queued,
+                connections,
+                handshakes: peers.length,
+                pending: Math.max(0, connections - peers.length),
+                freeSlots: Math.max(0, swarm.size - connections),
+                reason
+              },
+              payload: {
+                choked,
+                everSent: productive,
+                active5s: active,
+                neverSent: peers.length - productive,
+                waitingWithoutRecentData: waiting,
+                oldestEmptyMs
+              }
+            };
+          }
+        };
+      };
+    }
+  });
+
   // node_modules/ip/lib/ip.js
   var require_ip = __commonJS({
     "node_modules/ip/lib/ip.js"(exports) {
@@ -16863,7 +17079,7 @@ var TorrentEngine = function () {
             var added = module.exports.pexPeers(ext);
             for (var i = 0; i < added.length; i++) {
               engine.emit("pex-peer", added[i]);
-              engine.connect(added[i]);
+              engine.connect(added[i], "pex");
             }
           });
           wire.once("extended", function (id, handshake) {
@@ -17212,6 +17428,7 @@ var TorrentEngine = function () {
       var FSChunkStore = require_fs_chunk_store();
       var ImmediateChunkStore = require_immediate_chunk_store();
       var peerDiscovery = require_torrent_discovery();
+      var discoveryDebug = require_discovery_debug();
       var blocklist = require_ip_set();
       var exchangeMetadata = require_exchange_metadata();
       var fileStream = require_file_stream();
@@ -17317,12 +17534,14 @@ var TorrentEngine = function () {
           announce: opts.trackers
         });
         var blocked = blocklist(opts.blocklist);
+        var discoveryTrace = discoveryDebug(engine, discovery, swarm, infoHash);
+        engine.discoveryStats = discoveryTrace.snapshot;
         discovery.on("peer", function (addr) {
           if (blocked.contains(addr.split(":")[0])) {
             engine.emit("blocked-peer", addr);
           } else {
             engine.emit("peer", addr);
-            engine.connect(addr);
+            engine.connect(addr, "discovery");
           }
         });
         var ontorrent = function ontorrent(torrent) {
@@ -17862,8 +18081,10 @@ var TorrentEngine = function () {
           engine._flood = 0;
           engine._pulse = Number.MAX_SAFE_INTEGER;
         };
-        engine.connect = function (addr) {
-          swarm.add(addr);
+        engine.connect = function (addr, source) {
+          var added = swarm.add(addr);
+          if (added && swarm._peers[addr]) swarm._peers[addr].kaiSource = source || "external";
+          discoveryTrace.offer(source || "external", !!added);
         };
         engine.disconnect = function (addr) {
           swarm.remove(addr);
@@ -17905,6 +18126,7 @@ var TorrentEngine = function () {
           swarm.destroy();
           clearInterval(rechokeIntervalId);
           clearInterval(recoveryIntervalId);
+          discoveryTrace.close();
           discovery.stop();
           if (engine.store && engine.store.close) {
             engine.store.close(cb2);
@@ -18271,7 +18493,7 @@ var TV_TORRENT = (function () {
         entry.at = t;
         batch++;
         if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
-        engine.connect(addr);
+        engine.connect(addr, 'retry');
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();
@@ -18977,7 +19199,7 @@ var TV_TORRENT = (function () {
     });
     (body.sources || []).forEach(function (source) {
       var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
-      if (match) { peerCount++; engine.connect(match[1]); }
+      if (match) { peerCount++; engine.connect(match[1], 'hint'); }
     });
     var timer;
     function metadataDeadline() {
@@ -19147,6 +19369,7 @@ var TV_TORRENT = (function () {
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
+        network: s.engine.discoveryStats ? s.engine.discoveryStats() : null,
         wires: wireSummary(s.engine), diag: s.engine.diag || null, resumePending: !!s.resumePending,
         goodPeers: s.engine.goodPeers || [], dhtNodes: dhtNodes(),
         ranges: s.requests || [] };

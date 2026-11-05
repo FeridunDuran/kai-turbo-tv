@@ -11367,6 +11367,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         window: [stats.windowFrom, stats.windowTo],
         pieceKB: Math.round((stats.pieceLength || 0) / 1024),
         resumePending: stats.resumePending,
+        network: stats.network,
         probeCache: stats.probeCache,
         scheduler: stats.scheduler,
         headerPieces: stats.headerPieces,
@@ -14390,7 +14391,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T22:06:08.999Z";
+  var BUILD = "2026-11-05T22:13:56.688Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

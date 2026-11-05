@@ -37,7 +37,7 @@ module.exports = function (engine, callback) {
       var added = module.exports.pexPeers(ext)
       for (var i = 0; i < added.length; i++) {
         engine.emit('pex-peer', added[i])
-        engine.connect(added[i])
+        engine.connect(added[i], 'pex')
       }
     })
     wire.once('extended', function (id, handshake) {
