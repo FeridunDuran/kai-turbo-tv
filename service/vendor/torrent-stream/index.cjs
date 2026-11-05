@@ -20,7 +20,8 @@ var blocklist = require('ip-set')
 var exchangeMetadata = require('./lib/exchange-metadata.cjs')
 var fileStream = require('./lib/file-stream.cjs')
 
-var MAX_REQUESTS = 5
+var streamPolicy = require('./lib/stream-policy.cjs')
+var MAX_ACTIVE_BLOCKS = 256
 var CHOKE_TIMEOUT = 5000
 var REQUEST_TIMEOUT = 30000
 var SPEED_THRESHOLD = 3 * piece.BLOCK_LENGTH
@@ -92,6 +93,10 @@ var torrentStream = function (link, opts, cb) {
   var rechokeSlots = (opts.uploads === false || opts.uploads === 0) ? 0 : (+opts.uploads || 10)
   var rechokeOptimistic = null
   var rechokeOptimisticTime = 0
+  var activeRequests = []
+  var retriedBlocks = {}
+  var recoveryIntervalId
+  var criticalRetries = 0
   var rechokeIntervalId
 
   engine.infoHash = infoHash
@@ -104,6 +109,9 @@ var torrentStream = function (link, opts, cb) {
   engine.amInterested = false
   engine.store = null
   engine.swarm = swarm
+  engine.streamingStats = function () {
+    return { activeBlocks: activeRequests.length, criticalRetries: criticalRetries }
+  }
   engine._flood = opts.flood
   engine._pulse = opts.pulse
 
@@ -235,6 +243,9 @@ var torrentStream = function (link, opts, cb) {
       pieces[index] = null
       reservations[index] = null
       engine.bitfield.set(index, true)
+      Object.keys(retriedBlocks).forEach(function (key) {
+        if (key.split(':')[0] === String(index)) delete retriedBlocks[key];
+      });
 
       for (var i = 0; i < wires.length; i++) wires[i].have(index)
 
@@ -272,10 +283,12 @@ var torrentStream = function (link, opts, cb) {
         if (r[i] === min) r[i] = null
       }
 
-      for (i = 0; i < min.requests.length; i++) {
-        var req = min.requests[i]
+      var pending = min.requests.slice()
+      for (i = 0; i < pending.length; i++) {
+        var req = pending[i]
         if (req.piece !== index) continue
-        pieces[index].cancel((req.offset / piece.BLOCK_SIZE) | 0)
+        pieces[index].cancel((req.offset / piece.BLOCK_LENGTH) | 0)
+        min.cancel(req.piece, req.offset, req.length)
       }
 
       engine.emit('hotswap', min, wire, index)
@@ -287,7 +300,7 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var onrequest = function (wire, index, hotswap) {
-      if (!pieces[index]) return false
+      if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false
 
       var p = pieces[index]
       var reservation = p.reserve()
@@ -303,13 +316,19 @@ var torrentStream = function (link, opts, cb) {
       if (i === -1) i = r.length
       r[i] = wire
 
+      var requestKey = index + ':' + offset;
+      var active = { wire: wire, index: index, offset: offset, size: size, at: Date.now(), retried: !!retriedBlocks[requestKey] };
+      activeRequests.push(active);
       wire.request(index, offset, size, function (err, block) {
-        if (r[i] === wire) r[i] = null
+        var activeAt = activeRequests.indexOf(active);
+        if (activeAt >= 0) activeRequests.splice(activeAt, 1);
+        var ownsReservation = r[i] === wire
+        if (ownsReservation) r[i] = null
 
         if (p !== pieces[index]) return onupdatetick()
 
         if (err) {
-          p.cancel(reservation)
+          if (ownsReservation) p.cancel(reservation)
           onupdatetick()
           return
         }
@@ -364,7 +383,7 @@ var torrentStream = function (link, opts, cb) {
       var speed = wire.downloadSpeed() || 1
       if (speed > SPEED_THRESHOLD) return thruthy
 
-      var secs = MAX_REQUESTS * piece.BLOCK_LENGTH / speed
+      var secs = streamPolicy.pipeline(speed) * piece.BLOCK_LENGTH / speed
       var tries = 10
       var ptr = 0
 
@@ -399,7 +418,8 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var select = function (wire, hotswap) {
-      if (wire.requests.length >= MAX_REQUESTS) return true
+      var pipeline = streamPolicy.pipeline(wire.downloadSpeed())
+      if (wire.requests.length >= pipeline) return true
 
       // Pulse, or flood (default)
       if (swarm.downloaded > engine._flood && swarm.downloadSpeed() > engine._pulse) {
@@ -412,8 +432,8 @@ var torrentStream = function (link, opts, cb) {
         var next = engine.selection[i]
         for (var j = next.from + next.offset; j <= next.to; j++) {
           if (!wire.peerPieces[j] || !rank(j)) continue
-          while (wire.requests.length < MAX_REQUESTS && onrequest(wire, j, critical[j] || hotswap)) {}
-          if (wire.requests.length < MAX_REQUESTS) continue
+          while (wire.requests.length < pipeline && onrequest(wire, j, critical[j] || hotswap)) {}
+          if (wire.requests.length < pipeline) continue
           if (next.priority) shufflePriority(i)
           return true
         }
@@ -566,6 +586,21 @@ var torrentStream = function (link, opts, cb) {
       }
 
       rechokeIntervalId = setInterval(onrechoke, RECHOKE_INTERVAL)
+      recoveryIntervalId = setInterval(function () {
+        var urgent = {};
+        engine.selection.forEach(function (selection) {
+          if (selection.priority < 2) return;
+          for (var i = selection.from; i <= selection.to; i++) urgent[i] = true;
+        });
+        var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now());
+        if (!recovery) return;
+        var request = recovery.request;
+        retriedBlocks[request.index + ':' + request.offset] = true;
+        request.wire.cancel(request.index, request.offset, request.size);
+        onrequest(recovery.wire, request.index, false);
+        criticalRetries++;
+        engine.emit('critical-retry', request.index, request.offset);
+      }, 1000)
 
       process.nextTick(function () {
         engine.emit('ready')
@@ -766,6 +801,7 @@ var torrentStream = function (link, opts, cb) {
     destroyed = true
     swarm.destroy()
     clearInterval(rechokeIntervalId)
+    clearInterval(recoveryIntervalId)
     discovery.stop()
     if (engine.store && engine.store.close) {
       engine.store.close(cb)

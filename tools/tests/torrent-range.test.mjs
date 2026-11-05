@@ -48,3 +48,13 @@ test('browser Range retries do not restart the no-data deadline',()=>{
  const make=()=>{const r=new context.TV_TORRENT.Reader(session,0,100,{destroy(){closed++;}});r._next=()=>{};r.start();return r;};
  const first=make();now=10000;first.destroy();make();const deadline=[...timers.values()][0];assert.equal(deadline.at,20000);now=20000;deadline.fn();assert.equal(closed,1);
 });
+
+test('MP4 head and tail are prefetched together and remain cached across header seeks within budget',()=>{
+ const selected=[],removed=[],store={present:[408,449],remove(i){removed.push(i);return true;}},engine=new EventEmitter();
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select:(a,b,p)=>selected.push([a,b,p]),deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'episode.mp4',offset:408*4194304,length:42*4194304},0);
+ assert.deepEqual(selected,[[408,408,1],[449,449,1]]);s.ensureWindow(408);s.ensureWindow(449);assert.deepEqual(removed,[]);
+ for(const index of [408,410,425,449]){s.ensureWindow(index,true);const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);assert.ok(retained.size*s.pieceLength<=48*1024*1024);}
+ for(const size of [16384,1048576,16777216,33554432]){engine.torrent.pieceLength=size;const sample=new context.TV_TORRENT.Session(engine,{name:'episode.mp4',offset:0,length:size*100},0);sample.ensureWindow(50,true);const retained=new Set(sample.headerPieces);for(let i=sample.windowFrom;i<=sample.windowTo;i++)retained.add(i);assert.ok(retained.size*size<=48*1024*1024);}
+});

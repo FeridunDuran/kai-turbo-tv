@@ -16977,6 +16977,41 @@ var TorrentEngine = function () {
     }
   });
 
+  // service/vendor/torrent-stream/lib/stream-policy.cjs
+  var require_stream_policy = __commonJS({
+    "service/vendor/torrent-stream/lib/stream-policy.cjs"(exports) {
+      exports.pipeline = function (speed) {
+        if (!(speed > 0) || !isFinite(speed)) return 5;
+        return Math.max(2, Math.min(16, Math.ceil(speed * 0.75 / 16384)));
+      };
+      exports.recovery = function (requests, wires, urgent, now) {
+        for (var i = 0; i < requests.length; i++) {
+          var request = requests[i];
+          if (!urgent[request.index] || request.retried) continue;
+          var oldSpeed = request.wire.downloadSpeed() || 0;
+          var deadline = Math.max(4e3, Math.min(15e3, 2 * 16384 / Math.max(1, oldSpeed) * 1e3));
+          if (now - request.at < deadline) continue;
+          var best = null;
+          for (var j = 0; j < wires.length; j++) {
+            var wire = wires[j],
+              speed = wire.downloadSpeed() || 0;
+            if (wire === request.wire || wire.peerChoking || !wire.peerPieces[request.index]) continue;
+            if (speed <= Math.max(16384, oldSpeed * 1.5) || wire.requests.length >= exports.pipeline(speed)) continue;
+            if (wire.requests.some(function (r) {
+              return r.piece === request.index && r.offset === request.offset;
+            })) continue;
+            if (!best || speed > best.downloadSpeed()) best = wire;
+          }
+          if (best) return {
+            request,
+            wire: best
+          };
+        }
+        return null;
+      };
+    }
+  });
+
   // service/vendor/torrent-stream/index.cjs
   var require_index = __commonJS({
     "service/vendor/torrent-stream/index.cjs"(exports, module) {
@@ -17000,7 +17035,8 @@ var TorrentEngine = function () {
       var blocklist = require_ip_set();
       var exchangeMetadata = require_exchange_metadata();
       var fileStream = require_file_stream();
-      var MAX_REQUESTS = 5;
+      var streamPolicy = require_stream_policy();
+      var MAX_ACTIVE_BLOCKS = 256;
       var CHOKE_TIMEOUT = 5e3;
       var REQUEST_TIMEOUT = 3e4;
       var SPEED_THRESHOLD = 3 * piece.BLOCK_LENGTH;
@@ -17056,6 +17092,10 @@ var TorrentEngine = function () {
         var rechokeSlots = opts.uploads === false || opts.uploads === 0 ? 0 : +opts.uploads || 10;
         var rechokeOptimistic = null;
         var rechokeOptimisticTime = 0;
+        var activeRequests = [];
+        var retriedBlocks = {};
+        var recoveryIntervalId;
+        var criticalRetries = 0;
         var rechokeIntervalId;
         engine.infoHash = infoHash;
         engine.metadata = metadata;
@@ -17067,6 +17107,12 @@ var TorrentEngine = function () {
         engine.amInterested = false;
         engine.store = null;
         engine.swarm = swarm;
+        engine.streamingStats = function () {
+          return {
+            activeBlocks: activeRequests.length,
+            criticalRetries
+          };
+        };
         engine._flood = opts.flood;
         engine._pulse = opts.pulse;
         var discovery = peerDiscovery({
@@ -17167,6 +17213,9 @@ var TorrentEngine = function () {
             pieces[index] = null;
             reservations[index] = null;
             engine.bitfield.set(index, true);
+            Object.keys(retriedBlocks).forEach(function (key) {
+              if (key.split(":")[0] === String(index)) delete retriedBlocks[key];
+            });
             for (var i = 0; i < wires.length; i++) wires[i].have(index);
             engine.emit("verify", index);
             engine.emit("download", index, buffer);
@@ -17193,10 +17242,12 @@ var TorrentEngine = function () {
             for (i = 0; i < r.length; i++) {
               if (r[i] === min) r[i] = null;
             }
-            for (i = 0; i < min.requests.length; i++) {
-              var req = min.requests[i];
+            var pending = min.requests.slice();
+            for (i = 0; i < pending.length; i++) {
+              var req = pending[i];
               if (req.piece !== index) continue;
-              pieces[index].cancel(req.offset / piece.BLOCK_SIZE | 0);
+              pieces[index].cancel(req.offset / piece.BLOCK_LENGTH | 0);
+              min.cancel(req.piece, req.offset, req.length);
             }
             engine.emit("hotswap", min, wire, index);
             return true;
@@ -17205,7 +17256,7 @@ var TorrentEngine = function () {
             process.nextTick(onupdate);
           };
           var onrequest = function onrequest(wire, index, hotswap) {
-            if (!pieces[index]) return false;
+            if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false;
             var p = pieces[index];
             var reservation = p.reserve();
             if (reservation === -1 && hotswap && onhotswap(wire, index)) reservation = p.reserve();
@@ -17216,11 +17267,24 @@ var TorrentEngine = function () {
             var i = r.indexOf(null);
             if (i === -1) i = r.length;
             r[i] = wire;
+            var requestKey = index + ":" + offset;
+            var active = {
+              wire,
+              index,
+              offset,
+              size,
+              at: Date.now(),
+              retried: !!retriedBlocks[requestKey]
+            };
+            activeRequests.push(active);
             wire.request(index, offset, size, function (err, block) {
-              if (r[i] === wire) r[i] = null;
+              var activeAt = activeRequests.indexOf(active);
+              if (activeAt >= 0) activeRequests.splice(activeAt, 1);
+              var ownsReservation = r[i] === wire;
+              if (ownsReservation) r[i] = null;
               if (p !== pieces[index]) return onupdatetick();
               if (err) {
-                p.cancel(reservation);
+                if (ownsReservation) p.cancel(reservation);
                 onupdatetick();
                 return;
               }
@@ -17261,7 +17325,7 @@ var TorrentEngine = function () {
           var speedRanker = function speedRanker(wire) {
             var speed = wire.downloadSpeed() || 1;
             if (speed > SPEED_THRESHOLD) return thruthy;
-            var secs = MAX_REQUESTS * piece.BLOCK_LENGTH / speed;
+            var secs = streamPolicy.pipeline(speed) * piece.BLOCK_LENGTH / speed;
             var tries = 10;
             var ptr = 0;
             return function (index) {
@@ -17289,7 +17353,8 @@ var TorrentEngine = function () {
             engine.selection[last] = tmp;
           };
           var select = function select(wire, hotswap) {
-            if (wire.requests.length >= MAX_REQUESTS) return true;
+            var pipeline = streamPolicy.pipeline(wire.downloadSpeed());
+            if (wire.requests.length >= pipeline) return true;
             if (swarm.downloaded > engine._flood && swarm.downloadSpeed() > engine._pulse) {
               return true;
             }
@@ -17298,8 +17363,8 @@ var TorrentEngine = function () {
               var next = engine.selection[i];
               for (var j = next.from + next.offset; j <= next.to; j++) {
                 if (!wire.peerPieces[j] || !rank(j)) continue;
-                while (wire.requests.length < MAX_REQUESTS && onrequest(wire, j, critical[j] || hotswap)) {}
-                if (wire.requests.length < MAX_REQUESTS) continue;
+                while (wire.requests.length < pipeline && onrequest(wire, j, critical[j] || hotswap)) {}
+                if (wire.requests.length < pipeline) continue;
                 if (next.priority) shufflePriority(i);
                 return true;
               }
@@ -17422,6 +17487,21 @@ var TorrentEngine = function () {
               onupdate();
             };
             rechokeIntervalId = setInterval(onrechoke, RECHOKE_INTERVAL);
+            recoveryIntervalId = setInterval(function () {
+              var urgent = {};
+              engine.selection.forEach(function (selection) {
+                if (selection.priority < 2) return;
+                for (var i = selection.from; i <= selection.to; i++) urgent[i] = true;
+              });
+              var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now());
+              if (!recovery) return;
+              var request = recovery.request;
+              retriedBlocks[request.index + ":" + request.offset] = true;
+              request.wire.cancel(request.index, request.offset, request.size);
+              onrequest(recovery.wire, request.index, false);
+              criticalRetries++;
+              engine.emit("critical-retry", request.index, request.offset);
+            }, 1e3);
             process.nextTick(function () {
               engine.emit("ready");
               refresh();
@@ -17563,6 +17643,7 @@ var TorrentEngine = function () {
           destroyed = true;
           swarm.destroy();
           clearInterval(rechokeIntervalId);
+          clearInterval(recoveryIntervalId);
           discovery.stop();
           if (engine.store && engine.store.close) {
             engine.store.close(cb2);
@@ -17778,9 +17859,16 @@ var TV_TORRENT = (function () {
     this.pieceLength = engine.torrent.pieceLength;
     this.first = Math.floor(file.offset / this.pieceLength);
     this.last = Math.floor((file.offset + file.length - 1) / this.pieceLength);
-    this.aheadPieces = Math.max(4, Math.ceil(AHEAD_BYTES / this.pieceLength));
-    this.behindPieces = Math.max(2, Math.ceil(BEHIND_BYTES / this.pieceLength));
-    this.stepPieces = Math.max(2, Math.floor(this.aheadPieces / 4));
+    var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength));
+    this.headerPieces = [];
+    if (/\.(mp4|m4v|mov)$/i.test(file.name) && slots >= 4) {
+      this.headerPieces.push(this.first);
+      if (this.last !== this.first) this.headerPieces.push(this.last);
+    }
+    var windowSlots = Math.max(1, slots - this.headerPieces.length);
+    this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, windowSlots - 2));
+    this.aheadPieces = Math.min(Math.ceil(AHEAD_BYTES / this.pieceLength), Math.max(0, windowSlots - this.behindPieces - 1));
+    this.stepPieces = Math.max(1, Math.floor(this.aheadPieces / 4));
     this.selFrom = null;
     this.selTo = null;
     this.priorityPiece = null;
@@ -17795,12 +17883,16 @@ var TV_TORRENT = (function () {
       process.nextTick(function () { self._pieceDone(index); });
     };
     engine.on('download', this._onpiece);
+    this.headerNotify = function () {};
+    this.headerPieces.forEach(function (index) {
+      engine.select(index, index, 1, self.headerNotify);
+    });
   }
 
   Session.prototype._pieceDone = function (index) {
     if (this.detached) return;
     // A piece that finished after the window moved on is dropped instead of leaking RAM.
-    if (index < this.windowFrom || index > this.windowTo) {
+    if ((index < this.windowFrom || index > this.windowTo) && this.headerPieces.indexOf(index) < 0) {
       if (this.store.remove(index)) this.engine.release(index);
       return;
     }
@@ -17856,7 +17948,7 @@ var TV_TORRENT = (function () {
     var present = this.store.present.slice();
     for (var i = 0; i < present.length; i++) {
       var p = present[i];
-      if (p >= from && p <= to) continue;
+      if ((p >= from && p <= to) || this.headerPieces.indexOf(p) >= 0) continue;
       if (this.store.remove(p)) this.engine.release(p);
     }
 
@@ -17908,6 +18000,8 @@ var TV_TORRENT = (function () {
 
   Session.prototype.detach = function () {
     this.detached = true;
+    var self = this;
+    this.headerPieces.forEach(function (index) { self.engine.deselect(index, index, 1, self.headerNotify); });
     this._deselect();
     this.waiters = {};
     if (this.reader) this.reader.destroy();
@@ -18018,6 +18112,10 @@ var TV_TORRENT = (function () {
   }
 
   function activateSession(engine, file, fileIdx, cb, reused) {
+    if (engine.torrent.pieceLength > CACHE_BYTES) {
+      engine.destroy(noop);
+      return cb(new Error('Torrent piece exceeds the 48 MiB TV cache limit'));
+    }
     var session = new Session(engine, file, fileIdx);
     session.engineReused = !!reused;
     sessions[session.id] = session;
@@ -18212,6 +18310,7 @@ var TV_TORRENT = (function () {
       var s = sessions[id];
       if (!s) return null;
       return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
+        headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
         ranges: s.requests || [] };

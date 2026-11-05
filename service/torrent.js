@@ -179,9 +179,16 @@ var TV_TORRENT = (function () {
     this.pieceLength = engine.torrent.pieceLength;
     this.first = Math.floor(file.offset / this.pieceLength);
     this.last = Math.floor((file.offset + file.length - 1) / this.pieceLength);
-    this.aheadPieces = Math.max(4, Math.ceil(AHEAD_BYTES / this.pieceLength));
-    this.behindPieces = Math.max(2, Math.ceil(BEHIND_BYTES / this.pieceLength));
-    this.stepPieces = Math.max(2, Math.floor(this.aheadPieces / 4));
+    var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength));
+    this.headerPieces = [];
+    if (/\.(mp4|m4v|mov)$/i.test(file.name) && slots >= 4) {
+      this.headerPieces.push(this.first);
+      if (this.last !== this.first) this.headerPieces.push(this.last);
+    }
+    var windowSlots = Math.max(1, slots - this.headerPieces.length);
+    this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, windowSlots - 2));
+    this.aheadPieces = Math.min(Math.ceil(AHEAD_BYTES / this.pieceLength), Math.max(0, windowSlots - this.behindPieces - 1));
+    this.stepPieces = Math.max(1, Math.floor(this.aheadPieces / 4));
     this.selFrom = null;
     this.selTo = null;
     this.priorityPiece = null;
@@ -196,12 +203,16 @@ var TV_TORRENT = (function () {
       process.nextTick(function () { self._pieceDone(index); });
     };
     engine.on('download', this._onpiece);
+    this.headerNotify = function () {};
+    this.headerPieces.forEach(function (index) {
+      engine.select(index, index, 1, self.headerNotify);
+    });
   }
 
   Session.prototype._pieceDone = function (index) {
     if (this.detached) return;
     // A piece that finished after the window moved on is dropped instead of leaking RAM.
-    if (index < this.windowFrom || index > this.windowTo) {
+    if ((index < this.windowFrom || index > this.windowTo) && this.headerPieces.indexOf(index) < 0) {
       if (this.store.remove(index)) this.engine.release(index);
       return;
     }
@@ -257,7 +268,7 @@ var TV_TORRENT = (function () {
     var present = this.store.present.slice();
     for (var i = 0; i < present.length; i++) {
       var p = present[i];
-      if (p >= from && p <= to) continue;
+      if ((p >= from && p <= to) || this.headerPieces.indexOf(p) >= 0) continue;
       if (this.store.remove(p)) this.engine.release(p);
     }
 
@@ -309,6 +320,8 @@ var TV_TORRENT = (function () {
 
   Session.prototype.detach = function () {
     this.detached = true;
+    var self = this;
+    this.headerPieces.forEach(function (index) { self.engine.deselect(index, index, 1, self.headerNotify); });
     this._deselect();
     this.waiters = {};
     if (this.reader) this.reader.destroy();
@@ -419,6 +432,10 @@ var TV_TORRENT = (function () {
   }
 
   function activateSession(engine, file, fileIdx, cb, reused) {
+    if (engine.torrent.pieceLength > CACHE_BYTES) {
+      engine.destroy(noop);
+      return cb(new Error('Torrent piece exceeds the 48 MiB TV cache limit'));
+    }
     var session = new Session(engine, file, fileIdx);
     session.engineReused = !!reused;
     sessions[session.id] = session;
@@ -613,6 +630,7 @@ var TV_TORRENT = (function () {
       var s = sessions[id];
       if (!s) return null;
       return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
+        headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
         ranges: s.requests || [] };
