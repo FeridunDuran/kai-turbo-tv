@@ -30,3 +30,13 @@ test('active torrent blocks may take over a minute; twenty seconds without bytes
  for(let i=0;i<6;i++){advance(10000);swarm.emit('download',16384);}
  assert.equal(now,60000);assert.equal(closed,0);advance(19999);assert.equal(closed,0);advance(1);assert.equal(closed,1);assert.equal(swarm.listenerCount('download'),0);
 });
+
+test('tail seek retains the back cache without downloading pieces before the requested MP4 header',()=>{
+ const selected=[],engine=new EventEmitter();const store={present:[],remove(){return false;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select:(from,to)=>selected.push([from,to]),deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ const source=fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session, supported: supported,');vm.runInNewContext(source,context);
+ const session=new context.TV_TORRENT.Session(engine,{offset:408*4194304,length:42*4194304},0);
+ session.ensureWindow(408);session.ensureWindow(449);
+ assert.equal(session.windowFrom,447);assert.equal(session.selFrom,449);assert.deepEqual(selected.at(-1),[449,449]);
+});

@@ -17847,9 +17847,11 @@ var TV_TORRENT = (function () {
 
     this.windowFrom = from;
     this.windowTo = to;
-    this.selFrom = from;
+    // Retain already cached pieces behind the reader, but never download them
+    // ahead of the requested piece (e.g. an MP4 moov atom after a tail seek).
+    this.selFrom = index;
     this.selTo = to;
-    this.engine.select(from, to, 1, noop);
+    this.engine.select(index, to, 1, noop);
   };
 
   Session.prototype.readPiece = function (index, cb) {
