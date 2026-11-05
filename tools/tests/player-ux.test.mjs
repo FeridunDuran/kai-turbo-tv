@@ -196,7 +196,7 @@ test('next-episode streams are prefetched near the credits and reused by the cou
   f.close();
 });
 
-test('playback stats line uses service buffer, shows only with controls, and can be hidden', async () => {
+test('playback stats line shows peers and rates only with controls, and can be hidden', async () => {
   const stats = [];
   for (let i = 0; i < 20; i++) stats.push({ downloaded: (i + 1) * 524288, peers: 7, length: 1320000000, aheadBytes: 8388608, ranges: [{ sent: 1 }] });
   const f = await fixture({ statsSeq: stats });
@@ -209,7 +209,7 @@ test('playback stats line uses service buffer, shows only with controls, and can
   assert.equal(line.style.display, '');
   assert.match(line.textContent, /7 peers/);
   assert.match(line.textContent, /0\.13 MB\/s/);
-  assert.match(line.textContent, /buffer 8\.0 MB \(~42 s\)/, 'buffer comes from the service, not the browser estimate');
+  assert.doesNotMatch(line.textContent, /buffer/, 'buffer figure removed on request');
   assert.match(line.textContent, /file average 0\.2 MB\/s/);
   assert.match(line.textContent, /1080p/);
   f.key(KEY.BACK);
@@ -221,3 +221,15 @@ test('playback stats line uses service buffer, shows only with controls, and can
   assert.equal(line.style.display, 'none');
   f.close();
 });
+
+test('startup wait counter keeps counting across stage changes', async () => {
+  const f = await fixture({ statsSeq: [{ downloaded: 1048576, peers: 3, length: 1e9, ranges: [{ sent: 4096 }] }] });
+  f.advance(10000); f.tick(); await flush();
+  assert.match(f.stageText(), /Reading the video information/);
+  f.tick();
+  assert.match(f.stageText(), /10 s/);
+  f.advance(5000); f.video.duration = 6600; f.video.emit('loadedmetadata'); f.tick();
+  assert.match(f.stageText(), /Loading the first frames.*15 s/, 'no reset to 0 at the new stage');
+  f.close();
+});
+

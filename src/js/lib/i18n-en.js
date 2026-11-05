@@ -548,8 +548,6 @@ export const EN = {
   "Press Back again to stop watching": "Press Back again to stop watching",
   "Hide stats": "Hide stats",
   "Show stats": "Show stats",
-  "buffer {n} s": "buffer {n} s",
-  "buffer {mb} MB": "buffer {mb} MB",
   "file average {rate} MB/s": "file average {rate} MB/s",
   "below the file's average bitrate": "below the file's average bitrate",
 };

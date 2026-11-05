@@ -161,14 +161,16 @@ export function isPlayableType(stream) {
 }
 
 // Converte um stream de addon numa URL que o <video> da TV consegue abrir.
-export function toPlayable(stream, seriesInfo) {
+// options.resume: playback will seek past the start, so the TV engine skips start read-ahead.
+export function toPlayable(stream, seriesInfo, options) {
+  const resume = !!(options && options.resume);
   const base = baseUrl();
   if (typeof stream.url === 'string') {
     if (stream.url.indexOf('magnet:') === 0) {
       const mg = parseMagnet(stream.url);
       if (!mg) return Promise.reject(new Error(t('Magnet inválido')));
       return tvproxy.openTorrent({ infoHash: mg.infoHash, name: mg.name, sources: mg.sources,
-        season: seriesInfo && seriesInfo.season, episode: seriesInfo && seriesInfo.episode });
+        season: seriesInfo && seriesInfo.season, episode: seriesInfo && seriesInfo.episode, resume: resume });
     }
     const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
     if (ph && needsHeaders(stream)) {
@@ -187,7 +189,7 @@ export function toPlayable(stream, seriesInfo) {
   if (typeof stream.infoHash === 'string') {
     return tvproxy.openTorrent({ infoHash: stream.infoHash.toLowerCase(), fileIdx: stream.fileIdx,
       name: stream.name, sources: stream.sources || [], season: seriesInfo && seriesInfo.season,
-      episode: seriesInfo && seriesInfo.episode });
+      episode: seriesInfo && seriesInfo.episode, resume: resume });
   }
   return Promise.reject(new Error(t('Tipo de link não suportado na TV')));
 }

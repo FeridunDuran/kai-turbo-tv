@@ -5311,8 +5311,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Press Back again to stop watching": "Press Back again to stop watching",
     "Hide stats": "Hide stats",
     "Show stats": "Show stats",
-    "buffer {n} s": "buffer {n} s",
-    "buffer {mb} MB": "buffer {mb} MB",
     "file average {rate} MB/s": "file average {rate} MB/s",
     "below the file's average bitrate": "below the file's average bitrate"
   };
@@ -5849,8 +5847,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
     "Hide stats": "إخفاء الإحصاءات",
     "Show stats": "إظهار الإحصاءات",
-    "buffer {n} s": "المخزن المؤقت {n} ث",
-    "buffer {mb} MB": "المخزن المؤقت {mb} ميغابايت",
     "file average {rate} MB/s": "متوسط الملف {rate} ميغابايت/ث",
     "below the file's average bitrate": "أقل من متوسط معدل بت الملف"
   };
@@ -7434,7 +7430,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function isPlayableType(stream) {
     return typeof stream.url === "string" || typeof stream.infoHash === "string";
   }
-  function toPlayable(stream, seriesInfo) {
+  function toPlayable(stream, seriesInfo, options) {
+    var resume = !!(options && options.resume);
     var base2 = baseUrl();
     if (typeof stream.url === "string") {
       if (stream.url.indexOf("magnet:") === 0) {
@@ -7445,7 +7442,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           name: mg.name,
           sources: mg.sources,
           season: seriesInfo && seriesInfo.season,
-          episode: seriesInfo && seriesInfo.episode
+          episode: seriesInfo && seriesInfo.episode,
+          resume: resume
         });
       }
       var ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
@@ -7481,7 +7479,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         name: stream.name,
         sources: stream.sources || [],
         season: seriesInfo && seriesInfo.season,
-        episode: seriesInfo && seriesInfo.episode
+        episode: seriesInfo && seriesInfo.episode,
+        resume: resume
       });
     }
     return Promise.reject(new Error(t("Tipo de link não suportado na TV")));
@@ -10293,7 +10292,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       nativeOffDone = false;
       hideSkip();
       loadSubtitles();
-      toPlayable(stream, seriesInfo()).then(function (res) {
+      toPlayable(stream, seriesInfo(), {
+        resume: pendingStart > 12e4
+      }).then(function (res) {
         if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
@@ -10901,7 +10902,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         time: fmtTime(pendingStart / 1e3 || videoEl.currentTime || 0)
       });
       var parts = [];
-      var secs = Math.floor((Date.now() - stageSince) / 1e3);
+      var since = stage === "buffering" || stage === "next" || !startedAt ? stageSince : startedAt;
+      var secs = Math.floor((Date.now() - since) / 1e3);
       if (secs >= 3) parts.push(t("{n} s", {
         n: secs
       }));
@@ -10938,7 +10940,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } else if (p.checkedAt && now - p.at > 4e3) p.rate = 0;
         p.bytes = Math.max(p.bytes, bytes);
         p.peers = stats.peers || 0;
-        p.ahead = typeof stats.aheadBytes === "number" ? stats.aheadBytes : null;
         p.length = stats.length || 0;
         p.delivered = (stats.ranges || []).reduce(function (sum, range) {
           return sum + (range.sent || 0);
@@ -10963,14 +10964,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       updateInfoBtn();
       updateStats();
     }
-    function bufferedAhead() {
-      try {
-        var b = videoEl.buffered;
-        var pos = videoEl.currentTime;
-        for (var i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.5 && b.end(i) >= pos) return Math.max(0, b.end(i) - pos);
-      } catch (e) {}
-      return 0;
-    }
     function updateStats() {
       if (!statsOn() || !controlsOn || !mediaUrl || failed) {
         statsEl.style.display = "none";
@@ -10989,20 +10982,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           parts.push(t("{rate} MB/s", {
             rate: (p.rate / 1048576).toFixed(2)
           }));
-          if (p.ahead !== null && p.ahead !== void 0) {
-            parts.push(t("buffer {mb} MB", {
-              mb: mb(p.ahead)
-            }) + (average ? " (~" + t("{n} s", {
-              n: Math.round(p.ahead / average)
-            }) + ")" : ""));
-          }
         }
         if (average) parts.push(t("file average {rate} MB/s", {
           rate: (average / 1048576).toFixed(1)
         }));
-      } else if (mediaReady) parts.push(t("buffer {n} s", {
-        n: Math.round(bufferedAhead())
-      }));
+      }
       if (videoEl.videoHeight) parts.push(videoEl.videoHeight + "p");
       statsEl.textContent = parts.join("  ·  ");
       statsEl.style.display = parts.length ? "" : "none";
@@ -13899,7 +13883,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T17:50:59.160Z";
+  var BUILD = "2026-11-05T17:58:49.275Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

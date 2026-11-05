@@ -250,7 +250,8 @@ function PlayerView(opts) {
     // Add-on subtitles do not depend on the local playback URL or torrent metadata.
     loadSubtitles();
     server
-      .toPlayable(stream, seriesInfo())
+      // Resume points within two minutes are close enough to the start to keep read-ahead.
+      .toPlayable(stream, seriesInfo(), { resume: pendingStart > 120000 })
       .then((res) => {
         if (!alive || attempt !== startGeneration || (!startupTimer && !server.isTorrent(stream))) return;
         mediaUrl = res.url;
@@ -887,7 +888,10 @@ function PlayerView(opts) {
     if (!stage) return;
     stageTitle.textContent = t(STAGES[stage], { time: fmtTime(pendingStart / 1000 || videoEl.currentTime || 0) });
     const parts = [];
-    const secs = Math.floor((Date.now() - stageSince) / 1000);
+    // Startup shows the total wait since this start, so the count does not restart at each
+    // stage; buffering during playback and the next-episode lookup count from their own start.
+    const since = stage === 'buffering' || stage === 'next' || !startedAt ? stageSince : startedAt;
+    const secs = Math.floor((Date.now() - since) / 1000);
     if (secs >= 3) parts.push(t('{n} s', { n: secs }));
     const p = torrentProgress;
     if (server.isTorrent(stream) && p.checkedAt && stage !== 'next') {
@@ -919,7 +923,6 @@ function PlayerView(opts) {
       } else if (p.checkedAt && now - p.at > 4000) p.rate = 0;
       p.bytes = Math.max(p.bytes, bytes);
       p.peers = stats.peers || 0;
-      p.ahead = typeof stats.aheadBytes === 'number' ? stats.aheadBytes : null;
       p.length = stats.length || 0;
       p.delivered = (stats.ranges || []).reduce((sum, range) => sum + (range.sent || 0), 0);
       p.checkedAt = now;
@@ -943,16 +946,6 @@ function PlayerView(opts) {
     updateStats();
   }
 
-  // Seconds of media the player holds ahead of the playhead (from the real buffered ranges).
-  function bufferedAhead() {
-    try {
-      const b = videoEl.buffered;
-      const pos = videoEl.currentTime;
-      for (let i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.5 && b.end(i) >= pos) return Math.max(0, b.end(i) - pos);
-    } catch (e) { /* no ranges yet */ }
-    return 0;
-  }
-
   // Shown only with the player controls, never over the picture during full-screen viewing.
   function updateStats() {
     if (!statsOn() || !controlsOn || !mediaUrl || failed) {
@@ -968,14 +961,9 @@ function PlayerView(opts) {
       if (p.checkedAt) {
         parts.push(t('{n} peers', { n: p.peers }));
         parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(2) }));
-        // The browser's buffered ranges are byte-based estimates for torrents (they stayed at 0 s
-        // on the TV even while paused); the service's verified RAM ahead of its reader is exact.
-        if (p.ahead !== null && p.ahead !== undefined) {
-          parts.push(t('buffer {mb} MB', { mb: mb(p.ahead) }) + (average ? ' (~' + t('{n} s', { n: Math.round(p.ahead / average) }) + ')' : ''));
-        }
       }
       if (average) parts.push(t('file average {rate} MB/s', { rate: (average / 1048576).toFixed(1) }));
-    } else if (mediaReady) parts.push(t('buffer {n} s', { n: Math.round(bufferedAhead()) }));
+    }
     if (videoEl.videoHeight) parts.push(videoEl.videoHeight + 'p');
     statsEl.textContent = parts.join('  ·  ');
     statsEl.style.display = parts.length ? '' : 'none';

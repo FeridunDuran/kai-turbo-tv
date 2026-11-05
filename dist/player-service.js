@@ -17887,7 +17887,13 @@ var TV_TORRENT = (function () {
       this.headerPieces.push(this.first);
       if (/\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
     }
-    var windowSlots = Math.max(1, slots - this.headerPieces.length);
+    // One slot keeps the last piece read before a jump (see ensureWindow). TV trace: an MP4 read
+    // 0 MiB, ~6 MiB, then the moov at the end, then ~6 MiB again; the second piece had been
+    // evicted by the tail jump and was downloaded twice. Only when the cache has room for it.
+    this.returnSlot = slots >= 6 ? 1 : 0;
+    this.returnPiece = null;
+    this.lastReadIndex = null;
+    var windowSlots = Math.max(1, slots - this.headerPieces.length - this.returnSlot);
     this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, windowSlots - 2));
     this.aheadPieces = Math.min(Math.ceil(AHEAD_BYTES / this.pieceLength), Math.max(0, windowSlots - this.behindPieces - 1));
     this.stepPieces = Math.max(1, Math.floor(this.aheadPieces / 4));
@@ -17914,7 +17920,7 @@ var TV_TORRENT = (function () {
   Session.prototype._pieceDone = function (index) {
     if (this.detached) return;
     // A piece that finished after the window moved on is dropped instead of leaking RAM.
-    if ((index < this.windowFrom || index > this.windowTo) && this.headerPieces.indexOf(index) < 0) {
+    if ((index < this.windowFrom || index > this.windowTo) && this.headerPieces.indexOf(index) < 0 && index !== this.returnPiece) {
       if (this.store.remove(index)) this.engine.release(index);
       return;
     }
@@ -17966,12 +17972,20 @@ var TV_TORRENT = (function () {
 
     this._deselect();
 
+    // The piece read just before this jump stays for one jump, in its reserved slot, so a reader
+    // that returns to it (MP4 probe after a moov tail read) finds it in RAM.
+    var last = this.lastReadIndex;
+    if (this.returnSlot && last !== null && (last < from || last > to) && this.headerPieces.indexOf(last) < 0 &&
+        this.store.present.indexOf(last) >= 0) this.returnPiece = last;
+    else if (this.returnPiece !== null && this.returnPiece >= from && this.returnPiece <= to) this.returnPiece = null;
+    else if (this.returnSlot && last !== null && (last < from || last > to)) this.returnPiece = null;
+
     // Forget pieces outside the new window. Released pieces become downloadable again
     // and are re-requested only if a future seek selects them.
     var present = this.store.present.slice();
     for (var i = 0; i < present.length; i++) {
       var p = present[i];
-      if ((p >= from && p <= to) || this.headerPieces.indexOf(p) >= 0) continue;
+      if ((p >= from && p <= to) || this.headerPieces.indexOf(p) >= 0 || p === this.returnPiece) continue;
       if (this.store.remove(p)) this.engine.release(p);
     }
 
@@ -17980,9 +17994,13 @@ var TV_TORRENT = (function () {
     // Retain already cached pieces behind the reader, but never download them
     // ahead of the requested piece (e.g. an MP4 moov atom after a tail seek).
     this.selFrom = index;
+    // When the player will resume later in the file, reads near the start are header/probe
+    // reads only: download just the requested piece, no read-ahead that playback will never use.
+    // The first read outside the start and the file's end region is the resume position.
+    if (this.resumePending && index > this.first + 2 && index < this.last - 1) this.resumePending = false;
     // Cold-start bandwidth must finish the first verified piece before read-ahead.
     // Resume seeks continue to use the normal window after the header is delivered.
-    this.selTo = !this.startupComplete && index === this.first ? index : to;
+    this.selTo = (!this.startupComplete && index === this.first) || this.resumePending ? index : to;
     this.engine.select(index, this.selTo, 1, noop);
     this._prioritize(index);
   };
@@ -18098,6 +18116,7 @@ var TV_TORRENT = (function () {
     session.readPiece(index, function (err, buf) {
       self.reading = false;
       if (self.destroyed) return;
+      if (!err) session.lastReadIndex = index;
       if (err) {
         self.destroy();
         try { self.res.destroy(); } catch (e) { /* already gone */ }
@@ -18136,13 +18155,14 @@ var TV_TORRENT = (function () {
     order.slice().forEach(destroySession);
   }
 
-  function activateSession(engine, file, fileIdx, cb, reused) {
+  function activateSession(engine, file, fileIdx, cb, reused, resume) {
     if (engine.torrent.pieceLength > CACHE_BYTES) {
       engine.destroy(noop);
       return cb(new Error('Torrent piece exceeds the 48 MiB TV cache limit'));
     }
     var session = new Session(engine, file, fileIdx);
     session.engineReused = !!reused;
+    session.resumePending = !!resume;
     sessions[session.id] = session;
     order.push(session.id);
     if (order.length > MAX_SESSIONS) destroySession(order[0]);
@@ -18167,7 +18187,7 @@ var TV_TORRENT = (function () {
       var warmEngine = previous.engine;
       destroySession(previous.id, true);
       destroyAll();
-      return activateSession(warmEngine, nextFile, nextIndex, cb, true);
+      return activateSession(warmEngine, nextFile, nextIndex, cb, true, body.resume);
     }
     destroyAll();
 
@@ -18244,7 +18264,7 @@ var TV_TORRENT = (function () {
         try { engine.destroy(noop); } catch (e) { /* already dead */ }
         return cb(err);
       }
-      activateSession(engine, file, fileIdx, cb);
+      activateSession(engine, file, fileIdx, cb, false, body.resume);
     }
 
     engine.on('error', function (err) {

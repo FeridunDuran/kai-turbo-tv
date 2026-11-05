@@ -85,3 +85,37 @@ test('buffer statistic counts verified RAM pieces contiguous with the reader pos
  s.reader={pos:4*4194304};
  assert.equal(context.TV_TORRENT.aheadBytes(s),0,'missing playhead piece means no buffer');
 });
+
+test('MP4 probe piece read before the moov tail jump stays in RAM for the return read, within the cache budget',()=>{
+ const removed=[],engine=new EventEmitter();
+ const store={present:[408,409,449],remove(p){const i=this.present.indexOf(p);if(i<0)return false;this.present.splice(i,1);removed.push(p);return true;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select(){},deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'movie.mp4',offset:408*4194304,length:42*4194304},0);
+ s.ensureWindow(408);s.lastReadIndex=409;           // read 0..~8 MiB
+ s.ensureWindow(448,true);s.lastReadIndex=449;      // moov at the end
+ assert.equal(removed.includes(409),false,'probe piece kept across the tail jump');
+ s.ensureWindow(409);                                // FFmpeg probe re-reads ~6 MiB
+ assert.ok(store.present.includes(409),'return read is served from RAM, not downloaded again');
+ // A later seek elsewhere releases it again: only one return slot exists.
+ store.present.push(430);s.lastReadIndex=430;s.ensureWindow(420,true);s.lastReadIndex=420;s.ensureWindow(440,true);
+ const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);if(s.returnPiece!==null)retained.add(s.returnPiece);
+ assert.ok(retained.size*4194304<=48*1024*1024,'header pins + window + return slot fit 48 MiB');
+});
+
+test('a session opened for resume downloads only requested start/tail pieces until the resume read',()=>{
+ const selected=[],engine=new EventEmitter();const store={present:[408],remove(){return false;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:4194304},select:(from,to,priority)=>selected.push([from,to,priority]),deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'movie.mp4',offset:408*4194304,length:200*4194304},0);
+ s.resumePending=true;selected.length=0;
+ s.ensureWindow(409,true);assert.deepEqual(selected.filter(x=>x[2]===1),[[409,409,1]],'probe read: no start read-ahead');
+ selected.length=0;s.ensureWindow(607,true);assert.deepEqual(selected.filter(x=>x[2]===1),[[607,607,1]],'moov tail read: no read-ahead');
+ selected.length=0;s.ensureWindow(500,true);
+ const window=selected.filter(x=>x[2]===1)[0];assert.equal(window[0],500);assert.ok(window[1]>500,'resume position gets the normal read-ahead');
+ assert.equal(s.resumePending,false);
+ const plain=new context.TV_TORRENT.Session(engine,{name:'movie.mp4',offset:408*4194304,length:200*4194304},0);
+ selected.length=0;plain.ensureWindow(409,true);assert.ok(selected.filter(x=>x[2]===1)[0][1]>409,'without resume, start read-ahead is unchanged');
+});

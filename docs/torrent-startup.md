@@ -146,12 +146,31 @@ on a peer once its queue exceeds two seconds:
 - A peer may hold at most two seconds of its measured rate in playhead (critical) blocks;
   its remaining queue serves read-ahead. Faster peers, and hotswap from slower ones, take the
   rest. Before a peer's rate is known the starting pipeline of 5 applies unchanged.
-- The stats line's buffer now comes from the service: verified bytes in RAM contiguous with the
-  reader's position. On the TV the browser's buffered ranges are byte-based estimates and showed
-  0 s even while paused.
+- The service reports `aheadBytes` (verified RAM contiguous with the reader) for diagnostics.
+  The browser's buffered ranges are byte-based estimates on the TV and showed 0 s even while
+  paused; the buffer figure was removed from the player at the user's request.
 
 Reviewed and not adopted: [anacrolix/torrent's responsive reader](https://github.com/anacrolix/torrent/blob/master/reader.go)
 returns chunks before the piece is verified; it would break the verified-payload rule. Duplicate
 "busy" requests from libtorrent are already covered by the one-time urgent-block recovery.
 Whether these changes shorten the resume wait is not measured yet.
+
+## Second TV trace after a full restart (same file, resume at 355 s): 66 s
+
+- 0-13 s: no peers (cold service after the restart; tracker/DHT discovery).
+- 13-28 s: first 4 MiB piece at a slow swarm ramp.
+- 28-42 s: the browser read ~6 MiB (piece 1), the moov at the end, then piece 1 again. The tail
+  jump had evicted piece 1, so it was downloaded twice (~5 s here, ~2 s in the first trace).
+  Fixed: one reserved cache slot keeps the last piece read before a jump (budget-checked).
+- 44-48 s: the resume piece arrived about 4 s after the seek (17 s in the first trace; a single
+  run, not a controlled comparison).
+- 48-66 s: about 20 MB were delivered from the resume piece before `canplay`. That is consistent
+  with decoding from the preceding keyframe to the exact resume time (x264's default keyint of
+  250 frames is ~10 s); Chromium has no `fastSeek`. Not changed.
+
+Also from this trace: after the first piece, the engine downloaded the normal 32 MiB read-ahead
+from the start of the file (pieces 1-8) although playback resumed at 355 s. Sessions opened with
+`resume` (player resume point over two minutes) now select only the pieces actually read until
+the first read outside the start (first three pieces) and the end region (last two pieces);
+that read is the resume position and gets the normal window. Older services ignore the flag.
 
