@@ -1,5 +1,5 @@
 {
-  "name": "stremio-kai-tizen",
+  "name": "kai-turbo-tv",
   "version": "1.2.0-tizen.1",
   "private": true,
   "description": "Stremio Kai Timeworn ported to old Samsung Tizen TVs (2017+, Tizen 3.0) as a TizenBrew app module",
@@ -28,10 +28,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FeridunDuran/stremio-kai-tizen.git"
+    "url": "https://github.com/FeridunDuran/kai-turbo-tv.git"
   },
   "packageType": "app",
-  "appName": "Stremio Kai",
+  "appName": "Kai Turbo TV",
   "appPath": "dist/index.html",
   "keys": [
     "MediaPlayPause",

@@ -254,3 +254,13 @@ connections are open. `peerRetries` in the remote log counts these attempts. Thi
 connection attempts, not payload requests. Whether more of the 59 peers become reachable from
 the TV (NAT, firewalls, uTP-only peers) is not measured yet; uTP is not enabled.
 
+## Session removed during playback (TV trace)
+
+Playback started at 21:35:24; at 21:39:10 the status endpoint no longer knew the session, the
+stream was cut at 265 s and reopening the same local URL failed (error 4). Leaving and
+re-entering the player worked. The service removes sessions idle for three minutes, but
+`lastUsed` changed only when a Range request opened; one long response that streams for minutes
+looked idle. Sessions with an open player response are now never idle, delivered data also
+updates `lastUsed`, and the idle time counts from the end of the last response. The player also
+opens the torrent again at the played position when the service reports the session missing.
+

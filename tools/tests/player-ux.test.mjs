@@ -35,7 +35,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
     nav: { KEY, focus: (n) => { focused = n; }, current: () => focused, topLayer: () => ({ root: view && view.el }) },
     luna: { closeHeavyBackgroundApps: () => Promise.resolve([]) },
     subs: { Renderer: () => ({ clear() {}, update() {}, setOffset() {}, set() {}, offset: () => 0 }) }, substyle: { apply() {} },
-    store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: { explainTorrentError: () => ({ title: 'Torrent playback failed.', hint: '' }), explainVideoError: () => Promise.resolve({ title: 'failed', hint: '' }) },
+    store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn: (...a) => logs.push(a) } }, http: {}, mediaerror: { explainTorrentError: () => ({ title: 'Torrent playback failed.', hint: '' }), explainVideoError: () => Promise.resolve({ title: 'failed', hint: '' }) },
     server: { isTorrent: (s) => !!s.infoHash, isPlayableType: (s) => !!(s.infoHash || s.url), isAvailable: () => false,
       toPlayable(s, series, options) { plays.push({ s, series, options, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
     tvproxy: { isTorrentAvailable: () => true, torrentResumed: (url) => { resumedCalls.push(url); return Promise.resolve(true); }, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
@@ -296,4 +296,19 @@ test('a truncated stream reported as ended mid-episode reconnects instead of sta
   assert.equal(g.lookups.length, 1, 'a real end still continues to the next episode');
   assert.equal(g.logs.some((l) => l[0] === 'Premature end of stream'), false);
   g.close();
+});
+
+test('a lost TV service session reopens the torrent at the played position instead of failing', async () => {
+  const f = await fixture();
+  f.video.duration = 1285; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
+  f.video.currentTime = 260; f.video.emit('seeked');
+  for (const t of [262, 264, 265]) { f.video.currentTime = t; f.video.emit('timeupdate'); }
+  f.video.currentTime = 1285; f.video.emit('ended');             // cut stream
+  [...f.timers.values()].filter((t) => t.ms === 300).forEach((t) => t.fn());
+  f.video.error = { code: 4 }; f.video.emit('error'); await flush(); await flush();
+  assert.ok(f.logs.some((l) => l[0] === 'Torrent session lost; opening the torrent again'));
+  assert.equal(f.plays.length, 2, 'torrent opened again');
+  assert.equal(f.plays[1].options.resume, true);
+  assert.ok(!f.byHtml('Try again'), 'no error shown');
+  f.close();
 });

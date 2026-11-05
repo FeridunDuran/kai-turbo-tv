@@ -1,7 +1,10 @@
-# Stremio Kai for Tizen (FeridunDuran fork)
+# Kai Turbo TV
 
-Stremio for Samsung Tizen TVs, including older models (2017 and newer, Tizen 3.0+) that can't
-run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd/TizenBrew)
+**Stremio for Samsung TVs that plays torrents on the TV itself: no PC, faster starts, steadier
+playback.**
+
+Kai Turbo TV runs on Samsung Tizen TVs, including older models (2017 and newer, Tizen 3.0+) that
+can't run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd/TizenBrew)
 app module with the [Stremio Kai](https://github.com/allecsc/Stremio-Kai) look, fully
 controlled with the Samsung remote.
 
@@ -88,6 +91,10 @@ Peerflix and qBittorrent, checked against their source code and the TV's own log
 - **Slow is not broken.** A torrent that is still receiving data counts as buffering, not as a
   stall. The TV's player gives up after about 30 s without the first bytes; if data is still
   arriving, the app reopens the stream instead of showing an error.
+- **A long episode keeps its connection.** The TV service no longer treats a stream that has
+  been playing for minutes as idle; it used to remove it after about 3.5 minutes, so playback
+  stopped and could not reconnect. If the service still loses a stream, the player opens the
+  torrent again at the position played instead of showing an error.
 - **A stall cannot skip an episode.** Once video has been delivered the stream stays open while
   waiting for peers. Before, the TV's player read a closed stream as the end of the file and
   jumped to the next episode (seen on the Q70T, now fixed).
@@ -367,14 +374,18 @@ TizenBrew needs this to run:
 
 Leave Developer Mode on from now on, or TizenBrew won't open.
 
-### 5. Add Stremio Kai
+### 5. Add Kai Turbo TV
 
 1. Open **TizenBrew** and go to **Module Manager → Add module**.
 2. Choose **GitHub** (not NPM) and enter:
    ```
-   FeridunDuran/stremio-kai-tizen
+   FeridunDuran/kai-turbo-tv
    ```
-3. **Stremio Kai** now appears in TizenBrew. Open it.
+3. **Kai Turbo TV** now appears in TizenBrew. Open it.
+
+**Coming from `FeridunDuran/stremio-kai-tizen`?** That was this project's earlier name. Remove the
+old module in TizenBrew, add `FeridunDuran/kai-turbo-tv`, then fully restart the TV (hold the
+remote's power button). Your sign-in and settings stay on the TV.
 
 ### 6. First launch
 
@@ -465,7 +476,7 @@ npm run build
 ```
 
 Keep `REPO` in `src/static/loader.js` and `src/js/api/update.js` pointing to
-`FeridunDuran/stremio-kai-tizen`, otherwise the TV loads upstream's code instead of this fork.
+`FeridunDuran/kai-turbo-tv`, otherwise the TV loads upstream's code instead of this fork.
 
 ## Credits
 

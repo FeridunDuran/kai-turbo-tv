@@ -67,7 +67,7 @@ function waitForTorrent(fallback) {
 // unversioned service cache. This is a local TizenBrew command, never a PC service.
 function startPlayerService() {
   if (launch) return launch;
-  const m = (window.__KAI_BASE__ || '').match(/\/gh\/(FeridunDuran\/stremio-kai-tizen)@([a-f0-9]{40})\/dist\/$/);
+  const m = (window.__KAI_BASE__ || '').match(/\/gh\/(FeridunDuran\/(?:kai-turbo-tv|stremio-kai-tizen))@([a-f0-9]{40})\/dist\/$/);
   if (!m || !/\/module\//.test(location.pathname) || typeof WebSocket === 'undefined') return Promise.resolve(false);
   launch = new Promise((resolve) => {
     let done = false;

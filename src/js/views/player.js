@@ -139,6 +139,7 @@ function PlayerView(opts) {
   let reopenBytes = 0;
   let playedPosition = 0;
   let prematureEnds = 0;
+  let sessionRestarts = 0;
   let backArmedAt = 0;
   // Startup timeline: milliseconds from start() to each player milestone, logged once.
   let startedAt = 0;
@@ -387,6 +388,8 @@ function PlayerView(opts) {
   videoEl.addEventListener('playing', () => {
     clearStartup();
     if (!hasPlayed) {
+      // Playing again: a later session loss is a new incident with its own retries.
+      sessionRestarts = 0;
       scheduleAudioPick();
       mark('playing');
       logStartupTimeline();
@@ -587,9 +590,19 @@ function PlayerView(opts) {
     // The TV's player reports error 4 after about 30 s without the first bytes (TV traces:
     // error at 30 s, the torrent piece verified 3 s later). While the engine is still
     // receiving data this is a slow start, not a failure: reopen the same local URL.
-    if (server.isTorrent(stream) && !hasPlayed && err && err.code === 4 && torrentReopens < 3) {
+    if (server.isTorrent(stream) && !hasPlayed && err && err.code === 4 && (torrentReopens < 3 || sessionRestarts < 2)) {
       tvproxy.torrentStats(failedUrl).then((stats) => {
         if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+        // The TV service no longer knows this stream (its session ended or the service restarted):
+        // reopening the same URL cannot work. Open the torrent again at the position played.
+        if (!stats && playedPosition > 0 && sessionRestarts < 2) {
+          sessionRestarts++;
+          log.warn('Torrent session lost; opening the torrent again', { n: sessionRestarts, at: Math.round(playedPosition) });
+          pendingStart = playedPosition * 1000;
+          start();
+          return;
+        }
+        if (torrentReopens >= 3) return playbackFailed(err, failedUrl, failedAttempt);
         const bytes = stats ? stats.downloaded || 0 : 0;
         if (stats && bytes > reopenBytes) {
           reopenBytes = bytes;

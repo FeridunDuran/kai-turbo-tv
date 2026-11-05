@@ -7126,7 +7126,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function startPlayerService() {
     if (launch) return launch;
-    var m = (window.__KAI_BASE__ || "").match(/\/gh\/(FeridunDuran\/stremio-kai-tizen)@([a-f0-9]{40})\/dist\/$/);
+    var m = (window.__KAI_BASE__ || "").match(/\/gh\/(FeridunDuran\/(?:kai-turbo-tv|stremio-kai-tizen))@([a-f0-9]{40})\/dist\/$/);
     if (!m || !/\/module\//.test(location.pathname) || typeof WebSocket === "undefined") return Promise.resolve(false);
     launch = new Promise(function (resolve) {
       var done = false;
@@ -10229,6 +10229,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var reopenBytes = 0;
     var playedPosition = 0;
     var prematureEnds = 0;
+    var sessionRestarts = 0;
     var backArmedAt = 0;
     var startedAt = 0;
     var marks = {};
@@ -10501,6 +10502,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     videoEl.addEventListener("playing", function () {
       clearStartup();
       if (!hasPlayed) {
+        sessionRestarts = 0;
         scheduleAudioPick();
         mark("playing");
         logStartupTimeline();
@@ -10704,9 +10706,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearStartup();
       var failedUrl = mediaUrl;
       var failedAttempt = startGeneration;
-      if (isTorrent(stream) && !hasPlayed && err && err.code === 4 && torrentReopens < 3) {
+      if (isTorrent(stream) && !hasPlayed && err && err.code === 4 && (torrentReopens < 3 || sessionRestarts < 2)) {
         torrentStats(failedUrl).then(function (stats) {
           if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+          if (!stats && playedPosition > 0 && sessionRestarts < 2) {
+            sessionRestarts++;
+            log.warn("Torrent session lost; opening the torrent again", {
+              n: sessionRestarts,
+              at: Math.round(playedPosition)
+            });
+            pendingStart = playedPosition * 1e3;
+            start3();
+            return;
+          }
+          if (torrentReopens >= 3) return playbackFailed(err, failedUrl, failedAttempt);
           var bytes = stats ? stats.downloaded || 0 : 0;
           if (stats && bytes > reopenBytes) {
             reopenBytes = bytes;
@@ -14115,10 +14128,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/api/update.js
-  var REPO = "FeridunDuran/stremio-kai-tizen";
+  var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:29:17.813Z";
+  var BUILD = "2026-11-05T18:42:51.608Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

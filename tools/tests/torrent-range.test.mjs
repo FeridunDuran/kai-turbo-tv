@@ -193,3 +193,18 @@ test('discovered peers that the swarm dropped after a failed connect are retried
  engine.swarm.wires=new Array(20);engine.emit('peer','9.9.9.9:1');now+=60000;tick();
  assert.equal(connects.length,3,'no retries while enough connections are open');
 });
+
+test('a session with an open player response is never removed as idle (TV trace: removed after 3.5 min of playback)',()=>{
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','registerForTest: function (s) { sessions[s.id] = s; order.push(s.id); }, isOpen: function (id) { return !!sessions[id]; }, supported: supported,'),context);
+ let destroyed=0;const playing={id:'a'.repeat(16),lastUsed:0,reader:{destroyed:false},destroy(){destroyed++;}};
+ const closed={id:'b'.repeat(16),lastUsed:0,reader:{destroyed:true},destroy(){destroyed++;}};
+ context.TV_TORRENT.registerForTest(playing);context.TV_TORRENT.registerForTest(closed);
+ context.TV_TORRENT.sweepIdle(4*60*1000);
+ assert.equal(context.TV_TORRENT.isOpen(playing.id),true,'streaming session kept');
+ assert.equal(context.TV_TORRENT.isOpen(closed.id),false,'session without a player response still expires');
+ playing.reader.destroyed=true;context.TV_TORRENT.sweepIdle(4*60*1000+60000);
+ assert.equal(context.TV_TORRENT.isOpen(playing.id),true,'idle time counts from the end of the last response');
+ context.TV_TORRENT.sweepIdle(4*60*1000+4*60*1000);
+ assert.equal(context.TV_TORRENT.isOpen(playing.id),false);
+});

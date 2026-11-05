@@ -532,6 +532,7 @@ var TV_TORRENT = (function () {
       self.session.lastDataAt = Date.now();
       if (self.diag) self.diag.sent += slice.length;
       session.delivered = (session.delivered || 0) + slice.length;
+      session.lastUsed = Date.now();
       if (self.res.write(slice)) return self._next();
       self.res.once('drain', function () { self._next(); });
     });
@@ -756,11 +757,24 @@ var TV_TORRENT = (function () {
   }
 
   setInterval(function () {
-    var now = Date.now();
-    order.slice().forEach(function (id) {
-      if (sessions[id] && now - sessions[id].lastUsed > IDLE_MS) destroySession(id);
-    });
+    sweepIdle(Date.now());
   }, 30000);
+
+  // A session is idle only when no player response is open. lastUsed used to change only when a
+  // Range request opened, so one long response (minutes of playback) looked idle and the session
+  // was destroyed mid-playback after about 3.5 minutes (TV trace); the player then could not
+  // reconnect to the removed session.
+  function sweepIdle(now) {
+    order.slice().forEach(function (id) {
+      var s = sessions[id];
+      if (!s) return;
+      if (s.reader && !s.reader.destroyed) {
+        s.lastUsed = now;
+        return;
+      }
+      if (now - s.lastUsed > IDLE_MS) destroySession(id);
+    });
+  }
 
   // Verified bytes held in RAM directly after the service's read position (what the player can
   // still receive without waiting for the swarm). Bytes already sent to the browser are not included.
@@ -774,6 +788,7 @@ var TV_TORRENT = (function () {
   }
 
   return {
+    sweepIdle: sweepIdle,
     resumed: function (id) {
       var s = sessions[id];
       if (!s) return false;

@@ -174,8 +174,8 @@ test('proxy bootstrap pins the app revision and coalesces concurrent checks', as
   let running = false, probes = 0, engineProbes = 0;
   const context = { store: { get: (k, d) => d, set() {} },
     Promise, Date, encodeURIComponent, log: { info() {} },
-    window: { __KAI_BASE__: 'https://cdn.jsdelivr.net/gh/FeridunDuran/stremio-kai-tizen@' + 'a'.repeat(40) + '/dist/' },
-    location: { pathname: '/module/gh%2FFeridunDuran%2Fstremio-kai-tizen/dist/index.html' },
+    window: { __KAI_BASE__: 'https://cdn.jsdelivr.net/gh/FeridunDuran/kai-turbo-tv@' + 'a'.repeat(40) + '/dist/' },
+    location: { pathname: '/module/gh%2FFeridunDuran%2Fkai-turbo-tv/dist/index.html' },
     setTimeout: (fn, ms) => setTimeout(fn, ms === 500 ? 0 : ms), clearTimeout,
     XMLHttpRequest: class {
       open(method, url) { this.url = url; }
@@ -206,7 +206,7 @@ test('proxy bootstrap pins the app revision and coalesces concurrent checks', as
   assert.equal((await a).ok, true);
   assert.equal((await context.lastStatus()).torrent, true);
   assert.equal(commands.length, 1);
-  assert.equal(commands[0].payload.fullName, 'gh/FeridunDuran/stremio-kai-tizen@' + 'a'.repeat(40));
+  assert.equal(commands[0].payload.fullName, 'gh/FeridunDuran/kai-turbo-tv@' + 'a'.repeat(40));
   assert.equal(commands[0].payload.serviceFile, 'dist/player-service.js');
   assert.equal(probes, 4);
   await context.ensure();
