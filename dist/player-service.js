@@ -17958,16 +17958,20 @@ var TV_TORRENT = (function () {
 
     var done = false;
     var peerCount = 0;
-    var wireCount = 0;
+    var handshakeCount = 0;
     engine.on('peer', function () { peerCount++; });
-    engine.on('wire', function () { wireCount++; });
+    engine.on('wire', function (wire) {
+      // torrent-stream emits "wire" as soon as a socket is wrapped, before
+      // the BitTorrent handshake succeeds. Count the handshake itself here.
+      wire.once('handshake', function () { handshakeCount++; });
+    });
     (body.sources || []).forEach(function (source) {
       var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
       if (match) { peerCount++; engine.connect(match[1]); }
     });
     var timer = setTimeout(function () {
-      var reason = !peerCount && !wireCount ? 'no peers found; tracker/DHT discovery may be blocked or the torrent is inactive'
-        : !wireCount ? 'peers found but no BitTorrent handshake completed; peers may be unreachable'
+      var reason = !peerCount ? 'no peers found; tracker/DHT discovery may be blocked or the torrent is inactive'
+        : !handshakeCount ? 'peers found but no BitTorrent handshake completed; peers may be unreachable'
         : 'peers connected but did not supply complete metadata';
       finish(new Error('torrent metadata timeout after 120 seconds: ' + reason));
     }, OPEN_TIMEOUT_MS);

@@ -32,11 +32,22 @@ test('metadata discovery includes HTTP alternatives and preserves addon trackers
   assert.equal(timers[0].ms, 120000);
 });
 
-test('metadata deadline explains discovery, handshake and metadata exchange failures', () => {
-  for (const [events, expected] of [[[], /no peers found/], [['peer'], /no BitTorrent handshake/], [['peer', 'wire'], /did not supply complete metadata/]]) {
+test('metadata deadline distinguishes socket attempts from completed handshakes', () => {
+  for (const [events, expected] of [
+    [[], /no peers found/],
+    [['peer', 'wire'], /no BitTorrent handshake/],
+    [['peer', 'wire', 'handshake'], /did not supply complete metadata/],
+  ]) {
     const { api, engines, timers } = runtime(); let error, calls = 0;
     api.create({ infoHash: 'a'.repeat(40) }, (err) => { error = err; calls++; });
-    for (const event of events) engines[0].emit(event);
+    for (const event of events) {
+      if (event === 'wire') {
+        const wire = { once(name, callback) { this.handshake = callback; } };
+        engines[0].emit('wire', wire);
+        engines[0].testWire = wire;
+      } else if (event === 'handshake') engines[0].testWire.handshake();
+      else engines[0].emit(event);
+    }
     timers[0].fn();
     assert.match(error.message, /after 120 seconds/);
     assert.match(error.message, expected);
