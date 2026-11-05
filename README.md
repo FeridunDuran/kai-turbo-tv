@@ -1,22 +1,67 @@
-# Stremio Kai for Tizen
+# Stremio Kai for Tizen (FeridunDuran fork)
 
 Stremio for Samsung Tizen TVs, including older models (2017 and newer, Tizen 3.0+) that can't
 run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd/TizenBrew)
-app module and brings the [Stremio Kai](https://github.com/allecsc/Stremio-Kai) look and
-features to Tizen, fully controlled with the Samsung remote.
+app module with the [Stremio Kai](https://github.com/allecsc/Stremio-Kai) look, fully
+controlled with the Samsung remote.
+
+This is a fork of [ITzAkai/kai](https://github.com/ITzAkai/kai). It follows upstream and adds
+its own fixes and features, listed below. The app loads and updates itself from **this**
+repository.
 
 > **Unofficial.** Not affiliated with Stremio, Stremio Kai or Samsung. The app hosts no
 > content: it only shows what the add-ons on **your** Stremio account provide.
 
 ![Stremio Kai home screen on a Samsung TV](docs/screenshots/home.jpg)
 
-## Features
+## What this fork adds
 
-### A home screen built for the TV
+### Continue watching keeps your series
+Upstream dropped a series from **Continue watching** as soon as you finished an episode. This
+fork follows the official Stremio logic (stremio-core):
+- When you leave an episode after 90% of it, the series moves on to the **next episode** and
+  stays in the row, ready to play.
+- Like Stremio, it doesn't jump from a regular season into specials (season 0) and skips
+  episodes that haven't been released yet.
+- A film, or the last episode of a series, leaves the row when finished.
+- Progress saved on your phone or PC shows up as soon as the app starts, without switching tabs.
+
+### Library sorting
+A **Sort** button next to All / Movies / Series, remembered per profile:
+- Last watched (default, as in Stremio), Recently added
+- Name A-Z, Name Z-A, Most watched
+- Release date (newest / oldest) and Rating (IMDb, highest)
+
+Library items don't carry release dates or ratings, so the first time you pick those sorts the
+app fetches them from your add-ons (two at a time, to spare the TV's memory) and keeps them on
+the TV. Titles without the information go last.
+
+### Home screen rows
+**Settings → Add-ons → Home screen rows** lists every catalog row. Pick one to move it up, down,
+to the top or the bottom, or to hide it. It works per profile and only changes this app, not
+your Stremio account. Rows from a newly added add-on appear at the bottom; **Reset to add-on
+order** brings back the default.
+
+Without this, rows follow the order of the add-ons on your account (the newest add-on last),
+which you can also change at web.stremio.com → Add-ons.
+
+### Only sources the TV can play
+Without a PC server, sources the TV can't open by itself (torrents, and links that need extra
+request headers, which the TV's video player can't send) are hidden from the source list, with a
+line per add-on saying how many were hidden. With a PC server they show as before, tagged
+**Via PC**.
+
+### Other changes
+- The loader and in-app updater point to this repository, so the TV runs this fork's code.
+- English is the default language; Samsung on-screen keyboard Done / Cancel work in text fields.
+
+## Features from upstream
+
+#### A home screen built for the TV
 Rotating hero banner with the title's logo, rating, runtime and genres, and **Watch** /
 **Details** one press away. Below it, every catalog from your Stremio add-ons as a row.
 
-### See all, without dead ends
+#### See all, without dead ends
 Every row ends in a **See all** tile that opens the whole catalog as a grid. More titles load
 on their own as you scroll down, so you never hit the end of a list.
 
@@ -24,7 +69,7 @@ on their own as you scroll down, so you never hit the end of a list.
 |---|---|
 | ![See all tile at the end of a row](docs/screenshots/see-all-row.jpg) | ![Full catalog grid](docs/screenshots/see-all-grid.jpg) |
 
-### Smart Choice
+#### Smart Choice
 Press **Watch** and the app picks the best source and starts playing, no source list to scroll
 through. It prefers direct (debrid) links, your add-ons' order, and files the TV plays well,
 skipping Dolby Vision, REMUX and very high bitrates when there's anything else. If a source won't
@@ -32,7 +77,7 @@ start, it moves on to the next best one. **Sources** still shows the full list.
 
 ![Details page: Watch with Smart Choice, Sources, Trailer and Library](docs/screenshots/smart-choice.jpg)
 
-### Phone remote
+#### Phone remote
 Use your phone as the remote, no app to install. Scan the QR code in **Settings → Phone remote**
 and your phone's browser opens a remote with a D-pad, OK, Back and playback buttons, subtitle
 sync and volume buttons, a **Now playing** card (poster, title and a progress bar you can drag
@@ -50,12 +95,12 @@ Library as posters; tap one and it opens on the TV, ready on that episode.
 
 <img src="docs/screenshots/phone-browse.jpg" alt="Browse tab on the phone" width="300">
 
-### Search across all your add-ons
+#### Search across all your add-ons
 Results from every add-on that supports search, grouped by movies and series.
 
 ![Search results](docs/screenshots/search.jpg)
 
-### Release calendar: anime, series and movies
+#### Release calendar: anime, series and movies
 A week at a time, day by day:
 - **Anime:** every episode airing that day, including Chinese and Korean titles, with air
   time, episode and score.
@@ -67,7 +112,7 @@ A week at a time, day by day:
 |---|---|
 | ![Anime calendar](docs/screenshots/calendar-anime.jpg) | ![Series calendar](docs/screenshots/calendar-series.jpg) |
 
-### English and Arabic
+#### English and Arabic
 The whole app in **English** or **Arabic** (Settings → Language / اللغة, or automatic from the
 TV's language). Arabic switches to a right-to-left layout, while titles and synopses keep their
 own direction.
@@ -76,13 +121,13 @@ own direction.
 |---|---|
 | ![Arabic home screen](docs/screenshots/arabic-home.jpg) | ![Arabic details screen](docs/screenshots/arabic-details.jpg) |
 
-### Profiles and settings
+#### Profiles and settings
 "Who's watching?" profiles, each on its own Stremio account, plus language, Smart Choice,
 theme, subtitle and streaming-server settings, all usable with the remote.
 
 ![Settings](docs/screenshots/settings.jpg)
 
-### Trailers and actor profiles
+#### Trailers and actor profiles
 - **Trailer** on every film and series page plays the official trailer full screen. Back closes
   it, OK pauses, and left/right switch between trailers when there are several.
 - Select anyone in the **cast** to open their profile: photo, age, birthplace, biography, and all
@@ -93,13 +138,13 @@ theme, subtitle and streaming-server settings, all usable with the remote.
 
 ![A trailer playing full screen](docs/screenshots/trailer.jpg)
 
-### New episodes
+#### New episodes
 A home-screen row with the episodes released in the last 7 days for the series in your library,
 skipping the ones you've watched. Each opens straight on that episode.
 
 ![New episodes row](docs/screenshots/new-episodes.jpg)
 
-### Watching
+#### Watching
 - **Skip intros automatically.** Intros and recaps are skipped on their own (IntroDB and
   AniSkip); at the credits the Up next card takes over. Settings → Skip intro can switch back to
   a button.
@@ -113,15 +158,14 @@ skipping the ones you've watched. Each opens straight on that episode.
   (or yellow/blue, or the phone remote's buttons) to move them later or earlier by 0.25 s. The
   setting is remembered for that episode or film.
 - **Continue watching everywhere.** Progress syncs through your Stremio account: stop on the TV,
-  carry on on your phone, PC or Fire TV, and the other way round. The TV refreshes the row when
-  you come back to the home screen.
+  carry on on your phone, PC or Fire TV, and the other way round.
 
-### Themes
+#### Themes
 Purple, gold, teal, red, blue or green: **Settings → Colour theme** recolours the whole app.
 
 ![Gold theme](docs/screenshots/theme-gold.jpg)
 
-### And more
+#### And more
 - **Search by actor.** With a TMDB key, search shows matching actors and directors first; each
   opens their profile.
 - **In-app updater.** Settings shows the installed and newest version; one press updates.
@@ -234,9 +278,10 @@ Leave Developer Mode on from now on, or TizenBrew won't open.
    shown on the TV, or sign in with email.
 3. Your add-ons and library load from your account. Pick something and play.
 
-**Updating:** open **Settings → Updates**. It shows your installed version and the newest one on
-GitHub with what changed; **Check for update → Update now** installs it and reloads the app. The
-app also checks once a day and tells you when there's something new.
+**Updating:** the app loads the newest commit of this repository each time it starts, so a full
+restart is enough. Samsung keeps apps running in the background: if a new version doesn't show
+up, hold the remote's power button until the TV restarts. **Settings → Updates** shows the
+installed and newest version and can update from there too.
 
 ![Updates in Settings](docs/screenshots/updates.jpg)
 
@@ -248,6 +293,10 @@ app also checks once a day and tells you when there's something new.
   the TV was restarted afterwards, and both are on the same network (not a guest network).
 - **A video won't play:** try a debrid (direct) source, or check that stremio-service is
   running on the PC for torrent sources.
+- **Few or no sources:** without a PC server, sources the TV can't open on its own are hidden;
+  each add-on shows how many were hidden.
+- **The Library tab or a new feature doesn't appear:** the TV is still running the old version;
+  restart it fully (see Updating).
 
 ## Tizen integration
 
@@ -257,7 +306,8 @@ app also checks once a day and tells you when there's something new.
 - Finds the TV's IP address (to scan the network for stremio-service) through Samsung's
   network API, with a WebRTC fallback.
 - Shows the TV model in Settings through Samsung's product info API.
-- Updates through TizenBrew.
+- Updates itself: a small loader asks GitHub for this repository's newest commit and loads that
+  build from jsDelivr, falling back to the copy TizenBrew installed.
 
 ## Known limitations
 
@@ -276,13 +326,28 @@ npm run build
 ```
 
 The built app is written to `dist/`, which TizenBrew loads (`appPath` in `package.json`).
+Commit `dist/` together with the source: the TV runs the built files straight from GitHub.
+
+### Syncing with upstream
+
+```
+git remote add upstream https://github.com/ITzAkai/kai
+git fetch upstream
+git merge upstream/main
+npm run build
+```
+
+Keep `REPO` in `src/static/loader.js` and `src/js/api/update.js` pointing to
+`FeridunDuran/stremio-kai-tizen`, otherwise the TV loads upstream's code instead of this fork.
 
 ## Credits
 
 - [Stremio Kai](https://github.com/allecsc/Stremio-Kai) by allecsc: the original design and features.
 - [Stremio Kai Timeworn](https://github.com/creachec/Stremio-Kai-Timeworn) by binhoc: the
   lightweight TV build this Tizen version is based on.
+- [ITzAkai/kai](https://github.com/ITzAkai/kai): the Tizen port this fork follows.
 - [TizenBrew](https://github.com/reisxd/TizenBrew) by reisxd: runs this app on Samsung TVs.
+- [stremio-core](https://github.com/Stremio/stremio-core): the Continue watching rules.
 - [Stremio](https://www.stremio.com/).
 
 ## License
