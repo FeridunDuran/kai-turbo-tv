@@ -10532,6 +10532,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadSegments();
     });
     videoEl.addEventListener("playing", function () {
+      if (isTorrent(stream) && mediaUrl) torrentResumed(mediaUrl);
       clearStartup();
       if (!hasPlayed) {
         sessionRestarts = 0;
@@ -14208,7 +14209,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T20:50:13.177Z";
+  var BUILD = "2026-11-05T20:57:30.586Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

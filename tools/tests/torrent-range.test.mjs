@@ -143,13 +143,13 @@ test('16 MiB pieces: start piece survives the tail read, and the resume signal o
  const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
  vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
  const s=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:209*16777216+2282697,length:690305268},0);
- assert.equal(s.returnSlot,0);assert.deepEqual(Array.from(s.headerPieces),[209]);s.resumePending=true;
+ assert.equal(s.returnSlot,0);assert.deepEqual(Array.from(s.headerPieces),[209,250]);s.resumePending=true;
  s.ensureWindow(209);s.lastReadIndex=209;
  store.present.push(250);s.ensureWindow(250,true);s.lastReadIndex=250;
  assert.equal(removed.includes(209),false,'start piece kept across the 8.5 KB tail read');
  s.ensureWindow(209);assert.ok(store.present.includes(209),'start re-read served from RAM');
  s.ensureWindow(230,true);s.lastReadIndex=230;s.ensureWindow(250,true);assert.ok(store.present.includes(209),'header survives multiple resume/tail jumps, not just one return');
- selected.length=0;s.resumePending=true;s.ensureWindow(211,true);
+ s.finishStartup();selected.length=0;s.resumePending=true;s.ensureWindow(211,true);
  assert.deepEqual(selected.filter(x=>x[2]===1),[[211,211,1]],'resume piece only, no read-ahead before the signal');
  const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);
  assert.ok(retained.size*16777216<=48*1024*1024,'within the 48 MiB cache');
@@ -227,4 +227,19 @@ test('engine keeps choked peers 15 s and gives TCP connects 5 s (TV trace: 550 q
  const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/index.cjs',import.meta.url),'utf8');
  assert.match(source,/var CHOKE_TIMEOUT = 15000/);
  assert.match(source,/connectTimeout: opts\.connectTimeout \|\| 5000/);
+});
+
+
+test('16 MiB startup overlaps head and low-priority tail, then gives the tail slot back to read-ahead',()=>{
+ const selected=[],deselected=[],engine=new EventEmitter(),store={present:[],remove(){return false;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:16777216},select:(a,b,p)=>selected.push([a,b,p]),deselect:(a,b,p)=>deselected.push([a,b,p]),release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ for(const name of ['episode.mkv','episode.mp4']){
+ selected.length=0;const s=new context.TV_TORRENT.Session(engine,{name,offset:0,length:100*16777216},0);
+ assert.deepEqual(selected,[[0,0,1],[99,99,0]]);s.ensureWindow(50,true);
+ const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);assert.ok(retained.size*16777216<=48*1024*1024);
+ assert.equal(s.aheadPieces,0);assert.equal(s.finishStartup(),true);assert.equal(s.finishStartup(),false);
+ assert.equal(s.aheadPieces,1);assert.deepEqual(Array.from(s.headerPieces),[0]);assert.ok(deselected.some(x=>x[0]===99&&x[2]===0));
+ }
 });

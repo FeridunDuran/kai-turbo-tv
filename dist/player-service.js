@@ -18395,6 +18395,10 @@ var TV_TORRENT = (function () {
       this.headerPieces.push(this.first);
       if (slots >= 4 && /\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
     }
+    // Three-slot (16 MiB) sessions reserve head + tail during startup only.
+    // Tail priority is lower than the playhead and cannot outrank its requests.
+    this.startupTail = slots === 3 && this.headerPieces.length === 1 && this.last !== this.first ? this.last : null;
+    if (this.startupTail !== null) this.headerPieces.push(this.startupTail);
     // One slot keeps the last piece read before a jump (see ensureWindow). TV traces: an MP4 read
     // 0 MiB, ~6 MiB, the moov at the end, then ~6 MiB again; an MKV with 16 MiB pieces read the
     // start, 8.5 KB at the end, then the start again. The piece had been evicted by the tail jump
@@ -18422,9 +18426,22 @@ var TV_TORRENT = (function () {
     engine.on('download', this._onpiece);
     this.headerNotify = function () {};
     this.headerPieces.forEach(function (index) {
-      engine.select(index, index, 1, self.headerNotify);
+      engine.select(index, index, index === self.startupTail ? 0 : 1, self.headerNotify);
     });
   }
+
+  Session.prototype.finishStartup = function () {
+    if (this.startupTail === null) return false;
+    var tail = this.startupTail;
+    this.engine.deselect(tail, tail, 0, this.headerNotify);
+    this.headerPieces.splice(this.headerPieces.indexOf(tail), 1);
+    this.startupTail = null;
+    var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength)) - this.headerPieces.length;
+    this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, slots - 2));
+    this.aheadPieces = Math.min(Math.ceil(AHEAD_BYTES / this.pieceLength), Math.max(0, slots - this.behindPieces - 1));
+    this.stepPieces = Math.max(1, Math.floor(this.aheadPieces / 4));
+    return true;
+  };
 
   Session.prototype._pieceDone = function (index) {
     if (this.detached) return;
@@ -18553,7 +18570,7 @@ var TV_TORRENT = (function () {
   Session.prototype.detach = function () {
     this.detached = true;
     var self = this;
-    this.headerPieces.forEach(function (index) { self.engine.deselect(index, index, 1, self.headerNotify); });
+    this.headerPieces.forEach(function (index) { self.engine.deselect(index, index, index === self.startupTail ? 0 : 1, self.headerNotify); });
     this._deselect();
     this.waiters = {};
     if (this.reader) this.reader.destroy();
@@ -18934,7 +18951,8 @@ var TV_TORRENT = (function () {
     resumed: function (id) {
       var s = sessions[id];
       if (!s) return false;
-      if (s.resumePending) {
+      var tailReleased = s.finishStartup();
+      if (s.resumePending || tailReleased) {
         s.resumePending = false;
         // Re-select the reader's piece so its normal read-ahead window starts now.
         if (s.reader && !s.reader.destroyed) s.ensureWindow(Math.floor((s.file.offset + s.reader.pos) / s.pieceLength), true);

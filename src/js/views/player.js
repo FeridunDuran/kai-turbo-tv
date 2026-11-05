@@ -398,6 +398,7 @@ function PlayerView(opts) {
     loadSegments();
   });
   videoEl.addEventListener('playing', () => {
+    if (server.isTorrent(stream) && mediaUrl) tvproxy.torrentResumed(mediaUrl);
     clearStartup();
     if (!hasPlayed) {
       // Playing again: a later session loss is a new incident with its own retries.

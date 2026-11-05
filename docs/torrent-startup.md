@@ -344,3 +344,17 @@ resume position. Missing diagnostic replies no longer imply that the TV needs re
 Range diagnostics now include closeReason and readError for the next TV investigation.
 107 tests, ES5 parse, build and the Node 4.4.3 loopback startup fixture pass.
 TV confirmation and the exact premature-end cause remain pending.
+
+## Overlap 16 MiB head and tail preparation
+
+Three-slot media sessions now select and pin the first and last piece during startup.
+The head has priority 1 and the speculative tail priority 0; the active reader retains priority 2.
+One slot remains for the requested piece, keeping the union within 48 MiB. This is intended
+to overlap the sequential head/tail waits observed on TV, including MKV end-index reads.
+The existing torrent-resumed signal, now also sent on playing for starts without a seek,
+releases the speculative tail pin and selection and returns its slot to forward buffering.
+The head stays pinned. Repeated completion signals are idempotent. Smaller-piece existing
+MP4 prefetch behavior remains unchanged; two-slot sessions do not add speculative tail work.
+108 tests pass, including priority ordering, cache accounting, release and read-ahead restoration.
+Build/ES5 and the Node 4.4.3 synthetic BitTorrent/HTTP fixture pass. The fixture is a loopback
+regression, not a 16 MiB public-swarm performance benchmark. Same-source TV comparison is pending.
