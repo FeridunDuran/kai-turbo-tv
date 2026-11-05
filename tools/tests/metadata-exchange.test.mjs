@@ -27,6 +27,11 @@ test('metadata blocks from different peers cannot contaminate each other',()=>{
   f.block(bad,0,true);f.block(good,1);f.block(good,0);
   assert.deepEqual(f.result,f.data);
 });
+test('complementary valid metadata blocks from two peers complete without waiting for either peer',()=>{
+  const f=fixture(),first=f.peer(),second=f.peer();
+  f.block(first,0);assert.equal(f.result,undefined);
+  f.block(second,1);assert.deepEqual(f.result,f.data);
+});
 test('hash rejection retries metadata on the same peer instead of waiting until timeout',()=>{
   const f=fixture(),peer=f.peer();let failures=0;f.engine.on('metadata-invalid',()=>failures++);
   f.block(peer,0,true);f.block(peer,1);

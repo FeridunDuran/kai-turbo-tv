@@ -14,6 +14,7 @@ var sha1 = function (data) {
 }
 
 module.exports = function (engine, callback) {
+  var sharedBySize = {}
 
   return function (wire) {
     var metadataPieces = []
@@ -62,6 +63,26 @@ module.exports = function (engine, callback) {
           if (payload.length !== Math.min(METADATA_BLOCK_SIZE, size - piece * METADATA_BLOCK_SIZE)) return
           metadataPieces[piece] = payload
           engine.emit('metadata-piece', piece, size)
+          // Complementary blocks can arrive from different peers. Only combine
+          // equal-sized metadata, and accept it only after checking the info hash.
+          // Keep each peer's own copy so one bad peer cannot poison its recovery.
+          var shared = sharedBySize[size]
+          if (!shared) {
+            shared = []
+            if (Object.keys(sharedBySize).length < 2) sharedBySize[size] = shared
+          }
+          shared[piece] = payload
+          var complete = true
+          for (var block = 0; block * METADATA_BLOCK_SIZE < size; block++) {
+            if (!shared[block]) { complete = false; break }
+          }
+          if (complete) {
+            var combined = Buffer.concat(shared)
+            if (engine.infoHash === sha1(combined)) {
+              callback(engine.metadata = combined)
+              return
+            }
+          }
           for (var i = 0; i * METADATA_BLOCK_SIZE < size; i++) {
             if (!metadataPieces[i]) return
           }

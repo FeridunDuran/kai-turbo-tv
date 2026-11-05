@@ -16789,6 +16789,7 @@ var TorrentEngine = function () {
         return crypto.createHash("sha1").update(data).digest("hex");
       };
       module.exports = function (engine, callback) {
+        var sharedBySize = {};
         return function (wire) {
           var metadataPieces = [];
           var retries = 0;
@@ -16835,6 +16836,26 @@ var TorrentEngine = function () {
                 if (payload.length !== Math.min(METADATA_BLOCK_SIZE, size - piece * METADATA_BLOCK_SIZE)) return;
                 metadataPieces[piece] = payload;
                 engine.emit("metadata-piece", piece, size);
+                var shared = sharedBySize[size];
+                if (!shared) {
+                  shared = [];
+                  if (Object.keys(sharedBySize).length < 2) sharedBySize[size] = shared;
+                }
+                shared[piece] = payload;
+                var complete = true;
+                for (var block = 0; block * METADATA_BLOCK_SIZE < size; block++) {
+                  if (!shared[block]) {
+                    complete = false;
+                    break;
+                  }
+                }
+                if (complete) {
+                  var combined = Buffer.concat(shared);
+                  if (engine.infoHash === sha1(combined)) {
+                    callback(engine.metadata = combined);
+                    return;
+                  }
+                }
                 for (var i2 = 0; i2 * METADATA_BLOCK_SIZE < size; i2++) {
                   if (!metadataPieces[i2]) return;
                 }
