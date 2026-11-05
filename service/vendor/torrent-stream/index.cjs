@@ -76,7 +76,10 @@ var torrentStream = function (link, opts, cb) {
   }
 
   var engine = new events.EventEmitter()
-  var swarm = pws(infoHash, opts.id, { size: (opts.connections || opts.size), speed: 10 })
+  // peer-wire-swarm gives a TCP connect 3 s. WebTorrent uses 5 s and libtorrent 15 s
+  // (peer_connect_timeout); TV Wi-Fi to distant peers needs the longer window.
+  var swarm = pws(infoHash, opts.id, { size: (opts.connections || opts.size), speed: 10,
+    connectTimeout: opts.connectTimeout || 10000 })
   var torrentPath = path.join(opts.tmp, opts.name, infoHash + '.torrent')
 
   if (cb) engine.on('ready', cb.bind(null, engine))

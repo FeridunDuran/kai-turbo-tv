@@ -237,3 +237,20 @@ episode.
   (three attempts, then the existing stall error). Progress saving and the up-next countdown
   ignore the jump.
 
+## Few connected peers (5 of 59)
+
+The same traces show `peersFound` 59 but `wiresOpened` 5. The vendored peer-wire-swarm gives an
+outgoing TCP connect 3 s ([CONNECTION_TIMEOUT](https://github.com/mafintosh/peer-wire-swarm/blob/master/index.js))
+and removes a peer whose connection closes before a handshake, so it is never tried again.
+[WebTorrent](https://github.com/webtorrent/webtorrent/blob/master/lib/peer.js) uses 5 s for TCP
+connects and re-adds every closed connection up to three times (`RECONNECT_WAIT` 1/5/15 s in
+[torrent.js](https://github.com/webtorrent/webtorrent/blob/master/lib/torrent.js));
+[libtorrent](https://github.com/arvidn/libtorrent/blob/RC_2_0/src/settings_pack.cpp) uses
+`peer_connect_timeout` 15 s and `max_failcount` 3.
+
+The engine now passes a 10 s connect timeout to the swarm, and the service re-offers discovered
+peers that the swarm has dropped, at most three times (5/15/30 s), only while fewer than 20
+connections are open. `peerRetries` in the remote log counts these attempts. This adds
+connection attempts, not payload requests. Whether more of the 59 peers become reachable from
+the TV (NAT, firewalls, uTP-only peers) is not measured yet; uTP is not enabled.
+

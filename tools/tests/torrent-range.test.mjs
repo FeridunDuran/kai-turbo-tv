@@ -23,7 +23,9 @@ test('closing an old Range response cannot cancel the replacement video request'
 
 test('active torrent blocks may take over a minute; twenty seconds without bytes stops the reader',()=>{
  let now=0,id=0,closed=0;const timers=new Map(),swarm=new EventEmitter();
- const context={require:()=>({}),setInterval(){},setTimeout(fn,ms){const token=++id;timers.set(token,{fn,at:now+ms});return token;},clearTimeout(token){timers.delete(token);}};
+ // The reader's deadline uses Date.now(); a fake clock keeps the 19999/20000 ms boundary exact
+ // (with the real clock the test failed intermittently by a millisecond).
+ const context={Date:{now:()=>now},require:()=>({}),setInterval(){},setTimeout(fn,ms){const token=++id;timers.set(token,{fn,at:now+ms});return token;},clearTimeout(token){timers.delete(token);}};
  const source=fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Reader: Reader, supported: supported,');vm.runInNewContext(source,context);
  function advance(ms){const target=now+ms;while(true){const due=[...timers].filter(([,t])=>t.at<=target).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;now=due[1].at;timers.delete(due[0]);due[1].fn();}now=target;}
  const reader=new context.TV_TORRENT.Reader({engine:{swarm}},0,100,{destroy(){closed++;}});reader._next=()=>{};reader.start();
@@ -176,4 +178,18 @@ test('after video was delivered, a data stall keeps the response open instead of
  assert.equal(reader.destroyed,false);
  swarm.emit('download',16384);advance(1000);assert.equal(closed,0);
  reader.destroy();assert.equal(swarm.listenerCount('download'),0);
+});
+
+test('discovered peers that the swarm dropped after a failed connect are retried at most three times',()=>{
+ let now=0,tick=null;const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(fn){tick=fn;return 1;},clearInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','retryFailedPeers: retryFailedPeers, supported: supported,'),context);
+ const connects=[],engine=new EventEmitter();
+ Object.assign(engine,{swarm:{_peers:{},wires:[]},connect(a){connects.push(a);},destroy(){},diag:{}});
+ context.TV_TORRENT.retryFailedPeers(engine,()=>now);
+ engine.emit('peer','1.2.3.4:6881');engine.emit('peer','5.6.7.8:1');engine.swarm._peers['5.6.7.8:1']={};// still known to the swarm
+ for(let i=0;i<40;i++){now+=2500;tick();}
+ assert.deepEqual(connects,['1.2.3.4:6881','1.2.3.4:6881','1.2.3.4:6881'],'three retries with backoff, never for peers the swarm still tracks');
+ assert.equal(engine.diag.peerRetries,3);
+ engine.swarm.wires=new Array(20);engine.emit('peer','9.9.9.9:1');now+=60000;tick();
+ assert.equal(connects.length,3,'no retries while enough connections are open');
 });

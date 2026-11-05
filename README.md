@@ -124,6 +124,11 @@ episode list instead of the previous episode's sources.
 - The TV's player gives up after about 30 seconds without the first bytes. If the torrent engine
   is still receiving data at that moment, the player reopens the same local stream (up to three
   times, each time only if more data arrived) instead of showing an error.
+- A TCP connection to a peer may take 10 s instead of 3 s (WebTorrent uses 5 s, libtorrent 15 s),
+  and a discovered peer whose first connection failed is tried again up to three times (after
+  5, 15 and 30 s) while fewer than 20 connections are open, as WebTorrent and libtorrent do.
+  Before, a peer was forgotten after one failed attempt; a TV trace connected to 5 of 59
+  discovered peers.
 - Peers that actually delivered data for a torrent are remembered in the app's own storage
   (20 torrents, 30 peers each) and offered to the TV engine as connection hints the next time the
   same torrent opens, as libtorrent does with the peers in its resume data. Discovery through

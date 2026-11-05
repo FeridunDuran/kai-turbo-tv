@@ -1057,7 +1057,7 @@ function PlayerView(opts) {
       discovery: d.createdAt ? { firstPeerMs: d.firstPeerMs, firstWireMs: d.firstWireMs, firstUnchokeMs: d.firstUnchokeMs,
         firstBlockMs: d.firstBlockMs, readyMs: d.readyMs, peersFound: d.peersFound, wiresOpened: d.wiresOpened,
         wiresClosed: d.wiresClosed, timeouts: d.timeouts, chokes: d.chokes, unchokes: d.unchokes,
-        hashFails: d.hashFails, hotswaps: d.hotswaps } : null,
+        hashFails: d.hashFails, hotswaps: d.hotswaps, peerRetries: d.peerRetries || 0 } : null,
       pieces: d.pieces ? d.pieces.slice(-4) : null, recentClosed: d.closed ? d.closed.slice(-4) : null,
     };
   }

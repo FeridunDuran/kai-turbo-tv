@@ -11166,7 +11166,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           chokes: d.chokes,
           unchokes: d.unchokes,
           hashFails: d.hashFails,
-          hotswaps: d.hotswaps
+          hotswaps: d.hotswaps,
+          peerRetries: d.peerRetries || 0
         } : null,
         pieces: d.pieces ? d.pieces.slice(-4) : null,
         recentClosed: d.closed ? d.closed.slice(-4) : null
@@ -14117,7 +14118,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:25:43.577Z";
+  var BUILD = "2026-11-05T18:29:17.813Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

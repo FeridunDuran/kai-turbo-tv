@@ -17092,7 +17092,8 @@ var TorrentEngine = function () {
         var engine = new events.EventEmitter();
         var swarm = pws(infoHash, opts.id, {
           size: opts.connections || opts.size,
-          speed: 10
+          speed: 10,
+          connectTimeout: opts.connectTimeout || 1e4
         });
         var torrentPath = path.join(opts.tmp, opts.name, infoHash + ".torrent");
         if (cb) engine.on("ready", cb.bind(null, engine));
@@ -17783,6 +17784,41 @@ var TV_TORRENT = (function () {
     return d;
   }
 
+  // peer-wire-swarm forgets a discovered peer after one failed connection attempt; only peers
+  // that completed a handshake are retried. TV trace: 59 peers discovered, 5 connections ever.
+  // Like WebTorrent (RECONNECT_WAIT 1/5/15 s) and libtorrent (max_failcount 3), a peer that is
+  // no longer known to the swarm is offered again, at most three more times, while the engine
+  // has few connections. This adds connection attempts only, not downloads.
+  var PEER_RETRY_WAIT = [5000, 15000, 30000];
+  var PEER_RETRY_BELOW = 20;
+  function retryFailedPeers(engine, now) {
+    var known = {};
+    engine.peerRetries = known;
+    engine.on('peer', function (addr) {
+      if (typeof addr === 'string' && !known[addr]) known[addr] = { tries: 0, at: (now || Date.now)() };
+    });
+    var timer = setInterval(function () {
+      var swarm = engine.swarm;
+      if (!swarm || !swarm._peers || swarm.wires.length >= PEER_RETRY_BELOW) return;
+      var t = (now || Date.now)();
+      Object.keys(known).forEach(function (addr) {
+        var entry = known[addr];
+        if (swarm._peers[addr] || entry.tries >= PEER_RETRY_WAIT.length) return;
+        if (t - entry.at < PEER_RETRY_WAIT[entry.tries]) return;
+        entry.tries++;
+        entry.at = t;
+        if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
+        engine.connect(addr);
+      });
+    }, 2500);
+    if (timer && timer.unref) timer.unref();
+    var destroy = engine.destroy;
+    engine.destroy = function () {
+      if (timer) clearInterval(timer);
+      return destroy.apply(engine, arguments);
+    };
+  }
+
   function wireSummary(engine) {
     var swarm = engine.swarm || {};
     var wires = swarm.wires || [];
@@ -18270,6 +18306,7 @@ var TV_TORRENT = (function () {
       return cb(e);
     }
     attachDiag(engine);
+    retryFailedPeers(engine);
     // Peers that delivered payload, returned to the app over loopback so it can offer them as
     // hints next time (libtorrent keeps known peers in resume data for the same reason).
     engine.goodPeers = [];
