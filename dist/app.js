@@ -12924,7 +12924,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           play(video, s, all2, null, function (error) {
             if (!error || !error.torrentOpen) return;
             lastTorrentError = t("Torrent metadata hatası: {msg}", {
-              msg: error.message
+              msg: errorSummary(error.message)
             });
             var currentStatus = el.querySelector(".details-sources-status");
             if (currentStatus) currentStatus.textContent += "  ·  " + lastTorrentError;
@@ -12937,6 +12937,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }), h("div.s-detail", {
         text: s.name && s.name !== s.title && s.name !== s.description ? s.name.trim() : ""
       }), h("div.s-tags", null, tags)])]);
+    }
+    function errorSummary(message) {
+      var lines = String(message || "").split(/\r?\n/).map(function (x) {
+        return x.trim();
+      }).filter(Boolean);
+      return lines.length > 1 ? lines[1] : lines[0] || "";
     }
     function play(video, stream, all2, fallbacks, onError) {
       var li = libraryItem(meta.id);
@@ -14146,7 +14152,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:52:15.674Z";
+  var BUILD = "2026-11-05T18:54:01.870Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

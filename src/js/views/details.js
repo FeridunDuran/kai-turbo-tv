@@ -650,7 +650,9 @@ function DetailsView(type, id, opts) {
           if (torrent && !torrentOk) return toast(t('TV torrent player unavailable.'), 5000);
           play(video, s, all, null, (error) => {
             if (!error || !error.torrentOpen) return;
-            lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
+            // The status line has room for one sentence: keep the reason, not the whole report
+            // (the player already shows the full diagnosis).
+            lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: errorSummary(error.message) });
             const currentStatus = el.querySelector('.details-sources-status');
             if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
           });
@@ -665,6 +667,12 @@ function DetailsView(type, id, opts) {
         ]),
       ]
     );
+  }
+
+  // A service diagnosis is "summary / reason / counters" on separate lines: keep the reason.
+  function errorSummary(message) {
+    const lines = String(message || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+    return lines.length > 1 ? lines[1] : lines[0] || '';
   }
 
   function play(video, stream, all, fallbacks, onError) {

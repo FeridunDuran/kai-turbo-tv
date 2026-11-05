@@ -183,3 +183,12 @@ test('returning from a player that moved to the next episode shows that episode 
   g.view.onShow();
   assert.equal(g.root.querySelectorAll('.stream').length, 4);
 });
+
+test('a multi-line torrent diagnosis shows only its reason in the one-line source status', async () => {
+  const f = await sourceFixture();
+  f.selectTorrent();
+  f.played.onError(Object.assign(new Error('torrent metadata transfer stalled for 20 seconds\nPeers were found but no BitTorrent handshake completed; peers may be unreachable.\nPeers discovered: 1309 · sockets opened: 0 · handshakes: 0'), { torrentOpen: true }));
+  const status = f.root.querySelector('.details-sources-status').textContent;
+  assert.match(status, /no BitTorrent handshake completed/);
+  assert.doesNotMatch(status, /Peers discovered|\n/);
+});
