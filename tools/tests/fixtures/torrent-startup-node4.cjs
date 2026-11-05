@@ -7,6 +7,8 @@ var info=bencode.encode({name:new Buffer('fixture.mp4'),length:pieceLength*count
 var hash=crypto.createHash('sha1').update(info).digest('hex'),torrent=Buffer.concat([new Buffer('d4:info'),info,new Buffer('e')]);
 var bundle=fs.readFileSync(path.join(root,'dist/player-service.js'),'utf8');var context={require:require,process:process,Buffer:Buffer,setTimeout:setTimeout,clearTimeout:clearTimeout,setInterval:setInterval,clearInterval:clearInterval,console:console};
 vm.runInNewContext(bundle.slice(0,bundle.indexOf('// Phone remote + header proxy')),context);
+// Never reach a real router from tests: UPnP discovery goes to a closed local port.
+context.TV_UPNP.configure({ssdpHost:'127.0.0.1',ssdpPort:9,timeout:200});
 var seed=net.createServer(function(socket){var wire=protocol();socket.pipe(wire).pipe(socket);wire.on('error',function(){});socket.on('error',function(){});
 wire.on('handshake',function(h){wire.handshake(h,new Buffer('-KT0001-123456789012'));wire.bitfield({buffer:new Buffer([255,255])});wire.unchoke();});
 wire.on('request',function(index,offset,length,cb){requests.push(index);var data=new Buffer(length);data.fill(index);setTimeout(function(){cb(null,data);},5);});});

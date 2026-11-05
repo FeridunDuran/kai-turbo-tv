@@ -83,6 +83,16 @@ Peerflix and qBittorrent, checked against their source code and the TV's own log
   read just before the jump to the end of the file is kept for the re-read that follows.
 - **Nothing downloaded for nothing.** When resuming, only the pieces the player reads at the
   start and end of the file are fetched until it reaches the resume position.
+- **Reachable like a desktop client.** The engine now listens for incoming peers (TCP, plus uTP)
+  and asks the router to forward its port over UPnP, as libtorrent and WebTorrent do. Before, it
+  announced a port it never opened. A peer that refuses TCP is tried once over uTP.
+- **A warm DHT.** One DHT serves every torrent while the service runs, and the nodes it knew are
+  saved by the app and used to start the next one, so a torrent opened after a TV restart does
+  not wait only for the public bootstrap routers.
+- **Peer exchange (PEX).** Connected peers can tell the TV about other peers in the swarm.
+- **Silent peers lose their blocks.** A peer that sends nothing for 20 s while holding requests
+  is snubbed, as in libtorrent: its blocks go to other peers and it keeps a single request (only
+  while another peer is delivering, so a torrent with one slow source keeps it).
 - **More peers that actually send.** A connected peer that has not unchoked us yet is kept 15 s
   (peers following libtorrent's defaults hand out uploads every 15 s) instead of being dropped
   after 5 s when many peers are waiting. Peers that failed to connect are retried a few at a time
@@ -453,9 +463,10 @@ installed and newest version and can update from there too.
   the shipped proxy in desktop Chrome, including video/audio decoding, seek and source
   switching. Q70T hardware verification is still outstanding. Embedded subtitle switching through Samsung's
   API is not implemented; add-on subtitles still use the app's renderer.
-- Torrent speed is limited by the source's peers that the TV can reach. The engine makes
-  outgoing TCP connections only (no uTP, no incoming connections), so peers that accept
-  neither cannot be used. A whole piece must arrive and be verified before any of it plays,
+- Torrent speed is limited by the source's peers that the TV can reach. Incoming connections need
+  a router with UPnP **and** a public IP address: behind carrier-grade NAT (an internet address in
+  100.64.0.0/10, common on mobile and some fibre lines) other peers still cannot connect to the TV,
+  and only outgoing connections are used. uTP is used only as a fallback for peers that refuse TCP. A whole piece must arrive and be verified before any of it plays,
   which makes sources with very large pieces (16 MiB and more) slower to start.
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.

@@ -278,3 +278,38 @@ the queue that triggers the drop. Now: choked connections are kept 15 s, TCP con
 after 5 s (as in WebTorrent), and retries run only when fewer than ten peers are queued, at most
 20 per pass. Effect on the TV not measured yet.
 
+## Reachability round: listening, UPnP, uTP, PEX, shared DHT, snubbing
+
+Five items adopted from libtorrent / WebTorrent, each tested locally:
+
+1. **Listening and UPnP.** The engine announced port 6881 to trackers and the DHT without
+   listening. It now calls `engine.listen()` (TCP and a uTP server on the same port) and maps
+   the port TCP+UDP on the router with a one-hour lease, renewed every 30 minutes and removed
+   when the engine closes (`service/upnp.js`, dependency-free SSDP + SOAP for Node 4).
+2. **uTP fallback.** A peer that refuses or resets TCP is tried once over uTP. Timeouts are not
+   retried over uTP, so unreachable hosts do not hold connection slots twice.
+3. **PEX (BEP 11).** The extension handshake advertises `ut_pex`; peers in `added` (compact
+   IPv4, at most 50 per message) are connected.
+4. **Shared, persisted DHT.** One DHT for all engines in the service; up to 100 nodes are saved
+   by the app (localStorage) and passed back to seed a restarted service.
+5. **Snubbing** (libtorrent `piece_timeout` 20 s): a peer with outstanding requests and no
+   payload for 20 s has its requests cancelled and is limited to one request, but only while
+   another unchoked peer delivered payload in that window.
+
+Bugs found while testing, in the vendored `peer-wire-swarm` (now `lib/peer-wire-swarm.cjs`):
+- Disconnects were handled only on the wire's readable `end`, which a closed or failed socket
+  never emits. Failed attempts stayed registered forever (never retried, never forgotten) and
+  dropped peers never reconnected. Both events are handled now; a test shows upstream keeps a
+  refused peer registered while the fixed copy removes it.
+- Incoming TCP wires recorded the TV's own address as the peer address.
+- A uTP server that could not bind threw an unhandled error, and closing a swarm called the
+  missing `close()` of the uTP server (TypeError). Either would have stopped the whole service.
+
+Tests: `tools/tests/fixtures/network-node4.cjs` runs on Node 4.4.3 and the current Node: a fake
+UPnP gateway (map, external IP, unmap, missing gateway), PEX parsing and connects, a uTP-only
+peer reached after a TCP refusal, and a real built engine downloading verified pieces from a peer
+that connects in. A read-only check against the user's router found its WANIPConnection service
+and read the external address; it is in 100.64.0.0/10 (carrier-grade NAT), so internet peers
+still cannot reach the TV on this line even with the port mapped. No mapping was added to the
+real router by the tests.
+

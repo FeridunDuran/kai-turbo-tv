@@ -2441,9 +2441,9 @@ var TorrentEngine = function () {
     }
   });
 
-  // node_modules/peer-wire-swarm/index.js
+  // service/vendor/torrent-stream/lib/peer-wire-swarm.cjs
   var require_peer_wire_swarm = __commonJS({
-    "node_modules/peer-wire-swarm/index.js"(exports, module) {
+    "service/vendor/torrent-stream/lib/peer-wire-swarm.cjs"(exports, module) {
       var utp = require_utp();
       var net = __require("net");
       var fifo = require_fifo();
@@ -2500,7 +2500,9 @@ var TorrentEngine = function () {
         delete pools[port].swarms[swarm.infoHash.toString("hex")];
         if (Object.keys(pools[port].swarms).length) return;
         pools[port].servers.forEach(function (server) {
-          server.close();
+          try {
+            if (typeof server.close === "function") server.close();else if (server._socket) server._socket.close();
+          } catch (err) {}
         });
         delete pools[port];
       };
@@ -2517,9 +2519,21 @@ var TorrentEngine = function () {
             }, true);
           };
           servers.push(net.createServer(onconnection));
-          if (swarm.utp) servers.push(utp.createServer(onconnection));
+          if (swarm.utp || swarm.utpFallback) servers.push(utp.createServer(onconnection));
           var _loop = function loop(i) {
-            if (i < servers.length) return servers[i].listen(port, _loop.bind(null, i + 1));
+            if (i < servers.length) {
+              var next = once(_loop.bind(null, i + 1));
+              var server = servers[i];
+              server.on("error", function () {
+                servers.splice(servers.indexOf(server), 1);
+                next();
+              });
+              server.listen(port, next);
+              if (server._socket) server._socket.on("error", function (err) {
+                server.emit("error", err);
+              });
+              return;
+            }
             pool.listening = true;
             Object.keys(swarms).forEach(function (infoHash2) {
               swarms[infoHash2].emit("listening");
@@ -2554,6 +2568,7 @@ var TorrentEngine = function () {
         this.port = 0;
         this.size = options.size || DEFAULT_SIZE;
         this.utp = options.utp || false;
+        this.utpFallback = options.utpFallback || false;
         this.handshakeTimeout = options.handshakeTimeout || HANDSHAKE_TIMEOUT;
         this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
         this.infoHash = toBuffer(infoHash, "hex");
@@ -2658,7 +2673,11 @@ var TorrentEngine = function () {
         };
         var parts = addr.split(":");
         var connection;
-        if (this.utp && !peer.noUtp) {
+        var viaUtp = this.utp && !peer.noUtp || peer.useUtp;
+        if (peer.useUtp) {
+          peer.useUtp = false;
+          connection = utp.connect(parts[1], parts[0]);
+        } else if (this.utp && !peer.noUtp) {
           connection = utp.connect(parts[1], parts[0]);
           connection.on("timeout", function () {
             peer.noUtp = true;
@@ -2670,17 +2689,39 @@ var TorrentEngine = function () {
         if (peer.timeout) clearTimeout(peer.timeout);
         peer.node = null;
         peer.timeout = null;
+        var opened = false;
+        var tcpRefused = false;
+        connection.once("connect", function () {
+          opened = true;
+        });
+        connection.on("error", function (err) {
+          if (err && (err.code === "ECONNREFUSED" || err.code === "ECONNRESET")) tcpRefused = true;
+        });
         var wire = onwire(this, connection, function (infoHash) {
           if (infoHash.toString("hex") !== self.infoHash.toString("hex")) return connection.destroy();
           peer.reconnect = true;
           peer.retries = 0;
+          wire.transport = viaUtp ? "utp" : "tcp";
+          wire.incoming = false;
           self._onwire(connection, wire);
         });
-        wire.on("end", function () {
-          peer.wire = null;
+        var ended = false;
+        var onend = function onend() {
+          if (ended) return;
+          ended = true;
+          if (peer.wire === wire) peer.wire = null;
+          if (self._peers[addr] !== peer) return;
+          if (!opened && tcpRefused && !viaUtp && self.utpFallback && !peer.triedUtp && !self._destroyed) {
+            peer.triedUtp = true;
+            peer.useUtp = true;
+            self.emit("utp-fallback", addr);
+            return repush();
+          }
           if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
           peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++]);
-        });
+        };
+        wire.on("end", onend);
+        connection.once("close", onend);
         peer.wire = wire;
         self._onconnection(connection);
         wire.peerAddress = addr;
@@ -2693,7 +2734,13 @@ var TorrentEngine = function () {
         return null;
       };
       _Swarm.prototype._onincoming = function (connection, wire) {
-        wire.peerAddress = connection.address().address + ":" + connection.address().port;
+        var remote = connection.remoteAddress ? {
+          address: connection.remoteAddress,
+          port: connection.remotePort
+        } : connection.address();
+        wire.peerAddress = String(remote.address).replace(/^::ffff:/, "") + ":" + remote.port;
+        wire.incoming = true;
+        wire.transport = connection.remoteAddress ? "tcp" : "utp";
         wire.handshake(this.infoHash, this.peerId, this.handshake);
         this._onconnection(connection);
         this._onwire(connection, wire);
@@ -16782,7 +16829,9 @@ var TorrentEngine = function () {
       var METADATA_MAX_SIZE = 1 << 22;
       var EXTENSIONS = {
         m: {
-          ut_metadata: 1
+          ut_metadata: 1,
+          // Kai: BEP 11 peer exchange (receive only), as in WebTorrent's ut_pex.
+          ut_pex: 2
         }
       };
       var sha1 = function sha1(data) {
@@ -16803,6 +16852,14 @@ var TorrentEngine = function () {
           var metadataPieces = [];
           var retries = 0;
           var metadata = engine.metadata;
+          wire.on("extended", function (id, ext) {
+            if (id !== EXTENSIONS.m.ut_pex) return;
+            var added = module.exports.pexPeers(ext);
+            for (var i = 0; i < added.length; i++) {
+              engine.emit("pex-peer", added[i]);
+              engine.connect(added[i]);
+            }
+          });
           wire.once("extended", function (id, handshake) {
             try {
               handshake = bncode.decode(handshake);
@@ -16900,15 +16957,34 @@ var TorrentEngine = function () {
           if (!wire.peerExtensions.extended) return;
           wire.extended(0, metadata ? {
             m: {
-              ut_metadata: 1
+              ut_metadata: 1,
+              ut_pex: 2
             },
             metadata_size: metadata.length
           } : {
             m: {
-              ut_metadata: 1
+              ut_metadata: 1,
+              ut_pex: 2
             }
           });
         };
+      };
+      module.exports.pexPeers = function (ext) {
+        var message;
+        try {
+          message = bncode.decode(ext);
+        } catch (err) {
+          return [];
+        }
+        var added = message && message.added;
+        if (!added || !Buffer.isBuffer(added)) return [];
+        var out = [];
+        for (var i = 0; i + 6 <= added.length && out.length < 50; i += 6) {
+          var port = added.readUInt16BE(i + 4);
+          if (!port) continue;
+          out.push(added[i] + "." + added[i + 1] + "." + added[i + 2] + "." + added[i + 3] + ":" + port);
+        }
+        return out;
       };
     }
   });
@@ -17022,6 +17098,31 @@ var TorrentEngine = function () {
         for (var i = 0; i < requests.length; i++) if (critical[requests[i].piece]) count++;
         return count;
       };
+      exports.SNUB_MS = 2e4;
+      exports.snubCandidates = function (wires, now) {
+        var active = false;
+        var out = [];
+        for (var i = 0; i < wires.length; i++) {
+          var w = wires[i];
+          if (!w.requests.length) {
+            w.waitSince = 0;
+            continue;
+          }
+          if (!w.waitSince) w.waitSince = now;
+        }
+        for (i = 0; i < wires.length; i++) {
+          var other = wires[i];
+          if (!other.snubbed && !other.peerChoking && other.lastPieceAt && now - other.lastPieceAt < exports.SNUB_MS) active = true;
+        }
+        if (!active) return out;
+        for (i = 0; i < wires.length; i++) {
+          var wire = wires[i];
+          if (wire.snubbed || wire.peerChoking || !wire.requests.length) continue;
+          var since = Math.max(wire.lastPieceAt || 0, wire.waitSince || now);
+          if (now - since > exports.SNUB_MS) out.push(wire);
+        }
+        return out;
+      };
     }
   });
 
@@ -17093,7 +17194,11 @@ var TorrentEngine = function () {
         var swarm = pws(infoHash, opts.id, {
           size: opts.connections || opts.size,
           speed: 10,
-          connectTimeout: opts.connectTimeout || 5e3
+          connectTimeout: opts.connectTimeout || 5e3,
+          utpFallback: !!opts.utpFallback
+        });
+        swarm.on("utp-fallback", function (addr) {
+          engine.emit("utp-fallback", addr);
         });
         var torrentPath = path.join(opts.tmp, opts.name, infoHash + ".torrent");
         if (cb) engine.on("ready", cb.bind(null, engine));
@@ -17377,6 +17482,11 @@ var TorrentEngine = function () {
             var rank = speedRanker(wire);
             var criticalLimit = streamPolicy.criticalLimit(wire.downloadSpeed(), wire.peerReqq);
             var criticalHeld = streamPolicy.criticalCount(wire.requests, critical);
+            if (wire.snubbed) {
+              if (wire.requests.length >= 1) return true;
+              pipeline = 1;
+              criticalLimit = 0;
+            }
             for (var i = 0; i < engine.selection.length; i++) {
               var next = engine.selection[i];
               for (var j = next.from + next.offset; j <= next.to; j++) {
@@ -17438,6 +17548,13 @@ var TorrentEngine = function () {
             });
             wire.on("unchoke", onupdate);
             wire.on("bitfield", onupdate);
+            wire.on("download", function () {
+              wire.lastPieceAt = Date.now();
+              if (wire.snubbed) {
+                wire.snubbed = false;
+                engine.emit("unsnub", wire);
+              }
+            });
             wire.on("have", onupdate);
             wire.isSeeder = false;
             var i = 0;
@@ -17512,6 +17629,15 @@ var TorrentEngine = function () {
             };
             rechokeIntervalId = setInterval(onrechoke, RECHOKE_INTERVAL);
             recoveryIntervalId = setInterval(function () {
+              var snubAt = Date.now();
+              var snub = streamPolicy.snubCandidates(wires, snubAt);
+              for (var s = 0; s < snub.length; s++) {
+                var slow = snub[s];
+                slow.snubbed = true;
+                var pendingRequests = slow.requests.slice();
+                for (var q = 0; q < pendingRequests.length; q++) slow.cancel(pendingRequests[q].piece, pendingRequests[q].offset, pendingRequests[q].length);
+                engine.emit("snub", slow);
+              }
               var urgent = {};
               engine.selection.forEach(function (selection) {
                 if (selection.priority < 2) return;
@@ -17698,10 +17824,219 @@ var TorrentEngine = function () {
         return engine;
       };
       module.exports = _torrentStream;
+      module.exports.DHT = require_client();
     }
   });
   return require_index();
 }();
+// Minimal UPnP IGD client for the TV player service (Node 4, no dependencies).
+// Finds the home router (SSDP), reads its WANIPConnection / WANPPPConnection control URL and maps
+// the torrent listening port so peers behind other routers can connect to the TV. libtorrent and
+// WebTorrent (Node) do the same by default. Mappings carry a lease and are removed on shutdown.
+var TV_UPNP = (function () {
+  var dgram = require('dgram');
+  var http = require('http');
+  var os = require('os');
+  var urlLib = require('url');
+
+  var SSDP_HOST = '239.255.255.250';
+  var SSDP_PORT = 1900;
+  var SEARCH_TARGETS = [
+    'urn:schemas-upnp-org:service:WANIPConnection:1',
+    'urn:schemas-upnp-org:service:WANPPPConnection:1',
+    'urn:schemas-upnp-org:device:InternetGatewayDevice:1'
+  ];
+  var SERVICE_RE = /urn:schemas-upnp-org:service:WAN(IP|PPP)Connection:\d/;
+
+  // Tests point discovery at a local fake gateway instead of the multicast group.
+  var options = { ssdpHost: SSDP_HOST, ssdpPort: SSDP_PORT, timeout: 3000 };
+  var cached = null;
+
+  function configure(next) {
+    Object.keys(next || {}).forEach(function (k) { options[k] = next[k]; });
+    cached = null;
+  }
+
+  function discover(cb) {
+    var socket = dgram.createSocket('udp4');
+    var done = false;
+    var locations = [];
+    var timer = setTimeout(finish, options.timeout);
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch (e) { /* closed */ }
+      if (!locations.length) return cb(new Error('no UPnP gateway answered'));
+      cb(null, locations[0]);
+    }
+    socket.on('error', function (err) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch (e) { /* closed */ }
+      cb(err);
+    });
+    socket.on('message', function (msg) {
+      var text = msg.toString();
+      var match = /^location:\s*(\S+)/im.exec(text);
+      if (!match || locations.indexOf(match[1]) >= 0) return;
+      locations.push(match[1]);
+      // The first answer is enough; give others a moment only if this one is not a gateway.
+      setTimeout(finish, 300);
+    });
+    socket.bind(0, function () {
+      SEARCH_TARGETS.forEach(function (st) {
+        var message = new Buffer('M-SEARCH * HTTP/1.1\r\nHOST: ' + SSDP_HOST + ':' + SSDP_PORT + '\r\n' +
+          'MAN: "ssdp:discover"\r\nMX: 2\r\nST: ' + st + '\r\n\r\n');
+        socket.send(message, 0, message.length, options.ssdpPort, options.ssdpHost);
+      });
+    });
+  }
+
+  function get(location, cb) {
+    var req = http.get(location, function (res) {
+      var body = '';
+      res.setEncoding('utf8');
+      res.on('data', function (d) { body += d; if (body.length > 256 * 1024) req.abort(); });
+      res.on('end', function () { cb(res.statusCode === 200 ? null : new Error('HTTP ' + res.statusCode), body); });
+    });
+    req.setTimeout(options.timeout, function () { req.abort(); });
+    req.on('error', cb);
+  }
+
+  function tag(xml, name) {
+    var m = new RegExp('<(?:\\w+:)?' + name + '>\\s*([^<]*?)\\s*</(?:\\w+:)?' + name + '>', 'i').exec(xml);
+    return m ? m[1] : '';
+  }
+
+  // The first WANIPConnection / WANPPPConnection service in the device description.
+  function parseDescription(xml, location) {
+    var services = xml.split(/<service>/i).slice(1);
+    for (var i = 0; i < services.length; i++) {
+      var type = tag(services[i], 'serviceType');
+      var control = tag(services[i], 'controlURL');
+      if (SERVICE_RE.test(type) && control) {
+        var base = tag(xml, 'URLBase') || location;
+        return { serviceType: type, controlUrl: urlLib.resolve(base, control) };
+      }
+    }
+    return null;
+  }
+
+  function gateway(cb) {
+    if (cached) return process.nextTick(function () { cb(null, cached); });
+    discover(function (err, location) {
+      if (err) return cb(err);
+      get(location, function (err2, xml) {
+        if (err2) return cb(err2);
+        var service = parseDescription(xml, location);
+        if (!service) return cb(new Error('gateway has no WAN connection service'));
+        service.location = location;
+        cached = service;
+        cb(null, service);
+      });
+    });
+  }
+
+  function escapeXml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function soap(service, action, args, cb) {
+    var body = '<?xml version="1.0"?>\r\n<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" ' +
+      's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><u:' + action + ' xmlns:u="' + service.serviceType + '">' +
+      Object.keys(args).map(function (k) { return '<' + k + '>' + escapeXml(args[k]) + '</' + k + '>'; }).join('') +
+      '</u:' + action + '></s:Body></s:Envelope>';
+    var target = urlLib.parse(service.controlUrl);
+    var req = http.request({
+      hostname: target.hostname, port: target.port || 80, path: target.path, method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset="utf-8"',
+        'Content-Length': Buffer.byteLength(body),
+        SOAPAction: '"' + service.serviceType + '#' + action + '"'
+      }
+    }, function (res) {
+      var text = '';
+      res.setEncoding('utf8');
+      res.on('data', function (d) { text += d; });
+      res.on('end', function () {
+        if (res.statusCode !== 200) {
+          var code = tag(text, 'errorCode');
+          var description = tag(text, 'errorDescription');
+          return cb(new Error('UPnP ' + action + ' failed: HTTP ' + res.statusCode + (code ? ' ' + code : '') + (description ? ' ' + description : '')));
+        }
+        cb(null, text);
+      });
+    });
+    req.setTimeout(options.timeout, function () { req.abort(); });
+    req.on('error', cb);
+    req.end(body);
+  }
+
+  // The TV's IPv4 address on the router's network (same /24 when possible).
+  function localAddress(gatewayHost) {
+    var nets = os.networkInterfaces();
+    var candidates = [];
+    Object.keys(nets).forEach(function (name) {
+      (nets[name] || []).forEach(function (n) {
+        if (n.family === 'IPv4' && !n.internal) candidates.push(n.address);
+      });
+    });
+    var prefix = String(gatewayHost || '').split('.').slice(0, 3).join('.') + '.';
+    for (var i = 0; i < candidates.length; i++) if (candidates[i].indexOf(prefix) === 0) return candidates[i];
+    return candidates[0] || null;
+  }
+
+  function map(port, protocols, leaseSeconds, description, cb) {
+    gateway(function (err, service) {
+      if (err) return cb(err);
+      var client = localAddress(urlLib.parse(service.controlUrl).hostname);
+      if (!client) return cb(new Error('no local IPv4 address'));
+      var pending = protocols.slice();
+      var mapped = [];
+      (function next() {
+        if (!pending.length) return cb(null, { port: port, protocols: mapped, client: client });
+        var protocol = pending.shift();
+        soap(service, 'AddPortMapping', {
+          NewRemoteHost: '', NewExternalPort: port, NewProtocol: protocol, NewInternalPort: port,
+          NewInternalClient: client, NewEnabled: 1, NewPortMappingDescription: description,
+          NewLeaseDuration: leaseSeconds
+        }, function (err2) {
+          if (err2) return cb(err2);
+          mapped.push(protocol);
+          next();
+        });
+      })();
+    });
+  }
+
+  function unmap(port, protocols, cb) {
+    gateway(function (err, service) {
+      if (err) return cb && cb(err);
+      var pending = protocols.slice();
+      (function next() {
+        if (!pending.length) return cb && cb(null);
+        soap(service, 'DeletePortMapping', { NewRemoteHost: '', NewExternalPort: port, NewProtocol: pending.shift() }, function () { next(); });
+      })();
+    });
+  }
+
+  function externalIp(cb) {
+    gateway(function (err, service) {
+      if (err) return cb(err);
+      soap(service, 'GetExternalIPAddress', {}, function (err2, text) {
+        if (err2) return cb(err2);
+        cb(null, tag(text, 'NewExternalIPAddress'));
+      });
+    });
+  }
+
+  return { configure: configure, gateway: gateway, map: map, unmap: unmap, externalIp: externalIp,
+    parseDescription: parseDescription, localAddress: localAddress };
+})();
+if (typeof module !== 'undefined' && module.exports && typeof PLAYER_SERVICE === 'undefined') module.exports = TV_UPNP;
+
 // Torrent playback that runs on the TV itself, inside the TizenBrew service.
 // The engine is bundled ahead of this file as the global TorrentEngine (torrent-stream
 // 1.0.3, patched: pieces can be released and downloaded again for a rolling RAM cache).
@@ -17760,6 +18095,8 @@ var TV_TORRENT = (function () {
       var bytes = 0;
       d.wiresOpened++;
       if (d.firstWireMs === null) d.firstWireMs = at();
+      if (wire.incoming) d.incoming = (d.incoming || 0) + 1;
+      if (wire.transport === 'utp') d.utpWires = (d.utpWires || 0) + 1;
       if (typeof wire.on !== 'function') return;
       wire.on('unchoke', function () { d.unchokes++; if (d.firstUnchokeMs === null) d.firstUnchokeMs = at(); });
       wire.on('choke', function () { d.chokes++; });
@@ -17775,6 +18112,9 @@ var TV_TORRENT = (function () {
     engine.on('timeout', function () { d.timeouts++; });
     engine.on('invalid-piece', function () { d.hashFails++; });
     engine.on('hotswap', function () { d.hotswaps++; });
+    engine.on('pex-peer', function () { d.pexPeers = (d.pexPeers || 0) + 1; });
+    engine.on('snub', function () { d.snubs = (d.snubs || 0) + 1; });
+    engine.on('utp-fallback', function () { d.utpTries = (d.utpTries || 0) + 1; });
     engine.on('ready', function () { d.readyMs = at(); });
     engine.on('verify', function (index) {
       var requested = engine.pieceRequestedAt && engine.pieceRequestedAt[index];
@@ -17822,11 +18162,79 @@ var TV_TORRENT = (function () {
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();
+    onEngineDestroy(engine, function () { if (timer) clearInterval(timer); });
+  }
+
+  // Runs fn when the engine is destroyed (in addition to its own cleanup).
+  function onEngineDestroy(engine, fn) {
     var destroy = engine.destroy;
     engine.destroy = function () {
-      if (timer) clearInterval(timer);
+      try { fn(); } catch (e) { /* cleanup must not block destroy */ }
       return destroy.apply(engine, arguments);
     };
+  }
+
+  // ---- Reachability: one shared DHT, a listening port and a UPnP mapping ----
+  // Each engine used to start its own DHT from the public bootstrap routers, so every torrent
+  // (and the first one after a TV restart) waited for a cold DHT. One DHT now serves all engines
+  // for the service's lifetime, seeded with nodes the app saved from the previous run
+  // (libtorrent saves its DHT state the same way).
+  var DHT_BOOTSTRAP = ['router.bittorrent.com:6881', 'router.utorrent.com:6881', 'dht.transmissionbt.com:6881'];
+  var NODE_RE = /^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}|[a-z0-9.-]+):[0-9]{1,5}$/i;
+  var sharedDht = null;
+  function dhtFor(nodes) {
+    if (sharedDht && !sharedDht.destroyed) return sharedDht;
+    var DHT = typeof TorrentEngine !== 'undefined' && TorrentEngine && TorrentEngine.DHT;
+    if (typeof DHT !== 'function') return undefined;
+    var boot = (Array.isArray(nodes) ? nodes : []).filter(function (n) { return NODE_RE.test(String(n)); }).slice(0, 100);
+    try {
+      sharedDht = new DHT({ bootstrap: boot.concat(DHT_BOOTSTRAP) });
+    } catch (e) {
+      return undefined;
+    }
+    if (sharedDht.setMaxListeners) sharedDht.setMaxListeners(0);
+    sharedDht.on('error', noop);
+    sharedDht.on('warning', noop);
+    sharedDht.listen();
+    return sharedDht;
+  }
+  function dhtNodes() {
+    if (!sharedDht || sharedDht.destroyed || typeof sharedDht.toArray !== 'function') return [];
+    return sharedDht.toArray().slice(0, 100).map(function (n) { return n.host + ':' + n.port; })
+      .filter(function (n) { return NODE_RE.test(n); });
+  }
+
+  // The engine announced port 6881 to trackers and the DHT without listening on it, so peers that
+  // tried to connect to the TV failed, and peers behind their own NAT were unreachable either way.
+  // Listen (TCP, plus uTP for the fallback) and ask the router to forward the port, as libtorrent
+  // and WebTorrent do by default. Without UPnP the engine keeps working with outgoing connections.
+  var UPNP_LEASE = 3600;
+  function openToPeers(engine) {
+    var d = engine.diag || {};
+    if (typeof engine.listen !== 'function') return;
+    try {
+      engine.listen(function (err) {
+        if (err || !engine.port) { d.listen = 'failed'; return; }
+        d.listenPort = engine.port;
+        if (typeof TV_UPNP === 'undefined') { d.upnp = 'unavailable'; return; }
+        var port = engine.port;
+        var protocols = ['TCP', 'UDP'];
+        var mapNow = function () {
+          TV_UPNP.map(port, protocols, UPNP_LEASE, 'Kai Turbo TV torrent ' + port, function (e) {
+            d.upnp = e ? 'failed: ' + String(e.message || e).slice(0, 80) : 'mapped';
+          });
+        };
+        mapNow();
+        var renew = setInterval(mapNow, UPNP_LEASE * 500);
+        if (renew && renew.unref) renew.unref();
+        onEngineDestroy(engine, function () {
+          clearInterval(renew);
+          TV_UPNP.unmap(port, protocols, noop);
+        });
+      });
+    } catch (e) {
+      d.listen = 'failed';
+    }
   }
 
   function wireSummary(engine) {
@@ -18305,19 +18713,31 @@ var TV_TORRENT = (function () {
     destroyAll();
 
     var engine;
+    var dht = dhtFor(body.dhtNodes);
+    var dhtListeners = dht && dht.listeners ? dht.listeners('peer').slice() : [];
     try {
       engine = TorrentEngine(buildMagnet(infoHash, body.name, body.sources), {
         connections: 55,
         verify: false,
         cache: false, // no .torrent on the TV's small storage
         tmp: tmpDir(),
-        storage: makeStorage(CACHE_BYTES)
+        storage: makeStorage(CACHE_BYTES),
+        dht: dht,
+        utpFallback: true
       });
     } catch (e) {
       return cb(e);
     }
+    // The shared DHT outlives this engine: remove the peer listener its discovery added.
+    if (dht && dht.listeners) {
+      var added = dht.listeners('peer').filter(function (l) { return dhtListeners.indexOf(l) < 0; });
+      onEngineDestroy(engine, function () {
+        added.forEach(function (l) { dht.removeListener('peer', l); });
+      });
+    }
     attachDiag(engine);
     retryFailedPeers(engine);
+    openToPeers(engine);
     // Peers that delivered payload, returned to the app over loopback so it can offer them as
     // hints next time (libtorrent keeps known peers in resume data for the same reason).
     engine.goodPeers = [];
@@ -18506,6 +18926,8 @@ var TV_TORRENT = (function () {
 
   return {
     sweepIdle: sweepIdle,
+    dhtFor: dhtFor,
+    openToPeers: openToPeers,
     resumed: function (id) {
       var s = sessions[id];
       if (!s) return false;
@@ -18524,7 +18946,7 @@ var TV_TORRENT = (function () {
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
         wires: wireSummary(s.engine), diag: s.engine.diag || null, resumePending: !!s.resumePending,
-        goodPeers: s.engine.goodPeers || [],
+        goodPeers: s.engine.goodPeers || [], dhtNodes: dhtNodes(),
         ranges: s.requests || [] };
     },
     supported: supported,

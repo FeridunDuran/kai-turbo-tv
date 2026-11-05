@@ -5,7 +5,9 @@ var METADATA_BLOCK_SIZE = 1 << 14
 var METADATA_MAX_SIZE = 1 << 22
 var EXTENSIONS = {
   m: {
-    ut_metadata: 1
+    ut_metadata: 1,
+    // Kai: BEP 11 peer exchange (receive only), as in WebTorrent's ut_pex.
+    ut_pex: 2
   }
 }
 
@@ -29,6 +31,15 @@ module.exports = function (engine, callback) {
     var metadataPieces = []
     var retries = 0
     var metadata = engine.metadata
+    // Kai: PEX messages arrive with our ut_pex id. "added" is compact IPv4 (6 bytes per peer).
+    wire.on('extended', function (id, ext) {
+      if (id !== EXTENSIONS.m.ut_pex) return
+      var added = module.exports.pexPeers(ext)
+      for (var i = 0; i < added.length; i++) {
+        engine.emit('pex-peer', added[i])
+        engine.connect(added[i])
+      }
+    })
     wire.once('extended', function (id, handshake) {
       try {
         handshake = bncode.decode(handshake)
@@ -126,6 +137,25 @@ module.exports = function (engine, callback) {
     })
 
     if (!wire.peerExtensions.extended) return
-    wire.extended(0, metadata ? {m: {ut_metadata: 1}, metadata_size: metadata.length} : {m: {ut_metadata: 1}})
+    wire.extended(0, metadata ? {m: {ut_metadata: 1, ut_pex: 2}, metadata_size: metadata.length} : {m: {ut_metadata: 1, ut_pex: 2}})
   }
+}
+
+// Peers from a ut_pex message: compact "added" IPv4 entries, at most 50 per message.
+module.exports.pexPeers = function (ext) {
+  var message
+  try {
+    message = bncode.decode(ext)
+  } catch (err) {
+    return []
+  }
+  var added = message && message.added
+  if (!added || !Buffer.isBuffer(added)) return []
+  var out = []
+  for (var i = 0; i + 6 <= added.length && out.length < 50; i += 6) {
+    var port = added.readUInt16BE(i + 4)
+    if (!port) continue
+    out.push(added[i] + '.' + added[i + 1] + '.' + added[i + 2] + '.' + added[i + 3] + ':' + port)
+  }
+  return out
 }

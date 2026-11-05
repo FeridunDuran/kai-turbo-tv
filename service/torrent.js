@@ -56,6 +56,8 @@ var TV_TORRENT = (function () {
       var bytes = 0;
       d.wiresOpened++;
       if (d.firstWireMs === null) d.firstWireMs = at();
+      if (wire.incoming) d.incoming = (d.incoming || 0) + 1;
+      if (wire.transport === 'utp') d.utpWires = (d.utpWires || 0) + 1;
       if (typeof wire.on !== 'function') return;
       wire.on('unchoke', function () { d.unchokes++; if (d.firstUnchokeMs === null) d.firstUnchokeMs = at(); });
       wire.on('choke', function () { d.chokes++; });
@@ -71,6 +73,9 @@ var TV_TORRENT = (function () {
     engine.on('timeout', function () { d.timeouts++; });
     engine.on('invalid-piece', function () { d.hashFails++; });
     engine.on('hotswap', function () { d.hotswaps++; });
+    engine.on('pex-peer', function () { d.pexPeers = (d.pexPeers || 0) + 1; });
+    engine.on('snub', function () { d.snubs = (d.snubs || 0) + 1; });
+    engine.on('utp-fallback', function () { d.utpTries = (d.utpTries || 0) + 1; });
     engine.on('ready', function () { d.readyMs = at(); });
     engine.on('verify', function (index) {
       var requested = engine.pieceRequestedAt && engine.pieceRequestedAt[index];
@@ -118,11 +123,79 @@ var TV_TORRENT = (function () {
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();
+    onEngineDestroy(engine, function () { if (timer) clearInterval(timer); });
+  }
+
+  // Runs fn when the engine is destroyed (in addition to its own cleanup).
+  function onEngineDestroy(engine, fn) {
     var destroy = engine.destroy;
     engine.destroy = function () {
-      if (timer) clearInterval(timer);
+      try { fn(); } catch (e) { /* cleanup must not block destroy */ }
       return destroy.apply(engine, arguments);
     };
+  }
+
+  // ---- Reachability: one shared DHT, a listening port and a UPnP mapping ----
+  // Each engine used to start its own DHT from the public bootstrap routers, so every torrent
+  // (and the first one after a TV restart) waited for a cold DHT. One DHT now serves all engines
+  // for the service's lifetime, seeded with nodes the app saved from the previous run
+  // (libtorrent saves its DHT state the same way).
+  var DHT_BOOTSTRAP = ['router.bittorrent.com:6881', 'router.utorrent.com:6881', 'dht.transmissionbt.com:6881'];
+  var NODE_RE = /^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}|[a-z0-9.-]+):[0-9]{1,5}$/i;
+  var sharedDht = null;
+  function dhtFor(nodes) {
+    if (sharedDht && !sharedDht.destroyed) return sharedDht;
+    var DHT = typeof TorrentEngine !== 'undefined' && TorrentEngine && TorrentEngine.DHT;
+    if (typeof DHT !== 'function') return undefined;
+    var boot = (Array.isArray(nodes) ? nodes : []).filter(function (n) { return NODE_RE.test(String(n)); }).slice(0, 100);
+    try {
+      sharedDht = new DHT({ bootstrap: boot.concat(DHT_BOOTSTRAP) });
+    } catch (e) {
+      return undefined;
+    }
+    if (sharedDht.setMaxListeners) sharedDht.setMaxListeners(0);
+    sharedDht.on('error', noop);
+    sharedDht.on('warning', noop);
+    sharedDht.listen();
+    return sharedDht;
+  }
+  function dhtNodes() {
+    if (!sharedDht || sharedDht.destroyed || typeof sharedDht.toArray !== 'function') return [];
+    return sharedDht.toArray().slice(0, 100).map(function (n) { return n.host + ':' + n.port; })
+      .filter(function (n) { return NODE_RE.test(n); });
+  }
+
+  // The engine announced port 6881 to trackers and the DHT without listening on it, so peers that
+  // tried to connect to the TV failed, and peers behind their own NAT were unreachable either way.
+  // Listen (TCP, plus uTP for the fallback) and ask the router to forward the port, as libtorrent
+  // and WebTorrent do by default. Without UPnP the engine keeps working with outgoing connections.
+  var UPNP_LEASE = 3600;
+  function openToPeers(engine) {
+    var d = engine.diag || {};
+    if (typeof engine.listen !== 'function') return;
+    try {
+      engine.listen(function (err) {
+        if (err || !engine.port) { d.listen = 'failed'; return; }
+        d.listenPort = engine.port;
+        if (typeof TV_UPNP === 'undefined') { d.upnp = 'unavailable'; return; }
+        var port = engine.port;
+        var protocols = ['TCP', 'UDP'];
+        var mapNow = function () {
+          TV_UPNP.map(port, protocols, UPNP_LEASE, 'Kai Turbo TV torrent ' + port, function (e) {
+            d.upnp = e ? 'failed: ' + String(e.message || e).slice(0, 80) : 'mapped';
+          });
+        };
+        mapNow();
+        var renew = setInterval(mapNow, UPNP_LEASE * 500);
+        if (renew && renew.unref) renew.unref();
+        onEngineDestroy(engine, function () {
+          clearInterval(renew);
+          TV_UPNP.unmap(port, protocols, noop);
+        });
+      });
+    } catch (e) {
+      d.listen = 'failed';
+    }
   }
 
   function wireSummary(engine) {
@@ -601,19 +674,31 @@ var TV_TORRENT = (function () {
     destroyAll();
 
     var engine;
+    var dht = dhtFor(body.dhtNodes);
+    var dhtListeners = dht && dht.listeners ? dht.listeners('peer').slice() : [];
     try {
       engine = TorrentEngine(buildMagnet(infoHash, body.name, body.sources), {
         connections: 55,
         verify: false,
         cache: false, // no .torrent on the TV's small storage
         tmp: tmpDir(),
-        storage: makeStorage(CACHE_BYTES)
+        storage: makeStorage(CACHE_BYTES),
+        dht: dht,
+        utpFallback: true
       });
     } catch (e) {
       return cb(e);
     }
+    // The shared DHT outlives this engine: remove the peer listener its discovery added.
+    if (dht && dht.listeners) {
+      var added = dht.listeners('peer').filter(function (l) { return dhtListeners.indexOf(l) < 0; });
+      onEngineDestroy(engine, function () {
+        added.forEach(function (l) { dht.removeListener('peer', l); });
+      });
+    }
     attachDiag(engine);
     retryFailedPeers(engine);
+    openToPeers(engine);
     // Peers that delivered payload, returned to the app over loopback so it can offer them as
     // hints next time (libtorrent keeps known peers in resume data for the same reason).
     engine.goodPeers = [];
@@ -802,6 +887,8 @@ var TV_TORRENT = (function () {
 
   return {
     sweepIdle: sweepIdle,
+    dhtFor: dhtFor,
+    openToPeers: openToPeers,
     resumed: function (id) {
       var s = sessions[id];
       if (!s) return false;
@@ -820,7 +907,7 @@ var TV_TORRENT = (function () {
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
         wires: wireSummary(s.engine), diag: s.engine.diag || null, resumePending: !!s.resumePending,
-        goodPeers: s.engine.goodPeers || [],
+        goodPeers: s.engine.goodPeers || [], dhtNodes: dhtNodes(),
         ranges: s.requests || [] };
     },
     supported: supported,

@@ -7265,11 +7265,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return false;
     });
   }
+  var DHT_KEY = "dhtNodes";
+  var NODE_RE = /^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}|[a-z0-9.-]+):[0-9]{1,5}$/i;
+  var dhtSavedAt = 0;
+  function savedDhtNodes() {
+    var list2 = get(DHT_KEY, []) || [];
+    return Array.isArray(list2) ? list2.filter(function (n) {
+      return NODE_RE.test(n);
+    }).slice(0, 100) : [];
+  }
+  function rememberDhtNodes(nodes) {
+    var valid = (nodes || []).filter(function (n) {
+      return NODE_RE.test(n);
+    }).slice(0, 100);
+    if (valid.length < 8 || Date.now() - dhtSavedAt < 6e4) return;
+    dhtSavedAt = Date.now();
+    set(DHT_KEY, valid);
+  }
   function torrentStats(url2) {
     var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
     if (!match) return Promise.resolve(null);
     return request2(match[1] + "/torrent-status/" + match[2], 2500).then(function (stats) {
       if (stats && stats.goodPeers && hashByUrl[url2]) rememberPeers(hashByUrl[url2], stats.goodPeers);
+      if (stats && stats.dhtNodes) rememberDhtNodes(stats.dhtNodes);
       return stats;
     }).catch(function () {
       return null;
@@ -7281,6 +7299,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return "peer:" + a;
     });
     if (hints.length) args.sources = (args.sources || []).concat(hints);
+    var nodes = savedDhtNodes();
+    if (nodes.length) args.dhtNodes = nodes;
     return ensureTorrent().then(function (ok) {
       if (!ok) throw new Error("TV torrent engine unavailable");
       return new Promise(function (resolve, reject) {
@@ -11193,7 +11213,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           unchokes: d.unchokes,
           hashFails: d.hashFails,
           hotswaps: d.hotswaps,
-          peerRetries: d.peerRetries || 0
+          peerRetries: d.peerRetries || 0,
+          listenPort: d.listenPort || null,
+          upnp: d.upnp || null,
+          incoming: d.incoming || 0,
+          utpWires: d.utpWires || 0,
+          utpTries: d.utpTries || 0,
+          pexPeers: d.pexPeers || 0,
+          snubs: d.snubs || 0
         } : null,
         pieces: d.pieces ? d.pieces.slice(-4) : null,
         recentClosed: d.closed ? d.closed.slice(-4) : null
@@ -14174,7 +14201,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:59:08.657Z";
+  var BUILD = "2026-11-05T19:28:09.733Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

@@ -181,11 +181,31 @@ export function torrentResumed(url) {
   return request(match[1] + '/torrent-resumed/' + match[2], 2500).then((r) => !!r, () => false);
 }
 
+// DHT nodes the TV service knew, kept by the app so a restarted service does not start its DHT
+// from the public bootstrap routers only (the service's own storage may not survive a restart).
+const DHT_KEY = 'dhtNodes';
+const NODE_RE = /^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}|[a-z0-9.-]+):[0-9]{1,5}$/i;
+let dhtSavedAt = 0;
+
+export function savedDhtNodes() {
+  const list = store.get(DHT_KEY, []) || [];
+  return Array.isArray(list) ? list.filter((n) => NODE_RE.test(n)).slice(0, 100) : [];
+}
+
+function rememberDhtNodes(nodes) {
+  const valid = (nodes || []).filter((n) => NODE_RE.test(n)).slice(0, 100);
+  // A few dozen nodes are enough; write at most once a minute.
+  if (valid.length < 8 || Date.now() - dhtSavedAt < 60000) return;
+  dhtSavedAt = Date.now();
+  store.set(DHT_KEY, valid);
+}
+
 export function torrentStats(url) {
   const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
   if (!match) return Promise.resolve(null);
   return request(match[1] + '/torrent-status/' + match[2], 2500).then((stats) => {
     if (stats && stats.goodPeers && hashByUrl[url]) rememberPeers(hashByUrl[url], stats.goodPeers);
+    if (stats && stats.dhtNodes) rememberDhtNodes(stats.dhtNodes);
     return stats;
   }).catch(() => null);
 }
@@ -194,6 +214,8 @@ export function openTorrent(args) {
   args = Object.assign({}, args);
   const hints = cachedPeers(args.infoHash).map((a) => 'peer:' + a);
   if (hints.length) args.sources = (args.sources || []).concat(hints);
+  const nodes = savedDhtNodes();
+  if (nodes.length) args.dhtNodes = nodes;
   return ensureTorrent().then((ok) => {
     if (!ok) throw new Error('TV torrent engine unavailable');
     return new Promise((resolve, reject) => {

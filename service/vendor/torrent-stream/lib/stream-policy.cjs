@@ -45,3 +45,31 @@ exports.criticalCount = function (requests, critical) {
   for (var i = 0; i < requests.length; i++) if (critical[requests[i].piece]) count++;
   return count;
 };
+
+// libtorrent snubs a peer whose requested blocks have produced no payload for piece_timeout
+// (20 s): its queue is cancelled and re-requested elsewhere, and it gets one request at a time.
+// Here a peer is only snubbed while another unchoked peer delivered payload in that time, so a
+// torrent with a single slow source is not cut off from it.
+exports.SNUB_MS = 20000;
+exports.snubCandidates = function (wires, now) {
+  var active = false;
+  var out = [];
+  for (var i = 0; i < wires.length; i++) {
+    var w = wires[i];
+    if (!w.requests.length) { w.waitSince = 0; continue; }
+    if (!w.waitSince) w.waitSince = now;
+  }
+  for (i = 0; i < wires.length; i++) {
+    var other = wires[i];
+    if (!other.snubbed && !other.peerChoking && other.lastPieceAt && now - other.lastPieceAt < exports.SNUB_MS) active = true;
+  }
+  if (!active) return out;
+  for (i = 0; i < wires.length; i++) {
+    var wire = wires[i];
+    if (wire.snubbed || wire.peerChoking || !wire.requests.length) continue;
+    var since = Math.max(wire.lastPieceAt || 0, wire.waitSince || now);
+    if (now - since > exports.SNUB_MS) out.push(wire);
+  }
+  return out;
+};
+

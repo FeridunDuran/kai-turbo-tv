@@ -1,5 +1,5 @@
 var hat = require('hat')
-var pws = require('peer-wire-swarm')
+var pws = require('./lib/peer-wire-swarm.cjs') // Kai: vendored, see file header
 var bncode = require('bncode')
 var crypto = require('crypto')
 var bitfield = require('bitfield')
@@ -84,7 +84,8 @@ var torrentStream = function (link, opts, cb) {
   // the connection limit, so a longer timeout (10 s was tried) slowed the search through many
   // unreachable peers to a third (TV trace: 550 found, one or two connected).
   var swarm = pws(infoHash, opts.id, { size: (opts.connections || opts.size), speed: 10,
-    connectTimeout: opts.connectTimeout || 5000 })
+    connectTimeout: opts.connectTimeout || 5000, utpFallback: !!opts.utpFallback })
+  swarm.on('utp-fallback', function (addr) { engine.emit('utp-fallback', addr) })
   var torrentPath = path.join(opts.tmp, opts.name, infoHash + '.torrent')
 
   if (cb) engine.on('ready', cb.bind(null, engine))
@@ -441,6 +442,13 @@ var torrentStream = function (link, opts, cb) {
 
       var criticalLimit = streamPolicy.criticalLimit(wire.downloadSpeed(), wire.peerReqq)
       var criticalHeld = streamPolicy.criticalCount(wire.requests, critical)
+      if (wire.snubbed) {
+        // A snubbed peer keeps one request open (to notice when it sends again) and never
+        // holds blocks of the piece being played.
+        if (wire.requests.length >= 1) return true
+        pipeline = 1
+        criticalLimit = 0
+      }
 
       for (var i = 0; i < engine.selection.length; i++) {
         var next = engine.selection[i]
@@ -513,6 +521,14 @@ var torrentStream = function (link, opts, cb) {
 
       wire.on('unchoke', onupdate)
       wire.on('bitfield', onupdate)
+      // Snubbing (libtorrent piece_timeout): the time of the last payload block from this peer.
+      wire.on('download', function () {
+        wire.lastPieceAt = Date.now()
+        if (wire.snubbed) {
+          wire.snubbed = false
+          engine.emit('unsnub', wire)
+        }
+      })
       wire.on('have', onupdate)
 
       wire.isSeeder = false
@@ -608,6 +624,16 @@ var torrentStream = function (link, opts, cb) {
 
       rechokeIntervalId = setInterval(onrechoke, RECHOKE_INTERVAL)
       recoveryIntervalId = setInterval(function () {
+        var snubAt = Date.now();
+        var snub = streamPolicy.snubCandidates(wires, snubAt);
+        for (var s = 0; s < snub.length; s++) {
+          var slow = snub[s];
+          slow.snubbed = true;
+          // Free its outstanding blocks so other peers can fetch them (libtorrent snub_peer).
+          var pendingRequests = slow.requests.slice();
+          for (var q = 0; q < pendingRequests.length; q++) slow.cancel(pendingRequests[q].piece, pendingRequests[q].offset, pendingRequests[q].length);
+          engine.emit('snub', slow);
+        }
         var urgent = {};
         engine.selection.forEach(function (selection) {
           if (selection.priority < 2) return;
@@ -859,3 +885,6 @@ var torrentStream = function (link, opts, cb) {
 }
 
 module.exports = torrentStream
+
+// Kai: the service shares one DHT across engines (and seeds it with saved nodes).
+module.exports.DHT = require('bittorrent-dht/client')

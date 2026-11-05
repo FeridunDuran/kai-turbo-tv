@@ -130,7 +130,8 @@ async function emit(result) {
   fs.writeFileSync(path.join(dist, 'remote-service.js'), 'var REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
   const torrentEngine = await torrentEngineBundle();
   const torrent = fs.readFileSync(path.join(root, 'service', 'torrent.js'), 'utf8');
-  fs.writeFileSync(path.join(dist, 'player-service.js'), 'var PLAYER_SERVICE = true;\n' + torrentEngine + '\n' + torrent + '\nvar REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
+  const upnp = fs.readFileSync(path.join(root, 'service', 'upnp.js'), 'utf8');
+  fs.writeFileSync(path.join(dist, 'player-service.js'), 'var PLAYER_SERVICE = true;\n' + torrentEngine + '\n' + upnp + '\n' + torrent + '\nvar REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
   console.log('[build] dist/remote-service.js (phone remote service)');
   fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ build: BUILD, version: APP_VERSION }) + '\n');
 }
