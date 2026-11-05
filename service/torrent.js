@@ -403,17 +403,18 @@ var TV_TORRENT = (function () {
     var peerCount = 0;
     var wireCount = 0;
     var handshakeCount = 0;
+    var metadataInvalidCount = 0;
     var metadataPeerCount = 0;
     var metadataPieceCount = 0;
     var metadataExpectedPieces = 0;
     var receivedMetadataPieces = {};
     engine.on('peer', function () { peerCount++; });
     engine.on('wire', function (wire) {
-      // torrent-stream emits "wire" as soon as a socket is wrapped, before
-      // the BitTorrent handshake succeeds. Count the handshake itself here.
+      // peer-wire-swarm emits wire after validating the remote info hash.
       wireCount++;
-      wire.once('handshake', function () { handshakeCount++; });
+      handshakeCount++;
     });
+    engine.on('metadata-invalid', function () { metadataInvalidCount++; });
     engine.on('metadata-peer', function (size) {
       metadataPeerCount++;
       if (size > 0) metadataExpectedPieces = Math.max(metadataExpectedPieces, Math.ceil(size / 16384));
@@ -436,6 +437,7 @@ var TV_TORRENT = (function () {
         : 'Metadata transfer did not complete before the deadline.';
       var detail = 'torrent metadata timeout after 120 seconds\n' + reason + '\n'
         + 'Peers discovered: ' + peerCount + ' · sockets opened: ' + wireCount + ' · handshakes: ' + handshakeCount + '\n'
+        + 'Metadata hash failures: ' + metadataInvalidCount + '\n'
         + 'Metadata peers: ' + metadataPeerCount + ' · blocks received: ' + metadataPieceCount + '/' + (metadataExpectedPieces || '?');
       finish(new Error(detail));
     }, OPEN_TIMEOUT_MS);

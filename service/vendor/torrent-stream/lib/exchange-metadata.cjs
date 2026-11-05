@@ -14,9 +14,10 @@ var sha1 = function (data) {
 }
 
 module.exports = function (engine, callback) {
-  var metadataPieces = []
 
   return function (wire) {
+    var metadataPieces = []
+    var retries = 0
     var metadata = engine.metadata
     wire.once('extended', function (id, handshake) {
       try {
@@ -56,7 +57,10 @@ module.exports = function (engine, callback) {
         }
 
         if (message.msg_type === 1 && !metadata) {
-          metadataPieces[piece] = ext.slice(delimiter + 2)
+          if (!(size > 0 && size <= METADATA_MAX_SIZE) || piece >= Math.ceil(size / METADATA_BLOCK_SIZE)) return
+          var payload = ext.slice(delimiter + 2)
+          if (payload.length !== Math.min(METADATA_BLOCK_SIZE, size - piece * METADATA_BLOCK_SIZE)) return
+          metadataPieces[piece] = payload
           engine.emit('metadata-piece', piece, size)
           for (var i = 0; i * METADATA_BLOCK_SIZE < size; i++) {
             if (!metadataPieces[i]) return
@@ -67,6 +71,12 @@ module.exports = function (engine, callback) {
           if (engine.infoHash !== sha1(metadata)) {
             metadataPieces = []
             metadata = null
+            engine.emit('metadata-invalid')
+            if (retries++ < 1) {
+              for (var retryPiece = 0; retryPiece * METADATA_BLOCK_SIZE < size; retryPiece++) {
+                wire.extended(channel, {msg_type: 0, piece: retryPiece})
+              }
+            }
             return
           }
 

@@ -35,7 +35,7 @@ test('metadata discovery includes HTTP alternatives and preserves addon trackers
 test('metadata deadline distinguishes socket attempts from completed handshakes', () => {
   for (const [events, expected] of [
     [[], /no peers found/i],
-    [['peer', 'wire'], /no BitTorrent handshake/i],
+    [['peer'], /no BitTorrent handshake/i],
     [['peer', 'wire', 'handshake'], /no peer advertised the ut_metadata extension/i],
     [['peer', 'wire', 'handshake', 'metadata-peer'], /blocks received: 0\/2/],
     [['peer', 'wire', 'handshake', 'metadata-peer', 'metadata-piece'], /blocks received: 1\/2/],
@@ -47,7 +47,7 @@ test('metadata deadline distinguishes socket attempts from completed handshakes'
         const wire = { once(name, callback) { this.handshake = callback; } };
         engines[0].emit('wire', wire);
         engines[0].testWire = wire;
-      } else if (event === 'handshake') engines[0].testWire.handshake();
+      } else if (event === 'handshake') { /* wire already represents a completed handshake */ }
       else if (event === 'metadata-peer') engines[0].emit('metadata-peer', 32768);
       else if (event === 'metadata-piece') engines[0].emit('metadata-piece', 0, 32768);
       else engines[0].emit(event);
