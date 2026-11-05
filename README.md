@@ -308,7 +308,7 @@ installed and newest version and can update from there too.
   Smart Choice then tries its next backup.
 - **Audio track language is missing:** “Audio track N (language not provided)” means the
   source did not label the language; it does not mean that the file contains no sound.
-  When Samsung AVPlay is available, audio tracks and switching use Samsung's native API.
+  TizenBrew HLS playback uses a bundled HLS.js player through MediaSource. It reports multiplexed audio codecs and supports alternate audio tracks when provided. Installed Samsung apps can use AVPlay when available.
   Silent or unsupported source audio cannot be repaired by adding request headers alone.
 - **Few or no sources:** torrents are hidden when neither the TV engine nor a PC server is
   available; each add-on shows how many were hidden. Header links are no longer hidden.
@@ -328,9 +328,11 @@ installed and newest version and can update from there too.
 
 ## Known limitations
 
-- **Playback on Samsung** uses AVPlay when the Samsung WebAPI is exposed by the host;
-  otherwise the HTML video player remains available. This path has local API-mock tests,
-  but has not yet been verified on the Q70T. Embedded subtitle switching through Samsung's
+- **Playback on TizenBrew** uses HLS.js for HLS streams when MediaSource is available;
+  TizenBrew module pages do not have packaged-app AVPlay privileges. Other HTTP files
+  keep using HTML video. Real PenguPlay VidFast vRapid/vBlaze streams were tested through
+  the shipped proxy in desktop Chrome, including video/audio decoding, seek and source
+  switching. Q70T hardware verification is still outstanding. Embedded subtitle switching through Samsung's
   API is not implemented; add-on subtitles still use the app's renderer.
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.

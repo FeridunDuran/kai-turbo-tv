@@ -1,7 +1,9 @@
 // A media-element facade over Samsung's native player. Keep the UI, progress and
 // subtitle renderer shared with the HTML player used outside Samsung TVs.
+import { createHlsVideo } from './hlsvideo.js';
 export function createTizenVideo(api, doc) {
   const el = doc.createElement('object');
+  el.playbackEngine = 'avplay';
   el.type = 'application/avplayer';
   el.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px';
   let source = '', generation = 0, ready = false, paused = true, ended = false;
@@ -134,5 +136,7 @@ export function createTizenVideo(api, doc) {
 
 export function createVideo(doc) {
   const api = typeof window !== 'undefined' && window.webapis && window.webapis.avplay;
-  return api ? createTizenVideo(api, doc) : doc.createElement('video');
+  const modulePage = typeof location !== 'undefined' && /\/module\//.test(location.pathname);
+  return !modulePage && api && typeof api.open === 'function' && typeof api.prepareAsync === 'function'
+    ? createTizenVideo(api, doc) : createHlsVideo(doc);
 }
