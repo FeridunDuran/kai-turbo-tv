@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=1920, height=1080">
   <!-- Só o código do próprio app roda; dados de addons/APIs nunca viram script. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://cdn.jsdelivr.net; style-src 'self' file: https://cdn.jsdelivr.net 'unsafe-inline'; img-src * data: blob:; media-src * blob: data:; connect-src *; font-src 'self' file: https://cdn.jsdelivr.net; object-src 'none'; frame-src https://www.youtube-nocookie.com https://www.youtube.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://cdn.jsdelivr.net; style-src 'self' file: https://cdn.jsdelivr.net 'unsafe-inline'; img-src * data: blob:; media-src * blob: data:; connect-src *; font-src 'self' file: https://cdn.jsdelivr.net; object-src 'self' file:; frame-src https://www.youtube-nocookie.com https://www.youtube.com">
   <!-- Only the app's origin is sent (YouTube embeds refuse to play without it). -->
   <meta name="referrer" content="origin">
   <title>Stremio Kai</title>
@@ -17,6 +17,7 @@
     </div>
   </div>
   <div id="toast" class="toast"></div>
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
   <script src="loader.js"></script>
 </body>
 </html>

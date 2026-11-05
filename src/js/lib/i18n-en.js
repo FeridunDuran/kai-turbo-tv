@@ -490,4 +490,8 @@ export const EN = {
   'A TV não conseguiu abrir esta fonte.': "The TV could not open this source.",
   'O servidor da fonte não respondeu a tempo. Tente outra fonte.': "The source's server did not answer in time. Try another source.",
   'O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.': "The format may not be supported by the TV, or the server refused access. Try another source.",
+  'A fonte não iniciou em {n}s.': 'The source did not start within {n}s.',
+  'Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.': 'Choose another source. The server may be slow or require request headers that were not sent.',
+  'Faixa de áudio {n} (idioma não informado)': 'Audio track {n} (language not provided)',
+  'Nenhuma faixa de áudio foi informada pela fonte.': 'No audio tracks were reported by this source.',
 };

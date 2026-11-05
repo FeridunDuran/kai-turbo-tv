@@ -11,7 +11,10 @@ var https = require('https');
 var os = require('os');
 var urlLib = require('url');
 
-var PORT = 8095;
+// The on-demand player service uses a separate loopback port so an old, healthy
+// phone service kept alive by TizenBrew cannot prevent the new proxy starting.
+var PORT = typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? 8096 : 8095;
+var BIND = PORT === 8096 ? '127.0.0.1' : '0.0.0.0';
 var HOLD_MS = 25000; // long-poll hold time
 var KEEP = 50; // events kept for late pollers
 var PIN = String(1000 + Math.floor(Math.random() * 9000));
@@ -62,6 +65,8 @@ var PROXY_MAX_REDIRECTS = 5;
 var PROXY_TIMEOUT_MS = 30000;
 var MAX_PLAYLIST_BYTES = 4 * 1024 * 1024;
 var DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var HTTP_AGENT = new http.Agent({ keepAlive: true, maxSockets: 8 });
+var HTTPS_AGENT = new https.Agent({ keepAlive: true, maxSockets: 8 });
 var HOP_HEADER = /^(host|connection|proxy-connection|content-length|transfer-encoding|upgrade|keep-alive|te|trailer)$/i;
 
 function hasHeader(headers, name) {
@@ -91,7 +96,8 @@ function isPlaylist(target, headers) {
 }
 
 function proxyLink(target, headers, extraResponseHeaders) {
-  var url = 'http://127.0.0.1:' + PORT + '/proxy?u=' + encodeURIComponent(target);
+  var path = /\.m3u8(\?|#|$)/i.test(target) ? '/proxy/stream.m3u8' : '/proxy';
+  var url = 'http://127.0.0.1:' + PORT + path + '?u=' + encodeURIComponent(target);
   if (headers && Object.keys(headers).length) url += '&h=' + encodeURIComponent(JSON.stringify(headers));
   if (extraResponseHeaders && Object.keys(extraResponseHeaders).length) {
     url += '&r=' + encodeURIComponent(JSON.stringify(extraResponseHeaders));
@@ -160,6 +166,14 @@ function proxy(req, res, q) {
     if (req.headers[name] && !hasHeader(headers, name)) headers[name] = req.headers[name];
   });
 
+  // A native player may range-request even a manifest. Rewriting a partial
+  // playlist breaks child/audio URLs, so manifests must be fetched in full.
+  if (/\.m3u8(\?|#|$)/i.test(target)) {
+    Object.keys(headers).forEach(function (name) {
+      if (/^(range|if-range)$/i.test(name)) delete headers[name];
+    });
+  }
+
   fetchStream(req, res, target, headers, extraResponseHeaders, 0);
 }
 
@@ -176,6 +190,7 @@ function fetchStream(req, res, target, headers, extraResponseHeaders, redirects)
     path: parsed.path || '/',
     method: req.method === 'HEAD' ? 'HEAD' : 'GET',
     headers: headers,
+    agent: parsed.protocol === 'https:' ? HTTPS_AGENT : HTTP_AGENT,
     // Node 4 on the TV has an old CA store; media links are not a trust boundary here.
     rejectUnauthorized: false
   };
@@ -207,7 +222,18 @@ function fetchStream(req, res, target, headers, extraResponseHeaders, redirects)
       out['Access-Control-Allow-Origin'] = '*';
       out['Access-Control-Expose-Headers'] = 'Content-Length, Content-Range, Accept-Ranges';
 
-      var playlist = isPlaylist(target, upstreamRes.headers) && req.method !== 'HEAD' && !req.headers.range;
+      var playlist = isPlaylist(target, upstreamRes.headers) && req.method !== 'HEAD';
+      if (playlist && status === 206) {
+        upstreamRes.resume();
+        var fullHeaders = {};
+        var hadRange = false;
+        Object.keys(headers).forEach(function (name) {
+          if (/^(range|if-range)$/i.test(name)) { hadRange = true; return; }
+          fullHeaders[name] = headers[name];
+        });
+        if (hadRange) return fetchStream(req, res, target, fullHeaders, extraResponseHeaders, redirects);
+        return send(res, 502, 'proxy: incomplete playlist', 'text/plain; charset=utf-8');
+      }
       if (playlist) {
         var chunks = [];
         var size = 0;
@@ -376,7 +402,7 @@ function handle(req, res) {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
     return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 2, proxy: 1 });
   }
-  if (url.pathname === '/proxy') {
+  if (url.pathname === '/proxy' || url.pathname === '/proxy/stream.m3u8') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
     return proxy(req, res, q);
   }
@@ -489,6 +515,6 @@ function handle(req, res) {
 // Port busy: an older copy may still be letting go of it; try again for a minute.
 var tries = 0;
 server.on('error', function () {
-  if (++tries < 12) setTimeout(function () { server.listen(PORT, '0.0.0.0'); }, 5000);
+  if (++tries < 12) setTimeout(function () { server.listen(PORT, BIND); }, 5000);
 });
-server.listen(PORT, '0.0.0.0');
+server.listen(PORT, BIND);

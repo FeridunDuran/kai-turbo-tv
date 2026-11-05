@@ -93,6 +93,7 @@ async function emit(result) {
   const page = fs.readFileSync(path.join(src, 'remote', 'remote.html'), 'utf8');
   const service = fs.readFileSync(path.join(root, 'service', 'remote-service.js'), 'utf8');
   fs.writeFileSync(path.join(dist, 'remote-service.js'), 'var REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
+  fs.writeFileSync(path.join(dist, 'player-service.js'), 'var PLAYER_SERVICE = true;\n' + service);
   console.log('[build] dist/remote-service.js (phone remote service)');
   fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ build: BUILD, version: APP_VERSION }) + '\n');
 }

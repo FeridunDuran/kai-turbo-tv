@@ -5252,7 +5252,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "A TV não consegue decodificar o vídeo ou o áudio deste arquivo (codec não suportado ou arquivo danificado).": "The TV cannot decode this file's video or audio (unsupported codec or damaged file).",
     "A TV não conseguiu abrir esta fonte.": "The TV could not open this source.",
     "O servidor da fonte não respondeu a tempo. Tente outra fonte.": "The source's server did not answer in time. Try another source.",
-    "O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.": "The format may not be supported by the TV, or the server refused access. Try another source."
+    "O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.": "The format may not be supported by the TV, or the server refused access. Try another source.",
+    "A fonte não iniciou em {n}s.": "The source did not start within {n}s.",
+    "Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.": "Choose another source. The server may be slow or require request headers that were not sent.",
+    "Faixa de áudio {n} (idioma não informado)": "Audio track {n} (language not provided)",
+    "Nenhuma faixa de áudio foi informada pela fonte.": "No audio tracks were reported by this source."
   };
 
   // src/js/lib/i18n-ar.js
@@ -5728,7 +5732,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "O servidor da fonte não respondeu a tempo. Tente outra fonte.": "لم يستجب خادم المصدر في الوقت المناسب. جرّب مصدرًا آخر.",
     "O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.": "قد لا يدعم التلفاز هذه الصيغة، أو رفض الخادم الوصول. جرّب مصدرًا آخر.",
     "Pôsteres sem barra de notas": "ملصقات بدون شريط التقييم",
-    "Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta": "يعرض ملصق Cinemeta النظيف بدل الملصقات المرسوم عليها التقييم (RPDB)"
+    "Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta": "يعرض ملصق Cinemeta النظيف بدل الملصقات المرسوم عليها التقييم (RPDB)",
+    "A fonte não iniciou em {n}s.": "لم يبدأ المصدر خلال {n} ثانية.",
+    "Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.": "اختر مصدرًا آخر. قد يكون الخادم بطيئًا أو يتطلب ترويسات لم تُرسل.",
+    "Faixa de áudio {n} (idioma não informado)": "المسار الصوتي {n} (اللغة غير محددة)",
+    "Nenhuma faixa de áudio foi informada pela fonte.": "لم يُبلغ هذا المصدر عن أي مسارات صوتية."
   };
 
   // src/js/lib/i18n.js
@@ -5993,10 +6001,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       en: ["eng", "en"],
       ar: ["ara", "ar"]
     }[current()];
-    var base = Object.assign({}, DEFAULT_SETTINGS, subs ? {
+    var base2 = Object.assign({}, DEFAULT_SETTINGS, subs ? {
       subtitleLangs: subs
     } : null);
-    return Object.assign(base, rawGet("device", {}), get("settings", {}));
+    return Object.assign(base2, rawGet("device", {}), get("settings", {}));
   }
   function saveSettings(patch) {
     var dev = rawGet("device", {});
@@ -6917,9 +6925,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/api/tvproxy.js
-  var PORT = 8095;
-  var BASE = "http://127.0.0.1:" + PORT;
   var TTL_MS = 3e4;
+  var base = "http://127.0.0.1:8096";
+  var checking = null;
+  var launch = null;
   var status = {
     ok: false,
     checkedAt: 0
@@ -6955,21 +6964,89 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     return Object.keys(out).length ? out : null;
   }
+  function probe(port) {
+    var url2 = "http://127.0.0.1:" + port;
+    return request2(url2 + "/api/info", 600).then(function (r) {
+      return r && r.proxy ? url2 : null;
+    }).catch(function () {
+      return null;
+    });
+  }
+  function startPlayerService() {
+    if (launch) return launch;
+    var m = (window.__KAI_BASE__ || "").match(/\/gh\/(FeridunDuran\/stremio-kai-tizen)@([a-f0-9]{40})\/dist\/$/);
+    if (!m || !/\/module\//.test(location.pathname) || typeof WebSocket === "undefined") return Promise.resolve(false);
+    launch = new Promise(function (resolve) {
+      var done = false;
+      var ws;
+      var end = function end(ok) {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (ws) {
+          ws.onopen = null;
+          try {
+            ws.close();
+          } catch (e) {}
+        }
+        resolve(ok);
+      };
+      var timer = setTimeout(function () {
+        return end(false);
+      }, 1200);
+      try {
+        ws = new WebSocket("ws://127.0.0.1:8081");
+        ws.onopen = function () {
+          ws.send(JSON.stringify({
+            type: 6,
+            payload: {
+              fullName: "gh/" + m[1] + "@" + m[2],
+              serviceFile: "dist/player-service.js"
+            }
+          }));
+          end(true);
+        };
+        ws.onerror = function () {
+          return end(false);
+        };
+      } catch (e) {
+        end(false);
+      }
+    });
+    return launch;
+  }
   function check() {
-    if (status.ok && Date.now() - status.checkedAt < TTL_MS) return Promise.resolve(status);
-    return request2(BASE + "/api/info", 2500).then(function (r) {
+    if (status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5e3)) return Promise.resolve(status);
+    if (checking) return checking;
+    checking = Promise.all([probe(8096), probe(8095)]).then(function (urls) {
+      if (urls[0]) return urls[0];
+      return startPlayerService().then(function (started2) {
+        if (!started2) return urls[1];
+        return new Promise(function (resolve) {
+          return setTimeout(resolve, 1800);
+        }).then(function () {
+          return probe(8096);
+        }).then(function (url2) {
+          return url2 || urls[1];
+        });
+      });
+    }).then(function (url2) {
+      if (url2) base = url2;
       status = {
-        ok: !!(r && r.proxy),
+        ok: !!url2,
         checkedAt: Date.now()
       };
+      checking = null;
       return status;
-    }).catch(function () {
+    }, function () {
+      checking = null;
       status = {
         ok: false,
         checkedAt: Date.now()
       };
       return status;
     });
+    return checking;
   }
   function ensure() {
     if (status.ok) return Promise.resolve(true);
@@ -6985,10 +7062,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var request4 = cleanHeaders(requestHeaders);
     if (!request4) return null;
     var response = cleanHeaders(responseHeaders);
-    var url2 = BASE + "/proxy?u=" + encodeURIComponent(streamUrl);
+    var path = /\.m3u8(\?|#|$)/i.test(streamUrl) ? "/proxy/stream.m3u8" : "/proxy";
+    var url2 = base + path + "?u=" + encodeURIComponent(streamUrl);
     url2 += "&h=" + encodeURIComponent(JSON.stringify(request4));
     if (response) url2 += "&r=" + encodeURIComponent(JSON.stringify(response));
-    log.info("TV proxy", streamUrl);
+    log.info("TV proxy enabled");
     return url2;
   }
 
@@ -7095,8 +7173,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     for (var i = 0; i + 4 <= bits.length; i += 4) hex += parseInt(bits.substr(i, 4), 2).toString(16);
     return hex;
   }
-  function torrentUrl(base, infoHash, fileIdx, sources) {
-    var u = base + encodeURIComponent(infoHash) + "/" + encodeURIComponent(fileIdx);
+  function torrentUrl(base2, infoHash, fileIdx, sources) {
+    var u = base2 + encodeURIComponent(infoHash) + "/" + encodeURIComponent(fileIdx);
     if (sources && sources.length) {
       u += "?" + sources.map(function (s) {
         return "tr=" + encodeURIComponent(s);
@@ -7104,9 +7182,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return u;
   }
-  function createTorrent(base, infoHash, fileIdx, sources, seriesInfo) {
+  function createTorrent(base2, infoHash, fileIdx, sources, seriesInfo) {
     var hasIdx = fileIdx !== null && fileIdx !== void 0 && isFinite(fileIdx);
-    if ((!sources || !sources.length) && hasIdx) return Promise.resolve(torrentUrl(base, infoHash, fileIdx, []));
+    if ((!sources || !sources.length) && hasIdx) return Promise.resolve(torrentUrl(base2, infoHash, fileIdx, []));
     var body = {
       torrent: {
         infoHash: infoHash
@@ -7129,13 +7207,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (seriesInfo && isFinite(seriesInfo.season)) body.guessFileIdx.season = seriesInfo.season;
       if (seriesInfo && isFinite(seriesInfo.episode)) body.guessFileIdx.episode = seriesInfo.episode;
     } else body.guessFileIdx = false;
-    return postJSON(base + encodeURIComponent(infoHash) + "/create", body, {
+    return postJSON(base2 + encodeURIComponent(infoHash) + "/create", body, {
       timeout: 3e4
     }).then(function (r) {
-      return torrentUrl(base, infoHash, hasIdx ? fileIdx : r && r.guessedFileIdx, body.peerSearch ? body.peerSearch.sources : []);
+      return torrentUrl(base2, infoHash, hasIdx ? fileIdx : r && r.guessedFileIdx, body.peerSearch ? body.peerSearch.sources : []);
     });
   }
-  function proxyUrl2(base, streamUrl, reqHeaders, resHeaders) {
+  function proxyUrl2(base2, streamUrl, reqHeaders, resHeaders) {
     var m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
     if (!m) return streamUrl;
     var parts = ["d=" + encodeURIComponent(m[1])];
@@ -7145,13 +7223,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     Object.keys(resHeaders || {}).forEach(function (k) {
       return parts.push("r=" + encodeURIComponent(k + ":" + resHeaders[k]));
     });
-    return base + "proxy/" + parts.join("&") + (m[2] || "/") + (m[3] || "");
+    return base2 + "proxy/" + parts.join("&") + (m[2] || "/") + (m[3] || "");
   }
   function corsProxyUrl(url2) {
-    var base = isAvailable2() ? baseUrl() : "";
+    var base2 = isAvailable2() ? baseUrl() : "";
     var m = url2.match(/^(https?:\/\/[^/?#]+)(.*)$/);
-    if (!base || !m) return null;
-    return base + "proxy/d=" + encodeURIComponent(m[1]) + "&r=" + encodeURIComponent("Access-Control-Allow-Origin:*") + (m[2] || "/");
+    if (!base2 || !m) return null;
+    return base2 + "proxy/d=" + encodeURIComponent(m[1]) + "&r=" + encodeURIComponent("Access-Control-Allow-Origin:*") + (m[2] || "/");
   }
   function getJSONViaProxy(url2, opts) {
     return getJSON(url2, Object.assign({
@@ -7187,13 +7265,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return typeof stream.url === "string" || typeof stream.infoHash === "string";
   }
   function toPlayable(stream, seriesInfo) {
-    var base = baseUrl();
+    var base2 = baseUrl();
     if (typeof stream.url === "string") {
       if (stream.url.indexOf("magnet:") === 0) {
-        if (!base) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
+        if (!base2) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
         var mg = parseMagnet(stream.url);
         if (!mg) return Promise.reject(new Error(t("Magnet inválido")));
-        return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then(function (u) {
+        return createTorrent(base2, mg.infoHash, null, mg.sources, seriesInfo).then(function (u) {
           return {
             url: u,
             viaServer: true
@@ -7204,7 +7282,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (ph && needsHeaders(stream)) {
         if (isAvailable2()) {
           return Promise.resolve({
-            url: proxyUrl2(base, stream.url, ph.request, ph.response),
+            url: proxyUrl2(base2, stream.url, ph.request, ph.response),
             viaServer: true
           });
         }
@@ -7227,8 +7305,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     if (typeof stream.infoHash === "string") {
-      if (!base) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
-      return createTorrent(base, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then(function (u) {
+      if (!base2) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
+      return createTorrent(base2, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then(function (u) {
         return {
           url: u,
           viaServer: true
@@ -7238,9 +7316,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return Promise.reject(new Error(t("Tipo de link não suportado na TV")));
   }
   function tracks(mediaUrl) {
-    var base = baseUrl();
-    if (!base) return Promise.resolve(null);
-    return getJSON(base + "tracks/" + encodeURIComponent(mediaUrl), {
+    var base2 = baseUrl();
+    if (!base2) return Promise.resolve(null);
+    return getJSON(base2 + "tracks/" + encodeURIComponent(mediaUrl), {
       timeout: 2e4,
       quiet: true
     }).then(function (list2) {
@@ -7257,9 +7335,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function streamProgress(mediaUrl) {
     var m = String(mediaUrl || "").match(/\/([a-f0-9]{40})\/(\d+)/i);
-    var base = baseUrl();
-    if (!m || !base) return Promise.resolve(null);
-    return getJSON(base + m[1] + "/" + m[2] + "/stats.json", {
+    var base2 = baseUrl();
+    if (!m || !base2) return Promise.resolve(null);
+    return getJSON(base2 + m[1] + "/" + m[2] + "/stats.json", {
       timeout: 5e3,
       quiet: true
     }).then(function (r) {
@@ -7269,8 +7347,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function subtitlesProxy(subUrl) {
-    var base = baseUrl();
-    return base ? base + "subtitles.vtt?from=" + encodeURIComponent(subUrl) : null;
+    var base2 = baseUrl();
+    return base2 ? base2 + "subtitles.vtt?from=" + encodeURIComponent(subUrl) : null;
   }
 
   // src/js/api/addons.js
@@ -8284,13 +8362,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function ratings(meta, anime) {
-    var base = meta.imdbRating ? [{
+    var base2 = meta.imdbRating ? [{
       cls: "imdb",
       label: "IMDb",
       value: String(meta.imdbRating)
     }] : [];
     return Promise.all([mdblist(meta), anime ? anilistScore(meta) : Promise.resolve([])]).then(function (r) {
-      return base.concat(r[0], r[1]);
+      return base2.concat(r[0], r[1]);
     });
   }
 
@@ -8622,7 +8700,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/mediaerror.js
   var CODEC_HINT = "Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).";
-  function probe(url2, timeoutMs) {
+  function probe2(url2, timeoutMs) {
     return new Promise(function (resolve) {
       if (!/^https?:\/\//.test(url2)) return resolve({
         status: 0,
@@ -8735,7 +8813,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         codec: true
       });
     }
-    return probe(url2, 6e3).then(function (p) {
+    return probe2(url2, 6e3).then(function (p) {
       var known = fromStatus(p);
       if (known) return known;
       return {
@@ -8901,8 +8979,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/phone.js
   var import_qrcode_generator = __toESM(require_qrcode(), 1);
-  var PORT2 = 8095;
-  var BASE2 = "http://127.0.0.1:" + PORT2;
+  var PORT = 8095;
+  var BASE = "http://127.0.0.1:" + PORT;
   var ENTER = 13;
   var last = 0;
   var started = false;
@@ -8945,13 +9023,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function nowPlaying(state) {
     var x = new XMLHttpRequest();
-    x.open("POST", BASE2 + "/api/state");
+    x.open("POST", BASE + "/api/state");
     x.onerror = function () {};
     x.send(JSON.stringify(state || null));
   }
   function browse(data) {
     var x = new XMLHttpRequest();
-    x.open("POST", BASE2 + "/api/browse");
+    x.open("POST", BASE + "/api/browse");
     x.onerror = function () {};
     x.send(JSON.stringify(data));
   }
@@ -8972,7 +9050,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function poll(wait) {
     setTimeout(function () {
-      request3(BASE2 + "/api/events?since=" + last, 35e3).then(function (r) {
+      request3(BASE + "/api/events?since=" + last, 35e3).then(function (r) {
         if (r) {
           (r.events || []).forEach(handle);
           last = r.last || last;
@@ -9009,11 +9087,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function start() {
     if (started) return;
     started = true;
-    request3(BASE2 + "/api/info", 3e3).then(function (r) {
+    request3(BASE + "/api/info", 3e3).then(function (r) {
       if (r) last = r.last || 0;
     }).catch(function () {
       setTimeout(function () {
-        return request3(BASE2 + "/api/info", 4e3).catch(function () {
+        return request3(BASE + "/api/info", 4e3).catch(function () {
           return startService();
         });
       }, 15e3);
@@ -9023,7 +9101,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function info() {
     var get2 = function get2() {
-      return request3(BASE2 + "/api/info", 4e3).then(function (r) {
+      return request3(BASE + "/api/info", 4e3).then(function (r) {
         return r && r.ip ? {
           ip: r.ip,
           port: r.port,
@@ -9046,6 +9124,278 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     qr.make();
     var cell = Math.max(2, Math.floor(size / (qr.getModuleCount() + 8)));
     return qr.createDataURL(cell, cell * 4);
+  }
+
+  // src/js/lib/tizenvideo.js
+  function createTizenVideo(api, doc) {
+    var el = doc.createElement("object");
+    el.type = "application/avplayer";
+    el.style.cssText = "position:absolute;left:0;top:0;width:1920px;height:1080px";
+    var source = "",
+      generation = 0,
+      ready = false,
+      paused = true,
+      ended = false;
+    var position = 0,
+      duration = NaN,
+      error = null,
+      seeking = false;
+    var tracks2 = [],
+      bufferedEnd = 0,
+      playing = false;
+    function emit(name) {
+      var ev = doc.createEvent("Event");
+      ev.initEvent(name, false, false);
+      el.dispatchEvent(ev);
+    }
+    function stop2() {
+      generation++;
+      ready = false;
+      paused = true;
+      playing = false;
+      seeking = false;
+      try {
+        api.close();
+      } catch (e) {}
+    }
+    function syncTracks() {
+      try {
+        var current3 = api.getCurrentStreamInfo().filter(function (tr) {
+          return tr.type === "AUDIO";
+        })[0];
+        tracks2 = api.getTotalTrackInfo().filter(function (tr) {
+          return tr.type === "AUDIO";
+        }).map(function (tr) {
+          var extra = {};
+          try {
+            extra = JSON.parse(tr.extra_info || "{}");
+          } catch (e) {}
+          return {
+            index: tr.index,
+            language: extra.language || extra.lang || "",
+            label: [extra.codec || extra.fourCC, extra.channels ? extra.channels + " ch" : ""].filter(Boolean).join(" · "),
+            enabled: current3 ? current3.index === tr.index : false
+          };
+        });
+      } catch (e) {}
+      return tracks2;
+    }
+    function fail(reason) {
+      ready = false;
+      paused = true;
+      var name = String(reason && (reason.name || reason.message) || reason || "AVPlay error");
+      error = {
+        code: /CONNECTION/.test(name) ? 2 : /FORMAT|FILE|SUPPORT/.test(name) ? 4 : 3,
+        message: name
+      };
+      emit("error");
+    }
+    function open(url2) {
+      stop2();
+      source = url2 || "";
+      position = 0;
+      duration = NaN;
+      error = null;
+      tracks2 = [];
+      ended = false;
+      bufferedEnd = 0;
+      if (!source) return;
+      var token = generation;
+      var active = function active(fn) {
+        return function () {
+          if (token === generation) fn.apply(void 0, arguments);
+        };
+      };
+      try {
+        api.open(source);
+        api.setDisplayRect(0, 0, 1920, 1080);
+        try {
+          api.setDisplayMethod("PLAYER_DISPLAY_MODE_LETTER_BOX");
+        } catch (e) {}
+        try {
+          api.setBufferingParam("PLAYER_BUFFER_FOR_PLAY", "PLAYER_BUFFER_SIZE_IN_SECOND", 4);
+          api.setBufferingParam("PLAYER_BUFFER_FOR_RESUME", "PLAYER_BUFFER_SIZE_IN_SECOND", 4);
+          api.setTimeoutForBuffering(8);
+        } catch (e) {}
+        api.setListener({
+          onbufferingstart: active(function () {
+            playing = false;
+            emit("waiting");
+          }),
+          onbufferingcomplete: active(function () {
+            bufferedEnd = Math.min(duration, position + 4);
+            emit("canplay");
+          }),
+          oncurrentplaytime: active(function (ms) {
+            position = ms / 1e3;
+            if (!paused && !seeking && !playing) {
+              playing = true;
+              emit("playing");
+            }
+            emit("timeupdate");
+          }),
+          onstreamcompleted: active(function () {
+            ended = true;
+            paused = true;
+            emit("ended");
+          }),
+          onerror: active(fail)
+        });
+        api.prepareAsync(active(function () {
+          ready = true;
+          duration = api.getDuration() / 1e3;
+          syncTracks();
+          try {
+            api.setSilentSubtitle(true);
+          } catch (e) {}
+          emit("loadedmetadata");
+          if (el.autoplay) el.play();
+        }), active(fail));
+      } catch (e) {
+        fail(e);
+      }
+    }
+    Object.defineProperties(el, {
+      src: {
+        get: function get() {
+          return source;
+        },
+        set: open
+      },
+      currentSrc: {
+        get: function get() {
+          return source;
+        }
+      },
+      currentTime: {
+        get: function get() {
+          return position;
+        },
+        set: function set(seconds) {
+          if (!ready) return;
+          var token = generation;
+          seeking = true;
+          emit("seeking");
+          api.seekTo(Math.max(0, Math.round(seconds * 1e3)), function () {
+            if (token !== generation) return;
+            position = seconds;
+            seeking = false;
+            emit("seeked");
+          }, function () {
+            if (token === generation) {
+              seeking = false;
+              emit("seeked");
+            }
+          });
+        }
+      },
+      duration: {
+        get: function get() {
+          return duration;
+        }
+      },
+      paused: {
+        get: function get() {
+          return paused;
+        }
+      },
+      ended: {
+        get: function get() {
+          return ended;
+        }
+      },
+      seeking: {
+        get: function get() {
+          return seeking;
+        }
+      },
+      error: {
+        get: function get() {
+          return error;
+        }
+      },
+      readyState: {
+        get: function get() {
+          return ready ? 3 : 0;
+        }
+      },
+      networkState: {
+        get: function get() {
+          return source ? 2 : 0;
+        }
+      },
+      audioTracks: {
+        get: syncTracks
+      },
+      buffered: {
+        get: function get() {
+          return {
+            length: ready && bufferedEnd > position ? 1 : 0,
+            start: function start() {
+              return position;
+            },
+            end: function end() {
+              return bufferedEnd;
+            }
+          };
+        }
+      }
+    });
+    el.autoplay = false;
+    el.play = function () {
+      if (ready && paused) {
+        try {
+          api.play();
+          paused = false;
+          emit("play");
+        } catch (e) {
+          fail(e);
+        }
+      }
+      return Promise.resolve();
+    };
+    el.pause = function () {
+      if (ready && !paused) {
+        try {
+          api.pause();
+          paused = true;
+          playing = false;
+          emit("pause");
+        } catch (e) {
+          fail(e);
+        }
+      }
+    };
+    el.load = function () {
+      if (!source) stop2();
+    };
+    var remove = el.removeAttribute.bind(el);
+    el.removeAttribute = function (name) {
+      if (name === "src") {
+        source = "";
+        stop2();
+      } else remove(name);
+    };
+    el.selectAudio = function (index) {
+      var tr = syncTracks()[index];
+      if (!tr || !ready) return;
+      if (paused) {
+        api.play();
+        try {
+          api.setSelectTrack("AUDIO", tr.index);
+        } finally {
+          api.pause();
+        }
+        return;
+      }
+      api.setSelectTrack("AUDIO", tr.index);
+    };
+    el.dispose = stop2;
+    return el;
+  }
+  function createVideo(doc) {
+    var api = typeof window !== "undefined" && window.webapis && window.webapis.avplay;
+    return api ? createTizenVideo(api, doc) : doc.createElement("video");
   }
 
   // src/js/views/player.js
@@ -9092,9 +9442,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var video = opts.video;
     var stream = opts.stream;
     var settings2 = settings();
-    var videoEl = h("video", {
-      preload: "auto"
-    });
+    var videoEl = createVideo(document);
+    videoEl.preload = "auto";
     var subsEl = h("div.subs");
     var titleEl = h("div.p-title");
     var clockEl = h("div.p-clock");
@@ -9204,6 +9553,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     var currentAudio = null;
     var triedTranscode = false;
+    var startGeneration = 0;
+    var startupTimer = null;
+    function clearStartup() {
+      clearTimeout(startupTimer);
+      startupTimer = null;
+    }
+    function armStartup() {
+      clearStartup();
+      if (isTorrent(stream)) return;
+      startupTimer = setTimeout(function () {
+        if (!alive || hasPlayed) return;
+        if (tryFallback()) return;
+        stopMedia();
+        fail(t("A fonte não iniciou em {n}s.", {
+          n: 15
+        }), false, t("Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados."));
+      }, 15e3);
+    }
+    function stopMedia() {
+      clearStartup();
+      videoEl.removeAttribute("src");
+      videoEl.load();
+    }
+    function tryFallback() {
+      if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
+      stream = opts.fallbacks.shift();
+      toast(t("Essa fonte não tocou. Tentando outra..."));
+      triedTranscode = false;
+      autoDone = {
+        sub: false,
+        audio: false
+      };
+      start3();
+      return true;
+    }
     var seriesInfo = function seriesInfo() {
       return opts.isSeries ? {
         season: video.season,
@@ -9233,6 +9617,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return nv;
     }
     function start3() {
+      var attempt = ++startGeneration;
+      stopMedia();
+      mediaUrl = "";
+      hasPlayed = false;
+      gaveUp = false;
+      currentAudio = null;
+      armStartup();
       setTitle();
       showSpinner(true);
       message("");
@@ -9250,7 +9641,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       nativeOffDone = false;
       hideSkip();
       toPlayable(stream, seriesInfo()).then(function (res) {
-        if (!alive) return;
+        if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info("Tocando", mediaUrl);
@@ -9260,7 +9651,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         freeBackgroundMemory();
         loadSubtitles();
       }).catch(function (e) {
-        return fail(e.message);
+        if (!alive || attempt !== startGeneration) return;
+        clearStartup();
+        if (!tryFallback()) fail(e.message);
       });
     }
     var tracksPromise = null;
@@ -9332,6 +9725,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     }
     function scheduleAudioPick() {
+      if (videoEl.selectAudio) {
+        var pref = (settings2.audioLangs || []).map(function (x) {
+          return x.toLowerCase();
+        });
+        var tracks2 = videoEl.audioTracks || [];
+        var idx = tracks2.findIndex(function (tr) {
+          return pref.indexOf(String(tr.language).toLowerCase()) >= 0;
+        });
+        if (idx >= 0) selectEmbeddedAudio(idx);
+        return;
+      }
       if (!(settings2.audioLangs || []).length || !isAvailable2()) return;
       setTimeout(function () {
         if (alive && hasPlayed) loadEmbeddedTracks().then(function () {
@@ -9351,6 +9755,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadSegments();
     });
     videoEl.addEventListener("playing", function () {
+      clearStartup();
       if (!hasPlayed) scheduleAudioPick();
       hasPlayed = true;
       showSpinner(false);
@@ -9491,20 +9896,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var err = videoEl.error;
       log.warn("Erro de vídeo", err && err.code, mediaUrl);
       if (!alive) return;
-      if (!hasPlayed && opts.fallbacks && opts.fallbacks.length) {
-        stream = opts.fallbacks.shift();
-        toast(t("Essa fonte não tocou. Tentando outra..."));
-        triedTranscode = false;
-        autoDone = {
-          sub: false,
-          audio: false
-        };
-        start3();
-        return;
-      }
+      clearStartup();
+      if (tryFallback()) return;
       var failedUrl = mediaUrl;
+      var failedAttempt = startGeneration;
       explainVideoError(err && err.code, failedUrl).then(function (why) {
-        if (!alive || mediaUrl !== failedUrl) return;
+        if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+        stopMedia();
         fail(why.title, why.codec && !triedTranscode && isAvailable2(), why.hint);
       });
     });
@@ -9689,6 +10087,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       setTimeout(function () {
         if (!alive) return;
         hasPlayed = false;
+        armStartup();
         videoEl.autoplay = true;
         videoEl.src = src;
         nativeOffDone = false;
@@ -9729,7 +10128,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function transcode() {
       triedTranscode = true;
-      var base = baseUrl();
+      var base2 = baseUrl();
       var id = Math.random().toString(36).slice(2) + Date.now().toString(36);
       var q = ["mediaURL=" + encodeURIComponent(mediaUrl)];
       ["h264", "h265", "hevc"].forEach(function (c) {
@@ -9739,7 +10138,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return q.push("audioCodecs=" + c);
       });
       q.push("maxAudioChannels=6");
-      var url2 = base + "hlsv2/" + id + "/master.m3u8?" + q.join("&");
+      var url2 = base2 + "hlsv2/" + id + "/master.m3u8?" + q.join("&");
       pendingStart = videoEl.currentTime * 1e3 || pendingStart;
       showSpinner(true);
       message("");
@@ -9849,6 +10248,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return id && id !== "<invalid mediaId>" ? id : null;
     }
     function selectEmbeddedAudio(index) {
+      if (videoEl.selectAudio) {
+        try {
+          videoEl.selectAudio(index);
+          currentAudio = index;
+        } catch (e) {
+          toast(t("Falha ao trocar áudio: {msg}", {
+            msg: e.message
+          }));
+        }
+        return;
+      }
       var native = videoEl.audioTracks;
       if (native && native.length > index) {
         for (var i = 0; i < native.length; i++) native[i].enabled = i === index;
@@ -9988,6 +10398,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function withTracks(open) {
+      if (videoEl.selectAudio) return open();
       if (embedded || !isAvailable2()) return open();
       toast(t("Lendo as faixas do arquivo..."), 2500);
       loadEmbeddedTracks().then(function () {
@@ -10003,7 +10414,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (native && native.length) {
         for (var i = 0; i < native.length; i++) {
           list2.push({
-            label: langName(native[i].language) + (native[i].label ? " · " + native[i].label : ""),
+            label: (native[i].language ? langName(native[i].language) : t("Faixa de áudio {n} (idioma não informado)", {
+              n: i + 1
+            })) + (native[i].label ? " · " + native[i].label : ""),
             value: i,
             checked: native[i].enabled
           });
@@ -10021,7 +10434,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       menu(t("Áudio"), list2, {
-        empty: isAvailable2() ? t("Só uma faixa de áudio.") : t("Para listar as faixas, conecte o servidor do PC em Ajustes."),
+        empty: videoEl.selectAudio ? t("Nenhuma faixa de áudio foi informada pela fonte.") : isAvailable2() ? t("Só uma faixa de áudio.") : t("Para listar as faixas, conecte o servidor do PC em Ajustes."),
         onPick: function onPick(i) {
           return selectEmbeddedAudio(i);
         }
@@ -10306,6 +10719,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       destroy: function destroy() {
         if (alive) saveProgress2(true);
         alive = false;
+        startGeneration++;
+        clearStartup();
         clearInterval(nowTimer);
         onSeek(null);
         nowPlaying(null);
@@ -10320,6 +10735,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           videoEl.pause();
           videoEl.removeAttribute("src");
           videoEl.load();
+          if (videoEl.dispose) videoEl.dispose();
         } catch (e) {}
       }
     };
@@ -12347,10 +12763,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T10:43:16.675Z";
+  var BUILD = "2026-11-05T11:02:33.098Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
-  var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
+  var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json"];
   function latest() {
     var bust = "?t=" + Date.now();
     return Promise.all([getJSON(RAW + "dist/build.json" + bust, {
@@ -12552,13 +12968,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     light: "#4fc27a",
     pale: "#b6e8c8"
   }];
-  var BASE3 = THEMES[0];
+  var BASE2 = THEMES[0];
   function rgb(hex) {
     var n = parseInt(hex.slice(1), 16);
     return [n >> 16 & 255, n >> 8 & 255, n & 255].join(",");
   }
   function recolor(css, th) {
-    var swap = [[BASE3.main, th.main], [BASE3.light, th.light], [BASE3.pale, th.pale], ["rgba(" + rgb(BASE3.main) + ",", "rgba(" + rgb(th.main) + ","], ["rgba(" + rgb(BASE3.light) + ",", "rgba(" + rgb(th.light) + ","], ["#b9a8ff", th.pale]];
+    var swap = [[BASE2.main, th.main], [BASE2.light, th.light], [BASE2.pale, th.pale], ["rgba(" + rgb(BASE2.main) + ",", "rgba(" + rgb(th.main) + ","], ["rgba(" + rgb(BASE2.light) + ",", "rgba(" + rgb(th.light) + ","], ["#b9a8ff", th.pale]];
     swap.forEach(function (p) {
       css = css.split(p[0]).join(p[1]).split(p[0].toUpperCase()).join(p[1]);
     });
@@ -12570,7 +12986,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var th = THEMES.find(function (x2) {
       return x2.id === id;
     });
-    if (!th || th === BASE3) return;
+    if (!th || th === BASE2) return;
     var x = new XMLHttpRequest();
     x.open("GET", (window.__KAI_BASE__ || "") + "app.css");
     x.onload = function () {

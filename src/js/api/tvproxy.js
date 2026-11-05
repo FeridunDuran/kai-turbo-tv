@@ -4,9 +4,10 @@
 // Nothing runs on a PC and no separate proxy app is needed.
 import { log } from '../lib/log.js';
 
-const PORT = 8095;
-const BASE = 'http://127.0.0.1:' + PORT;
 const TTL_MS = 30000;
+let base = 'http://127.0.0.1:8096';
+let checking = null;
+let launch = null;
 
 let status = { ok: false, checkedAt: 0 };
 
@@ -44,17 +45,63 @@ function cleanHeaders(headers) {
 
 // The service is local; a failed check is cheap. Cache it briefly so opening a source
 // list does not probe the service for every row.
+function probe(port) {
+  const url = 'http://127.0.0.1:' + port;
+  return request(url + '/api/info', 600).then((r) => r && r.proxy ? url : null).catch(() => null);
+}
+
+// Pin the service to the SAME commit as app.js, bypassing TizenBrew's stale
+// unversioned service cache. This is a local TizenBrew command, never a PC service.
+function startPlayerService() {
+  if (launch) return launch;
+  const m = (window.__KAI_BASE__ || '').match(/\/gh\/(FeridunDuran\/stremio-kai-tizen)@([a-f0-9]{40})\/dist\/$/);
+  if (!m || !/\/module\//.test(location.pathname) || typeof WebSocket === 'undefined') return Promise.resolve(false);
+  launch = new Promise((resolve) => {
+    let done = false;
+    let ws;
+    const end = (ok) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (ws) { ws.onopen = null; try { ws.close(); } catch (e) { /* not open */ } }
+      resolve(ok);
+    };
+    const timer = setTimeout(() => end(false), 1200);
+    try {
+      ws = new WebSocket('ws://127.0.0.1:8081');
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 6, payload: {
+          fullName: 'gh/' + m[1] + '@' + m[2], serviceFile: 'dist/player-service.js',
+        } }));
+        end(true);
+      };
+      ws.onerror = () => end(false);
+    } catch (e) { end(false); }
+  });
+  return launch;
+}
+
 export function check() {
-  if (status.ok && Date.now() - status.checkedAt < TTL_MS) return Promise.resolve(status);
-  return request(BASE + '/api/info', 2500)
-    .then((r) => {
-      status = { ok: !!(r && r.proxy), checkedAt: Date.now() };
-      return status;
-    })
-    .catch(() => {
-      status = { ok: false, checkedAt: Date.now() };
-      return status;
+  if (status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5000)) return Promise.resolve(status);
+  if (checking) return checking;
+  checking = Promise.all([probe(8096), probe(8095)]).then((urls) => {
+    if (urls[0]) return urls[0];
+    return startPlayerService().then((started) => {
+      if (!started) return urls[1];
+      // One bounded startup grace period; no repeated launch/retry loop.
+      return new Promise((resolve) => setTimeout(resolve, 1800)).then(() => probe(8096)).then((url) => url || urls[1]);
     });
+  }).then((url) => {
+    if (url) base = url;
+    status = { ok: !!url, checkedAt: Date.now() };
+    checking = null;
+    return status;
+  }, () => {
+    checking = null;
+    status = { ok: false, checkedAt: Date.now() };
+    return status;
+  });
+  return checking;
 }
 
 export function ensure() {
@@ -77,9 +124,10 @@ export function proxyUrl(streamUrl, requestHeaders, responseHeaders) {
   const request = cleanHeaders(requestHeaders);
   if (!request) return null;
   const response = cleanHeaders(responseHeaders);
-  let url = BASE + '/proxy?u=' + encodeURIComponent(streamUrl);
+  const path = /\.m3u8(\?|#|$)/i.test(streamUrl) ? '/proxy/stream.m3u8' : '/proxy';
+  let url = base + path + '?u=' + encodeURIComponent(streamUrl);
   url += '&h=' + encodeURIComponent(JSON.stringify(request));
   if (response) url += '&r=' + encodeURIComponent(JSON.stringify(response));
-  log.info('TV proxy', streamUrl);
+  log.info('TV proxy enabled');
   return url;
 }

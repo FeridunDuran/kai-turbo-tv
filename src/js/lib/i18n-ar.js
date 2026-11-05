@@ -480,4 +480,8 @@ export const AR = {
   'O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.': "قد لا يدعم التلفاز هذه الصيغة، أو رفض الخادم الوصول. جرّب مصدرًا آخر.",
   'Pôsteres sem barra de notas': 'ملصقات بدون شريط التقييم',
   'Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta': 'يعرض ملصق Cinemeta النظيف بدل الملصقات المرسوم عليها التقييم (RPDB)',
+  'A fonte não iniciou em {n}s.': 'لم يبدأ المصدر خلال {n} ثانية.',
+  'Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.': 'اختر مصدرًا آخر. قد يكون الخادم بطيئًا أو يتطلب ترويسات لم تُرسل.',
+  'Faixa de áudio {n} (idioma não informado)': 'المسار الصوتي {n} (اللغة غير محددة)',
+  'Nenhuma faixa de áudio foi informada pela fonte.': 'لم يُبلغ هذا المصدر عن أي مسارات صوتية.',
 };

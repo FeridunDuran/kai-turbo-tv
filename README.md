@@ -298,7 +298,14 @@ installed and newest version and can update from there too.
   the TV was restarted afterwards, and both are on the same network (not a guest network).
 - **A video won't play:** try a debrid (direct) source, or check that stremio-service is
   running on the PC for torrent sources. Header links should be tagged **Via TV**; if they say
-  **Direct · may fail**, restart TizenBrew so the updated TV service starts.
+  **Direct · may fail**, neither the TV header proxy nor the PC proxy was detected. The app
+  tries to start its own loopback proxy using the same commit as the running app, even when
+  TizenBrew has an older phone service cached. HTTP sources stop waiting after 15 seconds;
+  Smart Choice then tries its next backup.
+- **Audio track language is missing:** “Audio track N (language not provided)” means the
+  source did not label the language; it does not mean that the file contains no sound.
+  When Samsung AVPlay is available, audio tracks and switching use Samsung's native API.
+  Silent or unsupported source audio cannot be repaired by adding request headers alone.
 - **Few or no sources:** torrents are hidden when there is no PC server; each add-on shows how
   many were hidden. Header links are no longer hidden.
 - **The Library tab or a new feature doesn't appear:** the TV is still running the old version;
@@ -317,8 +324,10 @@ installed and newest version and can update from there too.
 
 ## Known limitations
 
-- **Audio and subtitle track switching** inside a video doesn't use Samsung's player API yet,
-  so it may not work on every TV. Please open an issue if it doesn't on yours.
+- **Playback on Samsung** uses AVPlay when the Samsung WebAPI is exposed by the host;
+  otherwise the HTML video player remains available. This path has local API-mock tests,
+  but has not yet been verified on the Q70T. Embedded subtitle switching through Samsung's
+  API is not implemented; add-on subtitles still use the app's renderer.
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.
 

@@ -19,6 +19,7 @@ import { sortedVideos, openDetails } from './details.js';
 import { t, epLabel } from '../lib/i18n.js';
 import * as watched from '../lib/watched.js';
 import * as phone from '../lib/phone.js';
+import { createVideo } from '../lib/tizenvideo.js';
 
 const HIDE_MS = 5000;
 const SAVE_MS = 15000;
@@ -45,7 +46,8 @@ function PlayerView(opts) {
   let stream = opts.stream;
   const settings = store.settings();
 
-  const videoEl = h('video', { preload: 'auto' });
+  const videoEl = createVideo(document);
+  videoEl.preload = 'auto';
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
@@ -107,6 +109,35 @@ function PlayerView(opts) {
   let currentSub = { kind: 'off' };
   let currentAudio = null;
   let triedTranscode = false;
+  let startGeneration = 0;
+  let startupTimer = null;
+  function clearStartup() { clearTimeout(startupTimer); startupTimer = null; }
+  function armStartup() {
+    clearStartup();
+    // Torrents can legitimately take longer; HTTP sources must not spin forever.
+    if (server.isTorrent(stream)) return;
+    startupTimer = setTimeout(() => {
+      if (!alive || hasPlayed) return;
+      if (tryFallback()) return;
+      stopMedia();
+      fail(t('A fonte não iniciou em {n}s.', { n: 15 }), false,
+        t('Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.'));
+    }, 15000);
+  }
+  function stopMedia() {
+    clearStartup();
+    videoEl.removeAttribute('src');
+    videoEl.load();
+  }
+  function tryFallback() {
+    if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
+    stream = opts.fallbacks.shift();
+    toast(t('Essa fonte não tocou. Tentando outra...'));
+    triedTranscode = false;
+    autoDone = { sub: false, audio: false };
+    start();
+    return true;
+  }
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
 
@@ -136,6 +167,13 @@ function PlayerView(opts) {
 
   // ---------- Carregamento ----------
   function start() {
+    const attempt = ++startGeneration;
+    stopMedia();
+    mediaUrl = '';
+    hasPlayed = false;
+    gaveUp = false;
+    currentAudio = null;
+    armStartup();
     setTitle();
     showSpinner(true);
     message('');
@@ -153,7 +191,7 @@ function PlayerView(opts) {
     server
       .toPlayable(stream, seriesInfo())
       .then((res) => {
-        if (!alive) return;
+        if (!alive || attempt !== startGeneration || (!startupTimer && !server.isTorrent(stream))) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info('Tocando', mediaUrl);
@@ -167,7 +205,11 @@ function PlayerView(opts) {
         // Faixas embutidas só quando o usuário abre o menu: o ffprobe do servidor lê o arquivo
         // e, num torrent, rouba prioridade do trecho que está tocando.
       })
-      .catch((e) => fail(e.message));
+      .catch((e) => {
+        if (!alive || attempt !== startGeneration) return;
+        clearStartup();
+        if (!tryFallback()) fail(e.message);
+      });
   }
 
   let tracksPromise = null;
@@ -233,6 +275,13 @@ function PlayerView(opts) {
 
   // Áudio preferido configurado: lê as faixas uma vez, 20s depois de o vídeo começar.
   function scheduleAudioPick() {
+    if (videoEl.selectAudio) {
+      const pref = (settings.audioLangs || []).map((x) => x.toLowerCase());
+      const tracks = videoEl.audioTracks || [];
+      const idx = tracks.findIndex((tr) => pref.indexOf(String(tr.language).toLowerCase()) >= 0);
+      if (idx >= 0) selectEmbeddedAudio(idx);
+      return;
+    }
     if (!(settings.audioLangs || []).length || !server.isAvailable()) return;
     setTimeout(() => {
       if (alive && hasPlayed) loadEmbeddedTracks().then(() => autoPick());
@@ -254,6 +303,7 @@ function PlayerView(opts) {
     loadSegments();
   });
   videoEl.addEventListener('playing', () => {
+    clearStartup();
     if (!hasPlayed) scheduleAudioPick();
     hasPlayed = true;
     showSpinner(false);
@@ -392,19 +442,15 @@ function PlayerView(opts) {
     const err = videoEl.error;
     log.warn('Erro de vídeo', err && err.code, mediaUrl);
     if (!alive) return;
+    clearStartup();
     // Smart Choice: before giving up, try its next-best source.
-    if (!hasPlayed && opts.fallbacks && opts.fallbacks.length) {
-      stream = opts.fallbacks.shift();
-      toast(t('Essa fonte não tocou. Tentando outra...'));
-      triedTranscode = false;
-      autoDone = { sub: false, audio: false };
-      start();
-      return;
-    }
+    if (tryFallback()) return;
     // Say what actually failed (network, server refusal, expired link, codec...).
     const failedUrl = mediaUrl;
+    const failedAttempt = startGeneration;
     explainVideoError(err && err.code, failedUrl).then((why) => {
-      if (!alive || mediaUrl !== failedUrl) return;
+      if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+      stopMedia();
       fail(why.title, why.codec && !triedTranscode && server.isAvailable(), why.hint);
     });
   });
@@ -612,6 +658,7 @@ function PlayerView(opts) {
     setTimeout(() => {
       if (!alive) return;
       hasPlayed = false;
+      armStartup();
       videoEl.autoplay = true;
       videoEl.src = src;
       nativeOffDone = false;
@@ -777,6 +824,11 @@ function PlayerView(opts) {
   }
 
   function selectEmbeddedAudio(index) {
+    if (videoEl.selectAudio) {
+      try { videoEl.selectAudio(index); currentAudio = index; }
+      catch (e) { toast(t('Falha ao trocar áudio: {msg}', { msg: e.message })); }
+      return;
+    }
     const native = videoEl.audioTracks;
     if (native && native.length > index) {
       for (let i = 0; i < native.length; i++) native[i].enabled = i === index;
@@ -882,6 +934,7 @@ function PlayerView(opts) {
 
   // Menus de faixas: lê as faixas embutidas só agora, quando o usuário pede.
   function withTracks(open) {
+    if (videoEl.selectAudio) return open();
     if (embedded || !server.isAvailable()) return open();
     toast(t('Lendo as faixas do arquivo...'), 2500);
     loadEmbeddedTracks().then(() => alive && open());
@@ -896,7 +949,7 @@ function PlayerView(opts) {
     let list = [];
     if (native && native.length) {
       for (let i = 0; i < native.length; i++) {
-        list.push({ label: langName(native[i].language) + (native[i].label ? ' · ' + native[i].label : ''), value: i, checked: native[i].enabled });
+        list.push({ label: (native[i].language ? langName(native[i].language) : t('Faixa de áudio {n} (idioma não informado)', { n: i + 1 })) + (native[i].label ? ' · ' + native[i].label : ''), value: i, checked: native[i].enabled });
       }
     } else if (embedded && embedded.audio.length) {
       list = embedded.audio.map((tr, i) => ({
@@ -907,7 +960,7 @@ function PlayerView(opts) {
       }));
     }
     menu(t('Áudio'), list, {
-      empty: server.isAvailable() ? t('Só uma faixa de áudio.') : t('Para listar as faixas, conecte o servidor do PC em Ajustes.'),
+      empty: videoEl.selectAudio ? t('Nenhuma faixa de áudio foi informada pela fonte.') : server.isAvailable() ? t('Só uma faixa de áudio.') : t('Para listar as faixas, conecte o servidor do PC em Ajustes.'),
       onPick: (i) => selectEmbeddedAudio(i),
     });
   }
@@ -1157,6 +1210,8 @@ function PlayerView(opts) {
     destroy: () => {
       if (alive) saveProgress(true);
       alive = false;
+      startGeneration++;
+      clearStartup();
       clearInterval(nowTimer);
       phone.onSeek(null);
       phone.nowPlaying(null);
@@ -1171,6 +1226,7 @@ function PlayerView(opts) {
         videoEl.pause();
         videoEl.removeAttribute('src');
         videoEl.load();
+        if (videoEl.dispose) videoEl.dispose();
       } catch (e) {
         /* ignore */
       }
