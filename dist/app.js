@@ -4710,7 +4710,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var flushing = false;
   var failures = 0;
   function redact(text) {
-    return text.replace(/((?:realdebrid|alldebrid|premiumize|debridlink|easydebrid|offcloud|torbox|putio|apikey|api_key|token|authKey)(?:=|%3D|:))[A-Za-z0-9._-]{8,}/gi, "$1***");
+    return text.replace(/https?:\/\/[^\s"<>]+/gi, function (url2) {
+      var origin = url2.match(/^(https?:\/\/)(?:[^/@]+@)?([^/?#]+)/i);
+      return origin ? origin[1] + origin[2] + "/[redacted]" : "[redacted URL]";
+    }).replace(/("?(?:auth_token|access_token|password|authorization|api_key|apikey|token)"?\s*[:=]\s*"?)[^"\s,}]+/gi, "$1***");
   }
   function send(level, args) {
     var raw = Array.prototype.map.call(args, function (a) {
@@ -4766,6 +4769,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   }
   var log = {
+    debug: function debug() {
+      if (remoteUrl) send("log", arguments);
+    },
     info: function info() {
       send("log", arguments);
     },
@@ -4782,6 +4788,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   };
   window.onerror = function (msg, src, line, col, err) {
     log.error("ERRO JS:", msg, (src || "") + ":" + line + ":" + col, err && err.stack ? err.stack : "");
+  };
+  window.onunhandledrejection = function (event) {
+    log.error("Unhandled promise rejection", event && event.reason || "Unknown rejection");
   };
 
   // src/js/lib/i18n-en.js
@@ -5907,12 +5916,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function request(method, url2, body, opts) {
     var o = opts || {};
     return new Promise(function (resolve, reject) {
+      var started2 = Date.now();
+      var kind = /\/(manifest|catalog|meta|stream|subtitles)(?:[/.]|$)/.exec(url2);
+      var summary = function summary(outcome) {
+        if (log.debug) log.debug("HTTP request", {
+          method: method,
+          endpoint: kind ? kind[1] : "api",
+          url: url2,
+          status: xhr.status || 0,
+          outcome: outcome,
+          ms: Date.now() - started2
+        });
+      };
       var xhr = new XMLHttpRequest();
       xhr.open(method, url2, true);
       xhr.timeout = o.timeout || 2e4;
       if (body !== void 0 && body !== null) xhr.setRequestHeader("Content-Type", "application/json");
       if (o.headers) for (var k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
       xhr.onload = function () {
+        summary("response");
         if (xhr.status >= 200 && xhr.status < 300) {
           if (o.raw) return resolve(xhr.responseText);
           try {
@@ -5932,6 +5954,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       };
       xhr.onerror = function () {
+        summary("network-error");
         var err = new Error(t("Falha de rede em {url}", {
           url: url2
         }));
@@ -5939,6 +5962,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         reject(err);
       };
       xhr.ontimeout = function () {
+        summary("timeout");
         var err = new Error(t("Tempo esgotado em {url}", {
           url: url2
         }));
@@ -8256,6 +8280,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   };
   var tabs = {};
   function show(view) {
+    if (log.debug) log.debug("View shown", {
+      screen: view.tabId || view.el.className || "view",
+      depth: stack.length
+    });
     view.el.classList.remove("hidden");
     if (view.layer) {
       popLayer(view.layer);
@@ -8273,6 +8301,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     loadVisibleImages(view.el);
   }
   function hide(view) {
+    if (log.debug) log.debug("View hidden", {
+      screen: view.tabId || view.el.className || "view",
+      depth: stack.length
+    });
     view.restoreFocus = current2();
     if (view.layer) popLayer(view.layer);
     view.layer = null;
@@ -14222,7 +14254,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T21:05:01.231Z";
+  var BUILD = "2026-11-05T21:06:41.734Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
@@ -15736,6 +15768,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     init(s.language);
     if (s.devlogUrl) log.setRemote(s.devlogUrl);
     log.info("Iniciando", navigator.userAgent);
+    log.debug("Runtime context", {
+      revision: ((window.__KAI_BASE__ || "").match(/@([a-f0-9]{40})/) || [])[1] || "unknown",
+      online: navigator.onLine,
+      screen: [window.innerWidth, window.innerHeight]
+    });
     registerTizenKeys();
     start();
     onOpen(function (ev) {

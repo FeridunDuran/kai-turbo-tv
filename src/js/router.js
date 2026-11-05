@@ -5,11 +5,14 @@ import { confirmDialog } from './ui.js';
 import { loadVisibleImages, unloadImages } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 
+import { log } from './lib/log.js';
+
 const stack = [];
 const app = () => document.getElementById('app');
 const tabs = {}; // telas principais reutilizadas (início, busca, biblioteca, ajustes)
 
 function show(view) {
+  if (log.debug) log.debug('View shown', { screen: view.tabId || view.el.className || 'view', depth: stack.length });
   view.el.classList.remove('hidden');
   if (view.layer) {
     nav.popLayer(view.layer);
@@ -25,6 +28,7 @@ function show(view) {
 }
 
 function hide(view) {
+  if (log.debug) log.debug('View hidden', { screen: view.tabId || view.el.className || 'view', depth: stack.length });
   view.restoreFocus = nav.current();
   if (view.layer) nav.popLayer(view.layer);
   view.layer = null;

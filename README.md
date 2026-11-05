@@ -514,3 +514,12 @@ MovieBoxProviderIN DASH links require the DASH player as well as the header prox
 A server type of `application/octet-stream` does not identify the media codec.
 The MovieBox HEVC/AAC DASH source was verified in desktop Chrome with the TV proxy
 code, including audio/video decoding. Q70T hardware verification remains pending.
+
+### Remote debugging
+
+Set **Settings → Remote log** to your log receiver URL (`npm run logs` starts the receiver;
+default port 8099). General debug records are enabled while that address is configured:
+runtime Git revision, screen transitions, shared HTTP request durations/statuses, uncaught
+JavaScript/Promise errors, playback timelines, pause state and bounded torrent piece diagnostics.
+URLs in logger output retain the origin while configuration paths and signed queries are
+redacted. Disable Remote log when finished to stop sending diagnostic records.

@@ -6,10 +6,11 @@ let failures = 0;
 
 // Esconde chaves de debrid/API que aparecem nas URLs dos addons (ex.: Torrentio).
 function redact(text) {
-  return text.replace(
-    /((?:realdebrid|alldebrid|premiumize|debridlink|easydebrid|offcloud|torbox|putio|apikey|api_key|token|authKey)(?:=|%3D|:))[A-Za-z0-9._-]{8,}/gi,
-    '$1***'
-  );
+  // Add-on configuration and signed media paths can contain credentials, not just queries.
+  return text.replace(/https?:\/\/[^\s"<>]+/gi, (url) => {
+    const origin = url.match(/^(https?:\/\/)(?:[^/@]+@)?([^/?#]+)/i);
+    return origin ? origin[1] + origin[2] + '/[redacted]' : '[redacted URL]';
+  }).replace(/("?(?:auth_token|access_token|password|authorization|api_key|apikey|token)"?\s*[:=]\s*"?)[^"\s,}]+/gi, '$1***');
 }
 
 function send(level, args) {
@@ -70,6 +71,7 @@ function flush() {
 }
 
 export const log = {
+  debug: function () { if (remoteUrl) send("log", arguments); },
   info: function () {
     send('log', arguments);
   },
@@ -87,4 +89,8 @@ export const log = {
 
 window.onerror = function (msg, src, line, col, err) {
   log.error('ERRO JS:', msg, (src || '') + ':' + line + ':' + col, err && err.stack ? err.stack : '');
+};
+
+window.onunhandledrejection = function (event) {
+  log.error('Unhandled promise rejection', event && event.reason || 'Unknown rejection');
 };

@@ -5,12 +5,19 @@ import { t } from './i18n.js';
 export function request(method, url, body, opts) {
   const o = opts || {};
   return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const kind = /\/(manifest|catalog|meta|stream|subtitles)(?:[/.]|$)/.exec(url);
+    const summary = (outcome) => {
+      if (log.debug) log.debug('HTTP request', { method: method, endpoint: kind ? kind[1] : 'api',
+        url: url, status: xhr.status || 0, outcome: outcome, ms: Date.now() - started });
+    };
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.timeout = o.timeout || 20000;
     if (body !== undefined && body !== null) xhr.setRequestHeader('Content-Type', 'application/json');
     if (o.headers) for (const k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
     xhr.onload = () => {
+      summary("response");
       if (xhr.status >= 200 && xhr.status < 300) {
         if (o.raw) return resolve(xhr.responseText);
         try {
@@ -25,11 +32,13 @@ export function request(method, url, body, opts) {
       }
     };
     xhr.onerror = () => {
+      summary("network-error");
       const err = new Error(t('Falha de rede em {url}', { url: url }));
       err.status = 0;
       reject(err);
     };
     xhr.ontimeout = () => {
+      summary("timeout");
       const err = new Error(t('Tempo esgotado em {url}', { url: url }));
       err.status = 0;
       err.timeout = true;

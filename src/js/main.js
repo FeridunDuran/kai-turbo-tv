@@ -31,6 +31,7 @@ function boot() {
   initI18n(s.language);
   if (s.devlogUrl) log.setRemote(s.devlogUrl);
   log.info('Iniciando', navigator.userAgent);
+  log.debug('Runtime context', { revision: ((window.__KAI_BASE__ || '').match(/@([a-f0-9]{40})/) || [])[1] || 'unknown', online: navigator.onLine, screen: [window.innerWidth, window.innerHeight] });
 
   registerTizenKeys();
   phone.start();
