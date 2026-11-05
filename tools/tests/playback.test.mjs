@@ -270,3 +270,17 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
 
 
 test("torrent has no absolute startup deadline while service tracks download progress",()=>{const f=playerFixture([],true);assert.equal([...f.timers.values()].some(t=>t.ms===30000||t.ms===120000),false);f.view.destroy();});
+
+
+test('ready TV torrent service does not wait for unresponsive legacy proxy ports', async () => {
+ const pending=[];
+ const context={Promise,Date,JSON,Error,log:{info(){},warn(){}},window:{},location:{pathname:'/'},setTimeout,clearTimeout,
+ XMLHttpRequest:class {open(method,url){this.url=url;}send(){pending.push(this);}}};
+ const source=fs.readFileSync(new URL('../../src/js/api/tvproxy.js',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replace(/export /g,'');
+ vm.runInNewContext(source,context);
+ const first=context.check(true),second=context.check(true);assert.equal(first,second);assert.equal(pending.length,3);
+ const player=pending.find(x=>x.url.includes(':8097/'));player.status=200;player.responseText=JSON.stringify({proxy:1,torrent:1});player.onload();
+ const status=await first;assert.equal(status.torrent,true);assert.equal(status.ok,true);
+ // Neither legacy probe has completed; their later failures must not overwrite readiness.
+ pending.filter(x=>x!==player).forEach(x=>x.onerror());await Promise.resolve();assert.equal(context.isTorrentAvailable(),true);
+});

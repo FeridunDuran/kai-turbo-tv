@@ -218,6 +218,8 @@ function PlayerView(opts) {
     upNextCancelled = false;
     nativeOffDone = false;
     hideSkip();
+    // Add-on subtitles do not depend on the local playback URL or torrent metadata.
+    loadSubtitles();
     server
       .toPlayable(stream, seriesInfo())
       .then((res) => {
@@ -231,7 +233,6 @@ function PlayerView(opts) {
         videoEl.autoplay = true;
         videoEl.src = mediaUrl;
         freeBackgroundMemory();
-        loadSubtitles();
         // Faixas embutidas só quando o usuário abre o menu: o ffprobe do servidor lê o arquivo
         // e, num torrent, rouba prioridade do trecho que está tocando.
       })
@@ -266,15 +267,16 @@ function PlayerView(opts) {
 
   function loadSubtitles() {
     const forVideo = video;
+    const subtitleGeneration = startGeneration;
     addonSubs = null;
     addons
       .fetchSubtitles(meta.type, video.id, {}, (list) => {
-        if (!alive || forVideo !== video) return;
+        if (!alive || forVideo !== video || subtitleGeneration !== startGeneration) return;
         addonSubs = (addonSubs || []).concat(list);
         autoPick();
       })
       .catch(() => {
-        if (!addonSubs) addonSubs = [];
+        if (alive && forVideo === video && subtitleGeneration === startGeneration && !addonSubs) addonSubs = [];
       });
   }
 

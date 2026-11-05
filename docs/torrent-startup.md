@@ -69,3 +69,15 @@ MKV/WebM first pieces are now pinned across tail/index and resume seeks, within 
 selection concentration, header retention, resumed read-ahead and warm-cache behavior.
 All 62 local tests pass; the Node 4.4.3 synthetic BitTorrent/HTTP fixture also passes.
 Actual TV startup improvement remains to be measured after restarting the updated service.
+
+## Independent startup work in parallel
+
+TV service probes already run concurrently. A ready 8097 torrent service now returns immediately
+without waiting for legacy 8095/8096 timeouts (up to 600 ms). When starting the service is needed,
+legacy fallback discovery does not block startup or polling. Concurrent checks share one promise.
+Add-on subtitle discovery now starts alongside local playback URL preparation, with generation
+guards to discard obsolete responses. This overlaps subtitle latency with torrent metadata;
+it does not increase torrent peer throughput. Torrent tracker/DHT discovery, add-on stream
+requests, and MP4 head/tail selections were already concurrent. Their existing request/cache
+budgets are preserved. Regressions cover a ready service with both legacy probes unresolved,
+and subtitle discovery while the playback preparation promise remains pending.

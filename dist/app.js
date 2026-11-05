@@ -7115,12 +7115,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function check(force) {
     if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5e3)) return Promise.resolve(status);
     if (checking) return checking;
-    checking = Promise.all([probe(8097), probe(8096), probe(8095)]).then(function (urls) {
-      if (urls[0] && urls[0].torrent) return urls[0];
-      var fallback = urls[0] || urls[1] || urls[2];
-      return startPlayerService().then(function (started2) {
-        if (!started2) return fallback;
-        return waitForTorrent(fallback);
+    var playerProbe = probe(8097);
+    var legacyProbes = Promise.all([probe(8096), probe(8095)]);
+    checking = playerProbe.then(function (player) {
+      if (player && player.torrent) return player;
+      var started2 = startPlayerService();
+      return started2.then(function (ok) {
+        if (!ok) return legacyProbes.then(function (urls) {
+          return player || urls[0] || urls[1];
+        });
+        return waitForTorrent(player).then(function (result) {
+          return result && result.torrent ? result : legacyProbes.then(function (urls) {
+            return result || player || urls[0] || urls[1];
+          });
+        });
       });
     }).then(function (url2) {
       if (url2) base = url2.url;
@@ -10193,6 +10201,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       upNextCancelled = false;
       nativeOffDone = false;
       hideSkip();
+      loadSubtitles();
       toPlayable(stream, seriesInfo()).then(function (res) {
         if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
@@ -10202,7 +10211,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         videoEl.autoplay = true;
         videoEl.src = mediaUrl;
         freeBackgroundMemory();
-        loadSubtitles();
       }).catch(function (e) {
         if (!alive || attempt !== startGeneration) return;
         clearStartup();
@@ -10229,13 +10237,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function loadSubtitles() {
       var forVideo = video;
+      var subtitleGeneration = startGeneration;
       addonSubs = null;
       fetchSubtitles(meta.type, video.id, {}, function (list2) {
-        if (!alive || forVideo !== video) return;
+        if (!alive || forVideo !== video || subtitleGeneration !== startGeneration) return;
         addonSubs = (addonSubs || []).concat(list2);
         autoPick();
       }).catch(function () {
-        if (!addonSubs) addonSubs = [];
+        if (alive && forVideo === video && subtitleGeneration === startGeneration && !addonSubs) addonSubs = [];
       });
     }
     var autoDone = {
@@ -13508,7 +13517,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T16:40:36.790Z";
+  var BUILD = "2026-11-05T16:51:10.334Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

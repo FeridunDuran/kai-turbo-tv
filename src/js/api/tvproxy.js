@@ -96,14 +96,18 @@ function startPlayerService() {
 export function check(force) {
   if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5000)) return Promise.resolve(status);
   if (checking) return checking;
-  checking = Promise.all([probe(8097), probe(8096), probe(8095)]).then((urls) => {
-    if (urls[0] && urls[0].torrent) return urls[0];
-    const fallback = urls[0] || urls[1] || urls[2];
-    return startPlayerService().then((started) => {
-      if (!started) return fallback;
-      // The bundled engine takes longer to download and start than the proxy-only service.
-      // Poll the new, version-isolated port for one bounded startup window.
-      return waitForTorrent(fallback);
+  // Launch all probes together, but a ready player must not wait for legacy ports.
+  const playerProbe = probe(8097);
+  const legacyProbes = Promise.all([probe(8096), probe(8095)]);
+  checking = playerProbe.then((player) => {
+    if (player && player.torrent) return player;
+    // Starting the player and collecting legacy fallbacks are independent.
+    const started = startPlayerService();
+    return started.then((ok) => {
+      if (!ok) return legacyProbes.then((urls) => player || urls[0] || urls[1]);
+      // Do not let slow legacy ports delay discovery of the newly started player.
+      return waitForTorrent(player).then((result) => result && result.torrent ? result
+        : legacyProbes.then((urls) => result || player || urls[0] || urls[1]));
     });
   }).then((url) => {
     if (url) base = url.url;
