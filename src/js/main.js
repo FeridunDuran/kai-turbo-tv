@@ -94,7 +94,13 @@ function start() {
   // Atualiza a conta em segundo plano; a tela inicial abre com o cache.
   if (stremio.isLoggedIn()) {
     stremio.refreshUser().catch(() => {});
-    stremio.getLibrary().catch(() => {});
+    stremio
+      .getLibrary()
+      .then(() => {
+        const home = router.tabView('home');
+        if (home && home.refreshContinue) home.refreshContinue();
+      })
+      .catch(() => {});
   }
 
   Promise.all([server.check(), addons.load().catch(() => null)]).then(() => {

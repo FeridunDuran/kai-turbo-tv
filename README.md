@@ -221,7 +221,7 @@ Leave Developer Mode on from now on, or TizenBrew won't open.
 1. Open **TizenBrew** and go to **Module Manager → Add module**.
 2. Choose **GitHub** (not NPM) and enter:
    ```
-   ITzAkai/kai
+   FeridunDuran/stremio-kai-tizen
    ```
 3. **Stremio Kai** now appears in TizenBrew. Open it.
 

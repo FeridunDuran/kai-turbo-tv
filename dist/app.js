@@ -2972,11 +2972,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var $RangeError = RangeError;
       var floor = Math.floor;
       module.exports = function repeat(count) {
-        var str = toString(requireObjectCoercible(this));
+        var str2 = toString(requireObjectCoercible(this));
         var result = "";
         var n = toIntegerOrInfinity(count);
         if (n < 0 || n === Infinity) throw new $RangeError("Wrong number of repetitions");
-        for (; n > 0; (n = floor(n / 2)) && (str += str)) if (n % 2) result += str;
+        for (; n > 0; (n = floor(n / 2)) && (str2 += str2)) if (n % 2) result += str2;
         return result;
       };
     }
@@ -4448,8 +4448,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           };
           return _this;
         };
-        var base64DecodeInputStream = function base64DecodeInputStream(str) {
-          var _str = str;
+        var base64DecodeInputStream = function base64DecodeInputStream(str2) {
+          var _str = str2;
           var _pos = 0;
           var _buffer = 0;
           var _buflen = 0;
@@ -4643,17 +4643,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }();
       !function () {
         qrcode2.stringToBytesFuncs["UTF-8"] = function (s) {
-          function toUTF8Array(str) {
+          function toUTF8Array(str2) {
             var utf8 = [];
-            for (var i = 0; i < str.length; i++) {
-              var charcode = str.charCodeAt(i);
+            for (var i = 0; i < str2.length; i++) {
+              var charcode = str2.charCodeAt(i);
               if (charcode < 128) utf8.push(charcode);else if (charcode < 2048) {
                 utf8.push(192 | charcode >> 6, 128 | charcode & 63);
               } else if (charcode < 55296 || charcode >= 57344) {
                 utf8.push(224 | charcode >> 12, 128 | charcode >> 6 & 63, 128 | charcode & 63);
               } else {
                 i++;
-                charcode = 65536 + ((charcode & 1023) << 10 | str.charCodeAt(i) & 1023);
+                charcode = 65536 + ((charcode & 1023) << 10 | str2.charCodeAt(i) & 1023);
                 utf8.push(240 | charcode >> 18, 128 | charcode >> 12 & 63, 128 | charcode >> 6 & 63, 128 | charcode & 63);
               }
             }
@@ -4937,6 +4937,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhum addon com busca instalado.": "No add-on with search installed.",
     'Nada encontrado para "{q}".': 'Nothing found for "{q}".',
     "Tudo": "All",
+    "Ordenar": "Sort",
+    "Ordenar: {name}": "Sort: {name}",
+    "Último assistido": "Last watched",
+    "Adicionado recentemente": "Recently added",
+    "Nome (A-Z)": "Name (A-Z)",
+    "Nome (Z-A)": "Name (Z-A)",
+    "Mais assistidos": "Most watched",
+    "Lançamento (mais novo)": "Release date (newest)",
+    "Lançamento (mais antigo)": "Release date (oldest)",
+    "Nota (maior)": "Rating (highest)",
+    "Carregando detalhes {done}/{total}...": "Loading details {done}/{total}...",
     "Sua biblioteca está vazia.": "Your library is empty.",
     "Entre na sua conta em Ajustes para ver a biblioteca.": "Sign in to your account in Settings to see your library.",
     "Carregando biblioteca...": "Loading library...",
@@ -6368,7 +6379,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     // Watch picks the best source and plays it
     theme: "purple",
     // see lib/theme.js
-    devlogUrl: true ? "http://192.168.68.108:8099/log" : "",
+    devlogUrl: true ? "" : "",
     language: "auto",
     // 'auto' (TV language: Arabic or English) | 'en' | 'ar'
     askProfile: true,
@@ -6552,6 +6563,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function cachedAddons() {
     return get("addons", null);
   }
+  var CREDITS_THRESHOLD_COEF = 0.9;
   function getLibrary() {
     if (!isLoggedIn()) return Promise.resolve(cachedLibrary());
     return call("datastoreGet", {
@@ -6654,7 +6666,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var it = libraryItem(id);
     return !!(it && !it.removed);
   }
-  function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs) {
+  function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs, final, nextVideoId) {
     var existing = libraryItem(meta.id);
     var item = existing ? clone(existing) : newLibraryItem(meta);
     var s = item.state;
@@ -6672,7 +6684,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       s.flaggedWatched = 1;
       s.timesWatched = (s.timesWatched || 0) + 1;
     }
-    if (s.duration > 0 && s.timeOffset > s.duration * 0.95) s.timeOffset = 0;
+    if (final && s.duration > 0 && s.timeOffset > s.duration * CREDITS_THRESHOLD_COEF) {
+      s.timeOffset = 0;
+      if (nextVideoId) {
+        s.video_id = nextVideoId;
+        s.timeWatched = 0;
+        s.flaggedWatched = 0;
+        s.timeOffset = 1;
+      }
+    }
     if (!item.name && meta.name) item.name = meta.name;
     if (!item.poster && meta.poster) item.poster = meta.poster;
     item._mtime = nowIso();
@@ -8835,6 +8855,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
     }
+    function nextVideoForResume() {
+      var nv = nextVideo();
+      if (!nv) return null;
+      if (nv.season === 0 && (video.season || 0) !== 0) return null;
+      if (nv.released && new Date(nv.released).getTime() > Date.now()) return null;
+      return nv;
+    }
     function start3() {
       setTitle();
       showSpinner(true);
@@ -8984,7 +9011,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       checkUpNext();
     });
     videoEl.addEventListener("ended", function () {
-      saveProgress2();
+      saveProgress2(true);
       record(video.id, 1);
       if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();else pop();
     });
@@ -9765,7 +9792,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function playNext() {
       var nv = nextVideo();
       if (!nv) return;
-      saveProgress2();
+      saveProgress2(true);
       var group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
       showSpinner(true);
       message(t("Procurando o próximo episódio..."));
@@ -9794,14 +9821,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
-    function saveProgress2() {
+    function saveProgress2(final) {
       var d = videoEl.duration;
       if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
       var delta = watchedDelta;
       watchedDelta = 0;
       if (meta.id === "dev") return;
       record(video.id, videoEl.currentTime / d);
-      saveProgress(meta, video.id, videoEl.currentTime * 1e3, d * 1e3, delta);
+      var nv = final && meta.type === "series" ? nextVideoForResume() : null;
+      saveProgress(meta, video.id, videoEl.currentTime * 1e3, d * 1e3, delta, !!final, nv ? nv.id : null);
     }
     function onKey(e) {
       var k = e.keyCode;
@@ -9893,7 +9921,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
-          if ("http://192.168.68.108:8099/log") statusTimer = setInterval(function () {
+          if ("") statusTimer = setInterval(function () {
             return !videoEl.paused && diag("status");
           }, 1e4);
         }
@@ -9904,6 +9932,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return true;
       },
       destroy: function destroy() {
+        if (alive) saveProgress2(true);
         alive = false;
         clearInterval(nowTimer);
         onSeek(null);
@@ -11160,9 +11189,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
+    var cwKey = null;
+    function cwSignature(items) {
+      return items.map(function (it) {
+        return it._id + ":" + (it.state.video_id || "") + ":" + it.state.timeOffset;
+      }).join("|");
+    }
     function renderContinue() {
       clear(cwRow);
       var items = continueWatching().slice(0, 20);
+      cwKey = cwSignature(items);
       if (!items.length) {
         cwRow.style.display = "none";
         return;
@@ -11281,6 +11317,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       onKey: function onKey(e) {
         return heroUi.onKey(e);
+      },
+      // Chamado quando a biblioteca da conta chega do servidor; só redesenha se mudou.
+      refreshContinue: function refreshContinue() {
+        if (cwSignature(continueWatching().slice(0, 20)) !== cwKey) {
+          renderContinue();
+          publishBrowse();
+        }
       },
       reload: function reload() {
         heroUi.load();
@@ -11662,6 +11705,87 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "series",
     label: "Séries"
   }];
+  function str(v) {
+    return String(v || "");
+  }
+  function byNewest(field) {
+    return function (a, b) {
+      return str(b[field]).localeCompare(str(a[field]));
+    };
+  }
+  function lastWatchedCmp(a, b) {
+    return str(b.state && b.state.lastWatched).localeCompare(str(a.state && a.state.lastWatched)) || byNewest("_mtime")(a, b);
+  }
+  function nameCmp(a, b) {
+    return str(a.name).localeCompare(str(b.name), void 0, {
+      sensitivity: "base"
+    });
+  }
+  function byInfo(key, dir) {
+    return function (a, b, info2) {
+      var va = info2[a._id] ? info2[a._id][key] : null;
+      var vb = info2[b._id] ? info2[b._id][key] : null;
+      if (va == null && vb == null) return lastWatchedCmp(a, b);
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (vb - va) * dir || lastWatchedCmp(a, b);
+    };
+  }
+  var SORTS = [{
+    id: "lastWatched",
+    label: "Último assistido",
+    cmp: lastWatchedCmp
+  }, {
+    id: "added",
+    label: "Adicionado recentemente",
+    cmp: byNewest("_ctime")
+  }, {
+    id: "name",
+    label: "Nome (A-Z)",
+    cmp: nameCmp
+  }, {
+    id: "nameReverse",
+    label: "Nome (Z-A)",
+    cmp: function cmp(a, b) {
+      return nameCmp(b, a);
+    }
+  }, {
+    id: "timesWatched",
+    label: "Mais assistidos",
+    cmp: function cmp(a, b) {
+      return (b.state && b.state.timesWatched || 0) - (a.state && a.state.timesWatched || 0) || lastWatchedCmp(a, b);
+    }
+  }, {
+    id: "releasedNew",
+    label: "Lançamento (mais novo)",
+    cmp: byInfo("d", 1),
+    needsMeta: true
+  }, {
+    id: "releasedOld",
+    label: "Lançamento (mais antigo)",
+    cmp: byInfo("d", -1),
+    needsMeta: true
+  }, {
+    id: "rating",
+    label: "Nota (maior)",
+    cmp: byInfo("r", 1),
+    needsMeta: true
+  }];
+  function releaseTime(meta) {
+    if (meta.released) {
+      var t2 = new Date(meta.released).getTime();
+      if (isFinite(t2)) return t2;
+    }
+    var m = /\d{4}/.exec(str(meta.releaseInfo || meta.year));
+    return m ? Date.UTC(+m[0], 0, 1) : null;
+  }
+  function metaSummary(meta) {
+    var r = parseFloat(meta.imdbRating);
+    return {
+      d: releaseTime(meta),
+      r: isFinite(r) && r > 0 ? r : null
+    };
+  }
   function LibraryView() {
     var el = h("div.view");
     var scroller = h("div.scroll-y", {
@@ -11674,9 +11798,92 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var grid = h("div.grid");
     scroller.appendChild(bar);
     scroller.appendChild(filters);
+    scroller.appendChild(status2);
     scroller.appendChild(grid);
     el.appendChild(scroller);
     var filter = "all";
+    var sortId = get("librarySort", "lastWatched");
+    if (!SORTS.some(function (x) {
+      return x.id === sortId;
+    })) sortId = "lastWatched";
+    var info2 = get("libraryMetaInfo", {});
+    var fetching = null;
+    var alive = true;
+    function currentSort() {
+      return SORTS.find(function (x) {
+        return x.id === sortId;
+      }) || SORTS[0];
+    }
+    function openSortMenu() {
+      menu(t("Ordenar"), SORTS.map(function (x) {
+        return {
+          label: t(x.label),
+          value: x.id,
+          checked: x.id === sortId
+        };
+      }), {
+        onPick: function onPick(id) {
+          sortId = id;
+          set("librarySort", id);
+          renderFilters();
+          renderGrid();
+          ensureMeta();
+          focus(filters.lastChild);
+        }
+      });
+    }
+    function visibleItems() {
+      return cachedLibrary().filter(function (it) {
+        return !it.removed && (filter === "all" || it.type === filter);
+      });
+    }
+    function ensureMeta() {
+      if (!currentSort().needsMeta || fetching) return;
+      var missing = visibleItems().filter(function (it) {
+        return !info2[it._id] && it.type !== "other";
+      });
+      if (!missing.length) return;
+      fetching = {
+        done: 0,
+        total: missing.length
+      };
+      renderStatus();
+      var idx = 0;
+      var redrawTimer = null;
+      var finishOne = function finishOne() {
+        fetching.done++;
+        renderStatus();
+        clearTimeout(redrawTimer);
+        redrawTimer = setTimeout(function () {
+          return alive && renderGrid();
+        }, 800);
+      };
+      var _worker2 = function worker() {
+        if (!alive || idx >= missing.length) return Promise.resolve();
+        var it = missing[idx++];
+        return fetchMeta(it.type, it._id).then(function (meta) {
+          info2[it._id] = metaSummary(meta);
+        }).catch(function () {
+          return null;
+        }).then(finishOne).then(_worker2);
+      };
+      Promise.all([_worker2(), _worker2()]).then(function () {
+        fetching = null;
+        set("libraryMetaInfo", info2);
+        if (alive) {
+          renderStatus();
+          renderGrid();
+        }
+      });
+    }
+    var status2 = h("div.hint");
+    function renderStatus() {
+      status2.textContent = fetching ? t("Carregando detalhes {done}/{total}...", {
+        done: fetching.done,
+        total: fetching.total
+      }) : "";
+      status2.style.display = fetching ? "" : "none";
+    }
     function renderFilters() {
       clear(filters);
       FILTERS.forEach(function (f) {
@@ -11688,17 +11895,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             filter = f.id;
             renderFilters();
             renderGrid();
+            ensureMeta();
             focus(filters.children[FILTERS.indexOf(f)]);
           }
         }));
       });
+      filters.appendChild(h("div.chip", {
+        focusable: true,
+        text: t("Ordenar: {name}", {
+          name: t(currentSort().label)
+        }),
+        onSelect: openSortMenu
+      }));
     }
     function renderGrid() {
       clear(grid);
-      var items = cachedLibrary().filter(function (it) {
-        return !it.removed && (filter === "all" || it.type === filter);
-      }).sort(function (a, b) {
-        return String(b._mtime || "").localeCompare(String(a._mtime || ""));
+      var cmp = currentSort().cmp;
+      var items = visibleItems().sort(function (a, b) {
+        return cmp(a, b, info2);
       });
       if (!items.length) {
         grid.appendChild(h("div.hint", {
@@ -11719,26 +11933,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadVisibleImages(el, 400);
     }
     renderFilters();
+    renderStatus();
     grid.appendChild(spinnerLine(t("Carregando biblioteca...")));
     return {
       el: el,
       onShow: function onShow() {
         renderGrid();
         getLibrary().then(function () {
-          return renderGrid();
+          renderGrid();
+          ensureMeta();
         }).catch(function () {});
       },
       destroy: function destroy() {
-        return bar.__destroy && bar.__destroy();
+        alive = false;
+        if (bar.__destroy) bar.__destroy();
       }
     };
   }
 
   // src/js/api/update.js
-  var REPO = "ITzAkai/kai";
+  var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-10-27T17:40:12.986Z";
+  var BUILD = "2026-11-05T07:54:18.595Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
@@ -13227,7 +13444,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     log.info("Perfil", activeProfile().name);
     if (isLoggedIn()) {
       refreshUser().catch(function () {});
-      getLibrary().catch(function () {});
+      getLibrary().then(function () {
+        var home = tabView("home");
+        if (home && home.refreshContinue) home.refreshContinue();
+      }).catch(function () {});
     }
     Promise.all([check(), load().catch(function () {
       return null;
@@ -13255,7 +13475,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function devLaunch() {
-    if (!window.PalmSystem) return;
+    if (true) return;
     var params = {};
     try {
       params = JSON.parse(window.PalmSystem.launchParams || "{}") || {};

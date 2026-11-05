@@ -122,6 +122,9 @@ export function cachedAddons() {
   return store.get('addons', null);
 }
 
+// stremio-core constants.rs
+const CREDITS_THRESHOLD_COEF = 0.9;
+
 // ---- Biblioteca ----
 export function getLibrary() {
   if (!isLoggedIn()) return Promise.resolve(cachedLibrary());
@@ -222,7 +225,10 @@ export function isInLibrary(id) {
 }
 
 // Progresso de reprodução: chamado pelo player periodicamente.
-export function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs) {
+// final: o player está saindo deste episódio (fim, fechar, próximo). Igual ao stremio-core
+// (item_state_update): passou de 90% -> zera e, se houver próximo episódio, aponta para ele
+// com timeOffset = 1 para a série continuar no "continuar assistindo".
+export function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs, final, nextVideoId) {
   const existing = libraryItem(meta.id);
   const item = existing ? clone(existing) : newLibraryItem(meta);
   const s = item.state;
@@ -240,8 +246,16 @@ export function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs) 
     s.flaggedWatched = 1;
     s.timesWatched = (s.timesWatched || 0) + 1;
   }
-  // Perto do fim: tira do "continuar assistindo".
-  if (s.duration > 0 && s.timeOffset > s.duration * 0.95) s.timeOffset = 0;
+  if (final && s.duration > 0 && s.timeOffset > s.duration * CREDITS_THRESHOLD_COEF) {
+    s.timeOffset = 0;
+    if (nextVideoId) {
+      // advance_to_video do stremio-core
+      s.video_id = nextVideoId;
+      s.timeWatched = 0;
+      s.flaggedWatched = 0;
+      s.timeOffset = 1;
+    }
+  }
   if (!item.name && meta.name) item.name = meta.name;
   if (!item.poster && meta.poster) item.poster = meta.poster;
   item._mtime = nowIso();
