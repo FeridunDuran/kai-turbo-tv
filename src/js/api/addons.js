@@ -87,7 +87,45 @@ function url(addon, resource, type, id, extra) {
 }
 
 // Catálogos que aparecem na tela inicial (sem "extra" obrigatório), como no Stremio.
+// ---- Ordem e visibilidade das fileiras da tela inicial (por perfil, só neste app) ----
+// { order: [chave], hidden: [chave] }. Catálogos novos (fora de "order") vão para o fim,
+// na ordem dos addons da conta.
+export function catalogKey(entry) {
+  return entry.addon.transportUrl + '|' + entry.catalog.type + '|' + entry.catalog.id;
+}
+export function rowPrefs() {
+  const p = store.get('homeRows', null) || {};
+  return { order: Array.isArray(p.order) ? p.order : [], hidden: Array.isArray(p.hidden) ? p.hidden : [] };
+}
+let boardVersion = 0;
+export function rowsVersion() {
+  return boardVersion;
+}
+export function saveRowPrefs(p) {
+  store.set('homeRows', { order: p.order, hidden: p.hidden });
+  boardVersion++;
+}
+// Todas as fileiras possíveis, já na ordem escolhida (inclui as ocultas).
+export function orderedCatalogs() {
+  const all = rawBoardCatalogs();
+  const order = rowPrefs().order;
+  const pos = {};
+  order.forEach((k, i) => (pos[k] = i));
+  return all
+    .map((e, i) => ({ e: e, k: catalogKey(e), i: i }))
+    .sort((a, b) => {
+      const pa = a.k in pos ? pos[a.k] : order.length + a.i;
+      const pb = b.k in pos ? pos[b.k] : order.length + b.i;
+      return pa - pb;
+    })
+    .map((x) => x.e);
+}
 export function boardCatalogs() {
+  const hidden = rowPrefs().hidden;
+  return orderedCatalogs().filter((e) => hidden.indexOf(catalogKey(e)) < 0);
+}
+
+function rawBoardCatalogs() {
   const out = [];
   list().forEach((addon) => {
     (addon.manifest.catalogs || []).forEach((cat) => {

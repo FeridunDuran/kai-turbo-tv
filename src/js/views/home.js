@@ -202,8 +202,10 @@ export function HomeView() {
     }
   }
 
+  let boardSeen = addons.rowsVersion();
   function renderBoard() {
     loadedBoard = true;
+    boardSeen = addons.rowsVersion();
     pending = [];
     clear(rows);
     rows.appendChild(spinnerLine(t('Carregando catálogos...')));
@@ -232,7 +234,7 @@ export function HomeView() {
       renderNew();
       loadNew(false);
       publishBrowse();
-      if (!loadedBoard) renderBoard();
+      if (!loadedBoard || boardSeen !== addons.rowsVersion()) renderBoard();
       heroUi.resume();
       loadVisibleImages(el);
     },

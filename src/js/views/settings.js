@@ -53,6 +53,67 @@ export function SettingsView() {
     })
     .catch(() => {});
 
+  // Editor das fileiras: lista -> escolhe uma -> mover/ocultar -> volta para a lista nela.
+  function rowsMenu(focusKey) {
+    const cats = addons.orderedCatalogs();
+    if (!cats.length) return toast(t('Nenhum catálogo. Entre na sua conta em Ajustes.'));
+    const p = addons.rowPrefs();
+    const opts = cats.map((e, i) => {
+      const k = addons.catalogKey(e);
+      const off = p.hidden.indexOf(k) >= 0;
+      return {
+        label: (i + 1) + '. ' + addons.catalogTitle(e),
+        sub: (e.addon.manifest.name || e.addon.manifest.id) + (off ? ' · ' + t('Oculta') : ''),
+        value: k,
+        checked: k === focusKey,
+      };
+    });
+    opts.push({ label: t('Restaurar ordem dos addons'), sub: t('Mostra todas as fileiras de novo'), value: '__reset' });
+    menu(t('Fileiras da tela inicial'), opts, {
+      onPick: (k) => {
+        if (k === '__reset') {
+          addons.saveRowPrefs({ order: [], hidden: [] });
+          toast(t('Ordem restaurada'));
+          return setTimeout(() => rowsMenu(null), 0);
+        }
+        setTimeout(() => rowActions(k), 0);
+      },
+    });
+  }
+
+  function rowActions(k) {
+    const keys = addons.orderedCatalogs().map(addons.catalogKey);
+    const i = keys.indexOf(k);
+    if (i < 0) return rowsMenu(null);
+    const p = addons.rowPrefs();
+    const off = p.hidden.indexOf(k) >= 0;
+    const move = (to) => {
+      keys.splice(i, 1);
+      keys.splice(Math.max(0, Math.min(keys.length, to)), 0, k);
+      addons.saveRowPrefs({ order: keys, hidden: p.hidden });
+    };
+    const acts = [
+      { label: t('Mover para cima'), value: 'up', disabled: i === 0 },
+      { label: t('Mover para baixo'), value: 'down', disabled: i === keys.length - 1 },
+      { label: t('Mover para o topo'), value: 'top', disabled: i === 0 },
+      { label: t('Mover para o fim'), value: 'bottom', disabled: i === keys.length - 1 },
+      { label: off ? t('Mostrar na tela inicial') : t('Ocultar da tela inicial'), value: 'toggle' },
+    ].filter((a) => !a.disabled);
+    menu(addons.catalogTitle(addons.orderedCatalogs()[i]), acts, {
+      onPick: (v) => {
+        if (v === 'up') move(i - 1);
+        else if (v === 'down') move(i + 1);
+        else if (v === 'top') move(0);
+        else if (v === 'bottom') move(keys.length);
+        else if (v === 'toggle') {
+          const hidden = off ? p.hidden.filter((x) => x !== k) : p.hidden.concat([k]);
+          addons.saveRowPrefs({ order: keys, hidden: hidden });
+        }
+        setTimeout(() => rowsMenu(k), 0);
+      },
+    });
+  }
+
   function row(label, sub, value, onSelect, extra) {
     return h('div.set-row', { focusable: true, onSelect: onSelect }, [
       h('div.label', null, [label, sub ? h('small', { text: sub }) : null]),
@@ -474,6 +535,9 @@ export function SettingsView() {
       row(t('Addons ativos'), stremio.isLoggedIn() ? t('Gerencie pela sua conta em web.stremio.com') : t('Sem conta: Cinemeta, OpenSubtitles e os adicionados aqui'), t('{n} addon(s)', { n: list.length }), () =>
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
+    );
+    body.appendChild(
+      row(t('Fileiras da tela inicial'), t('Ordem e quais catálogos aparecem (só neste perfil)'), '', () => rowsMenu(null))
     );
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>

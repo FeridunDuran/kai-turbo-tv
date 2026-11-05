@@ -4937,6 +4937,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhum addon com busca instalado.": "No add-on with search installed.",
     'Nada encontrado para "{q}".': 'Nothing found for "{q}".',
     "Tudo": "All",
+    "Fileiras da tela inicial": "Home screen rows",
+    "Ordem e quais catálogos aparecem (só neste perfil)": "Order and which catalogs show (this profile only)",
+    "Oculta": "Hidden",
+    "Restaurar ordem dos addons": "Reset to add-on order",
+    "Mostra todas as fileiras de novo": "Shows every row again",
+    "Ordem restaurada": "Order reset",
+    "Mover para cima": "Move up",
+    "Mover para baixo": "Move down",
+    "Mover para o topo": "Move to top",
+    "Mover para o fim": "Move to bottom",
+    "Mostrar na tela inicial": "Show on home screen",
+    "Ocultar da tela inicial": "Hide from home screen",
+    "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} sources hidden (need the PC server)",
+    "Via PC": "Via PC",
+    "Precisa do PC": "Needs the PC",
     "Ordenar": "Sort",
     "Ordenar: {name}": "Sort: {name}",
     "Último assistido": "Last watched",
@@ -7175,7 +7190,55 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return addon.base + path + ".json" + addon.query;
   }
+  function catalogKey(entry) {
+    return entry.addon.transportUrl + "|" + entry.catalog.type + "|" + entry.catalog.id;
+  }
+  function rowPrefs() {
+    var p = get("homeRows", null) || {};
+    return {
+      order: Array.isArray(p.order) ? p.order : [],
+      hidden: Array.isArray(p.hidden) ? p.hidden : []
+    };
+  }
+  var boardVersion = 0;
+  function rowsVersion() {
+    return boardVersion;
+  }
+  function saveRowPrefs(p) {
+    set("homeRows", {
+      order: p.order,
+      hidden: p.hidden
+    });
+    boardVersion++;
+  }
+  function orderedCatalogs() {
+    var all2 = rawBoardCatalogs();
+    var order = rowPrefs().order;
+    var pos = {};
+    order.forEach(function (k, i) {
+      return pos[k] = i;
+    });
+    return all2.map(function (e, i) {
+      return {
+        e: e,
+        k: catalogKey(e),
+        i: i
+      };
+    }).sort(function (a, b) {
+      var pa = a.k in pos ? pos[a.k] : order.length + a.i;
+      var pb = b.k in pos ? pos[b.k] : order.length + b.i;
+      return pa - pb;
+    }).map(function (x) {
+      return x.e;
+    });
+  }
   function boardCatalogs() {
+    var hidden = rowPrefs().hidden;
+    return orderedCatalogs().filter(function (e) {
+      return hidden.indexOf(catalogKey(e)) < 0;
+    });
+  }
+  function rawBoardCatalogs() {
     var out = [];
     list().forEach(function (addon) {
       (addon.manifest.catalogs || []).forEach(function (cat) {
@@ -10729,12 +10792,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           if (g) {
             g.done = true;
-            g.count = streams.length;
-            g.streams = streams;
-            streams.forEach(function (s) {
+            var shown = streams.filter(function (s) {
+              return isPlayableType(s) && (serverOk || !needsServer(s));
+            });
+            var hidden = streams.length - shown.length;
+            g.count = shown.length;
+            g.streams = shown;
+            shown.forEach(function (s) {
               all2.push(s);
               g.el.appendChild(streamItem(s, video, serverOk, all2));
             });
+            if (hidden) g.el.appendChild(h("div.loading-line", {
+              text: t("{name}: {n} fontes ocultas (precisam do servidor do PC)", {
+                name: addon.manifest.name || addon.manifest.id,
+                n: hidden
+              })
+            }));
           }
           if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
             var first = firstVisibleItem();
@@ -10761,10 +10834,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var tags = [];
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
-      }));else if (needs) tags.push(h("span.s-tag", {
-        cls: serverOk ? "" : "warn",
-        text: serverOk ? t("Torrent · via PC") : t("Torrent · precisa do PC")
-      }));else tags.push(h("span.s-tag.ok", {
+      }));else if (needs) {
+        var torrent = typeof s.infoHash === "string" || String(s.url).indexOf("magnet:") === 0;
+        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : "Precisa do PC";
+        tags.push(h("span.s-tag", {
+          cls: serverOk ? "" : "warn",
+          text: t(label)
+        }));
+      } else tags.push(h("span.s-tag.ok", {
         text: t("Direto")
       }));
       streamBadges(s).forEach(function (b) {
@@ -11262,8 +11339,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (_ret3 === 1) break;
       }
     }
+    var boardSeen = rowsVersion();
     function renderBoard() {
       loadedBoard = true;
+      boardSeen = rowsVersion();
       pending2 = [];
       clear(rows);
       rows.appendChild(spinnerLine(t("Carregando catálogos...")));
@@ -11297,7 +11376,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         renderNew();
         loadNew(false);
         publishBrowse();
-        if (!loadedBoard) renderBoard();
+        if (!loadedBoard || boardSeen !== rowsVersion()) renderBoard();
         heroUi.resume();
         loadVisibleImages(el);
       },
@@ -11955,7 +12034,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T09:03:33.716Z";
+  var BUILD = "2026-11-05T09:30:38.229Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
@@ -12243,6 +12322,96 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     deviceInfo().then(function (d) {
       device = [d.modelName, d.firmwareVersion, d.sdkVersion ? "webOS " + d.sdkVersion : ""].filter(Boolean).join(" · ");
     }).catch(function () {});
+    function rowsMenu(focusKey) {
+      var cats = orderedCatalogs();
+      if (!cats.length) return toast(t("Nenhum catálogo. Entre na sua conta em Ajustes."));
+      var p = rowPrefs();
+      var opts = cats.map(function (e, i) {
+        var k = catalogKey(e);
+        var off = p.hidden.indexOf(k) >= 0;
+        return {
+          label: i + 1 + ". " + catalogTitle(e),
+          sub: (e.addon.manifest.name || e.addon.manifest.id) + (off ? " · " + t("Oculta") : ""),
+          value: k,
+          checked: k === focusKey
+        };
+      });
+      opts.push({
+        label: t("Restaurar ordem dos addons"),
+        sub: t("Mostra todas as fileiras de novo"),
+        value: "__reset"
+      });
+      menu(t("Fileiras da tela inicial"), opts, {
+        onPick: function onPick(k) {
+          if (k === "__reset") {
+            saveRowPrefs({
+              order: [],
+              hidden: []
+            });
+            toast(t("Ordem restaurada"));
+            return setTimeout(function () {
+              return rowsMenu(null);
+            }, 0);
+          }
+          setTimeout(function () {
+            return rowActions(k);
+          }, 0);
+        }
+      });
+    }
+    function rowActions(k) {
+      var keys = orderedCatalogs().map(catalogKey);
+      var i = keys.indexOf(k);
+      if (i < 0) return rowsMenu(null);
+      var p = rowPrefs();
+      var off = p.hidden.indexOf(k) >= 0;
+      var move2 = function move2(to) {
+        keys.splice(i, 1);
+        keys.splice(Math.max(0, Math.min(keys.length, to)), 0, k);
+        saveRowPrefs({
+          order: keys,
+          hidden: p.hidden
+        });
+      };
+      var acts = [{
+        label: t("Mover para cima"),
+        value: "up",
+        disabled: i === 0
+      }, {
+        label: t("Mover para baixo"),
+        value: "down",
+        disabled: i === keys.length - 1
+      }, {
+        label: t("Mover para o topo"),
+        value: "top",
+        disabled: i === 0
+      }, {
+        label: t("Mover para o fim"),
+        value: "bottom",
+        disabled: i === keys.length - 1
+      }, {
+        label: off ? t("Mostrar na tela inicial") : t("Ocultar da tela inicial"),
+        value: "toggle"
+      }].filter(function (a) {
+        return !a.disabled;
+      });
+      menu(catalogTitle(orderedCatalogs()[i]), acts, {
+        onPick: function onPick(v) {
+          if (v === "up") move2(i - 1);else if (v === "down") move2(i + 1);else if (v === "top") move2(0);else if (v === "bottom") move2(keys.length);else if (v === "toggle") {
+            var hidden = off ? p.hidden.filter(function (x) {
+              return x !== k;
+            }) : p.hidden.concat([k]);
+            saveRowPrefs({
+              order: keys,
+              hidden: hidden
+            });
+          }
+          setTimeout(function () {
+            return rowsMenu(k);
+          }, 0);
+        }
+      });
+    }
     function row(label, sub, value, onSelect, extra) {
       return h("div.set-row", {
         focusable: true,
@@ -12782,6 +12951,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: a.transportUrl
           };
         }), {});
+      }));
+      body.appendChild(row(t("Fileiras da tela inicial"), t("Ordem e quais catálogos aparecem (só neste perfil)"), "", function () {
+        return rowsMenu(null);
       }));
       RECOMMENDED.filter(function (r) {
         return !list2.some(function (a) {

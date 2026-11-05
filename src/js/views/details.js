@@ -479,12 +479,17 @@ function DetailsView(type, id, opts) {
           const g = groups.find((x) => x.addon === addon);
           if (g) {
             g.done = true;
-            g.count = streams.length;
-            g.streams = streams;
-            streams.forEach((s) => {
+            // Fontes que a TV não toca sozinha (torrent ou link que exige cabeçalhos via servidor)
+            // somem da lista quando não há servidor do PC; só fica uma linha com a contagem.
+            const shown = streams.filter((s) => server.isPlayableType(s) && (serverOk || !server.needsServer(s)));
+            const hidden = streams.length - shown.length;
+            g.count = shown.length;
+            g.streams = shown;
+            shown.forEach((s) => {
               all.push(s);
               g.el.appendChild(streamItem(s, video, serverOk, all));
             });
+            if (hidden) g.el.appendChild(h('div.loading-line', { text: t('{name}: {n} fontes ocultas (precisam do servidor do PC)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
           }
           // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
           if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
@@ -511,7 +516,11 @@ function DetailsView(type, id, opts) {
     const disabled = !playableType || (needs && !serverOk);
     const tags = [];
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
-    else if (needs) tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: serverOk ? t('Torrent · via PC') : t('Torrent · precisa do PC') }));
+    else if (needs) {
+      const torrent = typeof s.infoHash === 'string' || String(s.url).indexOf('magnet:') === 0;
+      const label = torrent ? (serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC') : serverOk ? 'Via PC' : 'Precisa do PC';
+      tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: t(label) }));
+    }
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
     streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));
     return h(
