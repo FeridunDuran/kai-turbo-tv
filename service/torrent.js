@@ -431,7 +431,8 @@ var TV_TORRENT = (function () {
       if (match) { peerCount++; engine.connect(match[1]); }
     });
     var timer = setTimeout(function () {
-      var reason = !peerCount ? 'No peers found; tracker/DHT discovery may be blocked or the torrent is inactive.'
+      var reason = engine.metadata ? 'Metadata verified, but the torrent engine did not finish preparing the files.'
+        : !peerCount ? 'No peers found; tracker/DHT discovery may be blocked or the torrent is inactive.'
         : !handshakeCount ? 'Peers were found but no BitTorrent handshake completed; peers may be unreachable.'
         : !metadataPeerCount ? 'Handshakes completed, but no peer advertised the ut_metadata extension.'
         : 'Metadata transfer did not complete before the deadline.';

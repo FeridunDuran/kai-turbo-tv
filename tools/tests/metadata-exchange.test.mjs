@@ -6,10 +6,10 @@ import crypto from 'node:crypto';
 const require=createRequire(import.meta.url);
 const bn=require('bncode');
 const exchange=require('../../service/vendor/torrent-stream/lib/exchange-metadata.cjs');
-function fixture() {
+function fixture(failInitialization = false) {
   const data=Buffer.alloc(20000,65);
   const engine=new EventEmitter(); engine.infoHash=crypto.createHash('sha1').update(data).digest('hex');
-  let result; const connect=exchange(engine, value=>{result=value;});
+  let result; const connect=exchange(engine, value=>{if(failInitialization)throw new Error('fixture initialization failure');result=value;});
   function peer() {
     const wire=new EventEmitter();wire.peerExtensions={extended:true};wire.sent=[];
     wire.extended=(channel,message)=>wire.sent.push({channel,message});
@@ -31,6 +31,13 @@ test('complementary valid metadata blocks from two peers complete without waitin
   const f=fixture(),first=f.peer(),second=f.peer();
   f.block(first,0);assert.equal(f.result,undefined);
   f.block(second,1);assert.deepEqual(f.result,f.data);
+});
+test('verified metadata initialization failure is reported immediately with its original cause',()=>{
+  const f=fixture(true),peer=f.peer();let error;
+  f.engine.on('error',value=>{error=value;});
+  f.block(peer,0);f.block(peer,1);
+  assert.match(error.message,/metadata verified, but file initialization failed: fixture initialization failure/);
+  assert.deepEqual(f.engine.metadata,f.data);
 });
 test('hash rejection retries metadata on the same peer instead of waiting until timeout',()=>{
   const f=fixture(),peer=f.peer();let failures=0;f.engine.on('metadata-invalid',()=>failures++);

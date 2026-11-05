@@ -15,6 +15,15 @@ var sha1 = function (data) {
 
 module.exports = function (engine, callback) {
   var sharedBySize = {}
+  function accept(metadata) {
+    engine.metadata = metadata
+    engine.emit('metadata-accepted', metadata.length)
+    try {
+      callback(metadata)
+    } catch (err) {
+      engine.emit('error', new Error('Torrent metadata verified, but file initialization failed: ' + (err.message || err)))
+    }
+  }
 
   return function (wire) {
     var metadataPieces = []
@@ -79,7 +88,7 @@ module.exports = function (engine, callback) {
           if (complete) {
             var combined = Buffer.concat(shared)
             if (engine.infoHash === sha1(combined)) {
-              callback(engine.metadata = combined)
+              accept(combined)
               return
             }
           }
@@ -101,7 +110,7 @@ module.exports = function (engine, callback) {
             return
           }
 
-          callback(engine.metadata = metadata)
+          accept(metadata)
         }
       })
 
