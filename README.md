@@ -126,9 +126,9 @@ local tests; their effect on TV startup time has not been measured yet.
 - After an error the Play button becomes **Try again** (same source, from the last position that
   played); Sources stays next to it. Errors that do not establish a codec problem no longer
   suggest choosing a different codec.
-- While a video plays, Back first hides the controls and asks for a second press; a second Back
-  within three seconds leaves. Paused, loading or failed playback leaves with one press. Stop
-  always leaves.
+- Once a video has loaded (playing or paused), Back first asks for a second press; a second Back
+  within three seconds leaves. A held key or a duplicate of the same press (within 350 ms) does
+  not count. Loading or failed playback leaves with one press. Stop always leaves.
 
 ### Other changes
 - The loader and in-app updater point to this repository, so the TV runs this fork's code.

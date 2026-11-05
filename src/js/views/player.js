@@ -229,9 +229,9 @@ function PlayerView(opts) {
     updatePlayBtn();
     armStartup();
     setTitle();
+    setStage(server.isTorrent(stream) ? (tvproxy.isTorrentAvailable() ? 'metadata' : 'engine') : 'opening');
     showSpinner(true);
     message('');
-    setStage(server.isTorrent(stream) ? (tvproxy.isTorrentAvailable() ? 'metadata' : 'engine') : 'opening');
     embedded = null;
     tracksPromise = null;
     addonSubs = null;
@@ -876,10 +876,9 @@ function PlayerView(opts) {
   }
 
   function renderStage() {
-    if (!stage) {
-      stageEl.style.display = 'none';
-      return;
-    }
+    // Visible whenever the spinner is, from the very first stage of a start.
+    stageEl.style.display = stage && spinner.style.display !== 'none' ? '' : 'none';
+    if (!stage) return;
     stageTitle.textContent = t(STAGES[stage], { time: fmtTime(pendingStart / 1000 || videoEl.currentTime || 0) });
     const parts = [];
     const secs = Math.floor((Date.now() - stageSince) / 1000);
@@ -1380,16 +1379,7 @@ function PlayerView(opts) {
       case KEY.BACK:
       case KEY.ESC:
       case KEY.BACKSPACE:
-        if (seekTarget !== null) cancelSeek();
-        else if (activeSeg && !controlsOn) dismissSkip();
-        else if (hasPlayed && !videoEl.paused && Date.now() - backArmedAt > 3000) {
-          // While a video plays, one Back press only hides the controls; a second press
-          // within 3 seconds leaves. Paused, loading or failed playback leaves at once.
-          backArmedAt = Date.now();
-          hideControls();
-          toast(t('Press Back again to stop watching'), 2500);
-        } else close();
-        return true;
+        return onBackKey(e);
     }
     if (!controlsOn && activeSeg) {
       if (k === KEY.ENTER) {
@@ -1421,6 +1411,30 @@ function PlayerView(opts) {
       }
     }
     return false;
+  }
+
+  // Once a video is loaded (playing or paused), the first Back only hides the controls and
+  // asks for a second press within BACK_CONFIRM_MS. Loading or failed playback leaves at once.
+  // A repeat of the same press (held key, or a duplicated key event) is ignored.
+  const BACK_CONFIRM_MS = 3000;
+  const BACK_DUPLICATE_MS = 350;
+  let lastBackAt = 0;
+  function onBackKey(e) {
+    const now = Date.now();
+    const sinceLast = now - lastBackAt;
+    log.info('Player Back', { code: e.keyCode, repeat: !!e.repeat, sinceLastMs: lastBackAt ? sinceLast : null,
+      mediaReady: mediaReady, paused: videoEl.paused, controls: controlsOn, failed: failed });
+    if (e.repeat || sinceLast < BACK_DUPLICATE_MS) return true;
+    lastBackAt = now;
+    if (seekTarget !== null) cancelSeek();
+    else if (activeSeg && !controlsOn) dismissSkip();
+    else if (mediaReady && !failed && now - backArmedAt > BACK_CONFIRM_MS) {
+      backArmedAt = now;
+      if (videoEl.paused) showControls();
+      else hideControls();
+      toast(t('Press Back again to stop watching'), 2500);
+    } else close();
+    return true;
   }
 
   function close() {

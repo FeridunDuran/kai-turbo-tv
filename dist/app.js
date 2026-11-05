@@ -10258,9 +10258,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       updatePlayBtn();
       armStartup();
       setTitle();
+      setStage(isTorrent(stream) ? isTorrentAvailable() ? "metadata" : "engine" : "opening");
       showSpinner(true);
       message("");
-      setStage(isTorrent(stream) ? isTorrentAvailable() ? "metadata" : "engine" : "opening");
       embedded = null;
       tracksPromise = null;
       addonSubs = null;
@@ -10875,10 +10875,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0);
     }
     function renderStage() {
-      if (!stage) {
-        stageEl.style.display = "none";
-        return;
-      }
+      stageEl.style.display = stage && spinner.style.display !== "none" ? "" : "none";
+      if (!stage) return;
       stageTitle.textContent = t(STAGES[stage], {
         time: fmtTime(pendingStart / 1e3 || videoEl.currentTime || 0)
       });
@@ -11490,12 +11488,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         case KEY.BACK:
         case KEY.ESC:
         case KEY.BACKSPACE:
-          if (seekTarget !== null) cancelSeek();else if (activeSeg && !controlsOn) dismissSkip();else if (hasPlayed && !videoEl.paused && Date.now() - backArmedAt > 3e3) {
-            backArmedAt = Date.now();
-            hideControls();
-            toast(t("Press Back again to stop watching"), 2500);
-          } else close();
-          return true;
+          return onBackKey(e);
       }
       if (!controlsOn && activeSeg) {
         if (k === KEY.ENTER) {
@@ -11523,6 +11516,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       }
       return false;
+    }
+    var BACK_CONFIRM_MS = 3e3;
+    var BACK_DUPLICATE_MS = 350;
+    var lastBackAt = 0;
+    function onBackKey(e) {
+      var now = Date.now();
+      var sinceLast = now - lastBackAt;
+      log.info("Player Back", {
+        code: e.keyCode,
+        repeat: !!e.repeat,
+        sinceLastMs: lastBackAt ? sinceLast : null,
+        mediaReady: mediaReady,
+        paused: videoEl.paused,
+        controls: controlsOn,
+        failed: failed
+      });
+      if (e.repeat || sinceLast < BACK_DUPLICATE_MS) return true;
+      lastBackAt = now;
+      if (seekTarget !== null) cancelSeek();else if (activeSeg && !controlsOn) dismissSkip();else if (mediaReady && !failed && now - backArmedAt > BACK_CONFIRM_MS) {
+        backArmedAt = now;
+        if (videoEl.paused) showControls();else hideControls();
+        toast(t("Press Back again to stop watching"), 2500);
+      } else close();
+      return true;
     }
     function close() {
       saveProgress2();
@@ -13802,7 +13819,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T17:08:51.121Z";
+  var BUILD = "2026-11-05T17:17:25.928Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

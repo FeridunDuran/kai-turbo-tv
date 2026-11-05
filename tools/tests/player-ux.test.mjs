@@ -7,7 +7,7 @@ const flush = () => new Promise(setImmediate);
 const KEY = { BACK: 10009, ESC: 27, BACKSPACE: 8, ENTER: 13, PLAY: 415, PAUSE: 19, LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40 };
 
 // Player fixture with controllable clock, torrent statistics and media events.
-async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false } = {}) {
+async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false } = {}) {
   const nodes = [], events = {}, intervals = new Map(), timers = new Map(), lookups = [], plays = [], toasts = [], logs = [];
   let id = 0, view, focused, popped = 0, playCalls = 0, now = 1000000, statsCalls = 0;
   function h(tag, props = {}, children = []) {
@@ -36,7 +36,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
     subs: { Renderer: () => ({ clear() {}, update() {}, setOffset() {}, set() {}, offset: () => 0 }) }, substyle: { apply() {} },
     store: { settings: () => settings, get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: {},
     server: { isTorrent: (s) => !!s.infoHash, isPlayableType: (s) => !!(s.infoHash || s.url), isAvailable: () => false,
-      toPlayable(s, series) { plays.push({ s, series, startTime: null }); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
+      toPlayable(s, series) { plays.push({ s, series, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
     tvproxy: { isTorrentAvailable: () => true, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
     addons: { fetchStreams(type, episode, callback) { return new Promise((resolve, reject) => lookups.push({ episode, callback, resolve, reject })); }, fetchSubtitles: () => Promise.resolve([]) },
     stremio: { saveProgress() {} }, skip: {},
@@ -98,8 +98,13 @@ test('startup timeline records the real milestones once, at first playback', asy
 });
 
 test('loading stage reports peers and received data from service statistics without percentages', async () => {
+  const pending = await fixture({ holdOpen: true });
+  assert.match(pending.stageText(), /Getting the torrent file list/);
+  assert.equal(pending.nodes.find((n) => n.tag === 'div.p-stage').style.display, '', 'metadata stage is visible before the URL exists');
+  pending.close();
   const f = await fixture({ statsSeq: [{ downloaded: 1048576, peers: 3, length: 1e9, ranges: [] }, { downloaded: 3145728, peers: 5, length: 1e9, ranges: [{ sent: 4096 }] }] });
   assert.match(f.stageText(), /Waiting for video data from peers/);
+  assert.equal(f.nodes.find((n) => n.tag === 'div.p-stage').style.display, '', 'stage text is visible from the start');
   f.tick(); await flush();
   f.advance(2000); f.tick(); await flush();
   const text = f.stageText();
@@ -126,19 +131,36 @@ test('watchdog does not reopen a torrent that is still receiving data, but recov
   f.close();
 });
 
-test('Back during playback asks for a second press; paused playback closes at once', async () => {
+test('Back on a loaded video asks for a second press, playing or paused; loading closes at once', async () => {
   const f = await fixture();
   f.video.duration = 6600; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
   f.key(KEY.BACK);
   assert.equal(f.popped, 0);
   assert.ok(f.toasts.includes('Press Back again to stop watching'));
-  f.key(KEY.BACK);
+  f.advance(1000); f.key(KEY.BACK);
   assert.equal(f.popped, 1);
   const g = await fixture();
   g.video.duration = 6600; g.video.emit('loadedmetadata'); g.video.paused = false; g.video.emit('playing');
-  g.key(KEY.PAUSE); g.key(KEY.BACK);
+  g.key(KEY.PAUSE); g.advance(1000); g.key(KEY.BACK);
+  assert.equal(g.popped, 0, 'paused video also asks for confirmation');
+  g.advance(1000); g.key(KEY.BACK);
   assert.equal(g.popped, 1);
-  f.close(); g.close();
+  const l = await fixture();
+  l.key(KEY.BACK);
+  assert.equal(l.popped, 1, 'abandoning a slow load needs one press');
+  f.close(); g.close(); l.close();
+});
+
+test('a duplicated or held Back event does not count as the confirming second press', async () => {
+  const f = await fixture();
+  f.video.duration = 6600; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
+  f.key(KEY.BACK); f.advance(50); f.key(KEY.BACK);
+  f.view.onKey({ keyCode: KEY.BACK, repeat: true });
+  assert.equal(f.popped, 0);
+  assert.ok(f.logs.some((l) => l[0] === 'Player Back'), 'each Back press is logged for TV diagnosis');
+  f.advance(1000); f.key(KEY.BACK);
+  assert.equal(f.popped, 1);
+  f.close();
 });
 
 test('failed open offers Try again on the play button and retries the same source', async () => {
