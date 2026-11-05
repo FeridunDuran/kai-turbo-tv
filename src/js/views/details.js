@@ -364,17 +364,18 @@ function DetailsView(type, id, opts) {
     }
     // Um grupo por addon, já na ordem de prioridade; os streams entram no grupo certo ao chegar.
     const groups = srcs.map((a) => {
-      const heading = h('div.stream-group-head', { focusable: true, 'aria-expanded': 'true' });
+      const heading = h('div.stream-group-head', { focusable: true, 'aria-expanded': 'false' });
       const title = h('span.stream-group-name', { text: a.manifest.name || a.manifest.id });
       const countEl = h('span.stream-group-count', { text: '0' });
-      const toggleEl = h('span.stream-group-toggle', { text: '−' });
+      const toggleEl = h('span.stream-group-toggle', { text: '+' });
       heading.appendChild(title);
       heading.appendChild(countEl);
       heading.appendChild(toggleEl);
       const body = h('div.stream-group-body');
+      body.style.display = 'none';
       const el = h('div.stream-group', null, [heading, body]);
       list.appendChild(el);
-      const group = { addon: a, el: el, heading: heading, body: body, countEl: countEl, toggleEl: toggleEl, count: 0, done: false, collapsed: false, streams: [] };
+      const group = { addon: a, el: el, heading: heading, body: body, countEl: countEl, toggleEl: toggleEl, count: 0, done: false, collapsed: true, streams: [] };
       heading.__select = () => {
         group.collapsed = !group.collapsed;
         body.style.display = group.collapsed ? 'none' : '';
@@ -484,7 +485,7 @@ function DetailsView(type, id, opts) {
     }
 
     function firstVisibleItem() {
-      const items = list.querySelectorAll('.stream');
+      const items = list.querySelectorAll('.stream-group-head, .stream');
       for (let i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains('disabled')) return items[i];
       return null;
     }
@@ -549,7 +550,7 @@ function DetailsView(type, id, opts) {
             g.countEl.textContent = String(shown.length);
             shown.forEach((s) => {
               all.push(s);
-              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, all));
+              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all));
             });
             if (hidden) g.body.appendChild(h('div.loading-line', { text: t('{name}: {n} torrent sources hidden (TV torrent player unavailable)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
             applyFilter(false);
@@ -573,7 +574,7 @@ function DetailsView(type, id, opts) {
       .catch(() => {});
   }
 
-  function streamItem(s, addonName, video, serverOk, tvOk, all) {
+  function streamItem(s, addonName, video, serverOk, tvOk, torrentOk, all) {
     const playableType = server.isPlayableType(s);
     const needs = server.needsServer(s);
     const torrent = server.isTorrent(s);

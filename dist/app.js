@@ -6891,9 +6891,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function deviceInfo() {
     var pi = window.webapis && window.webapis.productinfo;
     if (pi) {
+      var model = "Samsung";
+      var firmware = "";
+      try {
+        if (typeof pi.getRealModel === "function") model = pi.getRealModel() || model;else if (typeof pi.getModel === "function") model = pi.getModel() || model;
+      } catch (e) {}
+      try {
+        if (typeof pi.getFirmware === "function") firmware = pi.getFirmware() || "";
+      } catch (e) {}
       return Promise.resolve({
-        modelName: pi.getRealModel ? pi.getRealModel() : pi.getModel(),
-        firmwareVersion: pi.getFirmware(),
+        modelName: model,
+        firmwareVersion: firmware,
         sdkVersion: "",
         platform: "Tizen"
       });
@@ -7634,7 +7642,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         if (onAddon) onAddon(a, streams);
         return streams;
-      }).catch(function (e) {
+      }, function (e) {
         if (onAddon) onAddon(a, [], e);
         return [];
       });
@@ -11810,7 +11818,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var groups = srcs.map(function (a) {
         var heading = h("div.stream-group-head", {
           focusable: true,
-          "aria-expanded": "true"
+          "aria-expanded": "false"
         });
         var title = h("span.stream-group-name", {
           text: a.manifest.name || a.manifest.id
@@ -11819,12 +11827,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: "0"
         });
         var toggleEl = h("span.stream-group-toggle", {
-          text: "−"
+          text: "+"
         });
         heading.appendChild(title);
         heading.appendChild(countEl);
         heading.appendChild(toggleEl);
         var body = h("div.stream-group-body");
+        body.style.display = "none";
         var el2 = h("div.stream-group", null, [heading, body]);
         list2.appendChild(el2);
         var group = {
@@ -11836,7 +11845,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           toggleEl: toggleEl,
           count: 0,
           done: false,
-          collapsed: false,
+          collapsed: true,
           streams: []
         };
         heading.__select = function () {
@@ -11868,7 +11877,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var autoFocused = null;
       var serverOk = isAvailable2();
       var tvOk = isAvailable();
-      var torrentOk2 = isTorrentAvailable();
+      var torrentOk = isTorrentAvailable();
       var smartActive = !!smart;
       var smartTimer = smartActive ? setTimeout(function () {
         return decideSmart(true);
@@ -11882,7 +11891,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         groups.forEach(function (g, gi) {
           (g.streams || []).forEach(function (s, si) {
             if (!isPlayableType(s)) return;
-            if (isTorrent(s) && !torrentOk2) return;
+            if (isTorrent(s) && !torrentOk) return;
             var needs = isTorrent(s) || needsHeaders(s) && !(serverOk || tvOk);
             var badges = streamBadges(s);
             var warn = badges.some(function (b) {
@@ -11934,7 +11943,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
           return;
         }
-        var srv = torrentOk2 ? t("TV torrent player ready") : t("TV torrent player unavailable; torrent sources hidden");
+        var srv = torrentOk ? t("TV torrent player ready") : t("TV torrent player unavailable; torrent sources hidden");
         var proxyStatus = tvOk ? t("TV proxy available") : serverOk ? t("PC proxy available") : t("Direct links only");
         sub.textContent = srv + "  ·  " + proxyStatus + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
@@ -11961,7 +11970,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return "direct";
       }
       function firstVisibleItem() {
-        var items = list2.querySelectorAll(".stream");
+        var items = list2.querySelectorAll(".stream-group-head, .stream");
         for (var i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains("disabled")) return items[i];
         return null;
       }
@@ -12013,10 +12022,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       (serverOk ? Promise.resolve() : check2().then(function (r) {
         return serverOk = r.ok;
       })).then(function () {
-        if (tvOk && torrentOk2) return null;
-        return check(!torrentOk2).then(function (r) {
+        if (tvOk && torrentOk) return null;
+        return check(!torrentOk).then(function (r) {
           tvOk = r.ok;
-          torrentOk2 = r.torrent;
+          torrentOk = r.torrent;
         });
       }).then(function () {
         status3();
@@ -12029,7 +12038,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             var shown = streams.filter(function (s) {
-              return isPlayableType(s) && (isTorrent(s) ? torrentOk2 : canTryDirect(s));
+              return isPlayableType(s) && (isTorrent(s) ? torrentOk : canTryDirect(s));
             });
             var hidden = streams.length - shown.length;
             g.count = shown.length;
@@ -12037,7 +12046,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             g.countEl.textContent = String(shown.length);
             shown.forEach(function (s) {
               all2.push(s);
-              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, all2));
+              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all2));
             });
             if (hidden) g.body.appendChild(h("div.loading-line", {
               text: t("{name}: {n} torrent sources hidden (TV torrent player unavailable)", {
@@ -12065,7 +12074,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }).catch(function () {});
     }
-    function streamItem(s, addonName, video, serverOk, tvOk, all2) {
+    function streamItem(s, addonName, video, serverOk, tvOk, torrentOk, all2) {
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var torrent = isTorrent(s);
@@ -13275,7 +13284,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T12:13:01.650Z";
+  var BUILD = "2026-11-05T12:23:05.140Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

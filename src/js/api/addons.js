@@ -191,8 +191,9 @@ export function fetchStreams(type, id, onAddon) {
           const streams = ((r && r.streams) || []).map((s) => Object.assign({ addon: a.manifest.name || a.manifest.id }, s));
           if (onAddon) onAddon(a, streams);
           return streams;
-        })
-        .catch((e) => {
+        // Handle request failures only. A rendering callback exception must not
+        // invoke the callback again and replace valid results with an empty list.
+        }, (e) => {
           if (onAddon) onAddon(a, [], e);
           return [];
         })

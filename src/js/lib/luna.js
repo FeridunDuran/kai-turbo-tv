@@ -55,9 +55,21 @@ export function getTvIp() {
 export function deviceInfo() {
   const pi = window.webapis && window.webapis.productinfo;
   if (pi) {
+    // A hosted TizenBrew page can expose the API object while individual calls
+    // throw SecurityError/NotSupportedError. Device labels must not prevent
+    // Settings from being constructed, and one failed field must not hide others.
+    let model = 'Samsung';
+    let firmware = '';
+    try {
+      if (typeof pi.getRealModel === 'function') model = pi.getRealModel() || model;
+      else if (typeof pi.getModel === 'function') model = pi.getModel() || model;
+    } catch (e) { /* API not permitted in this context */ }
+    try {
+      if (typeof pi.getFirmware === 'function') firmware = pi.getFirmware() || '';
+    } catch (e) { /* firmware information is optional */ }
     return Promise.resolve({
-      modelName: pi.getRealModel ? pi.getRealModel() : pi.getModel(),
-      firmwareVersion: pi.getFirmware(),
+      modelName: model,
+      firmwareVersion: firmware,
       sdkVersion: '',
       platform: 'Tizen',
     });
