@@ -211,6 +211,7 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .p-buttons .btn.focused { background: #7b5bf5; }
 .p-center { position: absolute; left: 50%; top: 50%; margin: -40px 0 0 -40px; }
 .p-msg { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); box-sizing: border-box; width: calc(100% - 160px); max-width: 1600px; max-height: 42%; overflow-y: auto; padding: 24px 32px; border-radius: 12px; background: rgba(0,0,0,0.82); text-align: left; font-size: 26px; line-height: 1.35; font-weight: 600; white-space: pre-wrap; word-wrap: break-word; text-shadow: 0 2px 6px #000; }
+.p-msg:empty { display: none; }
 .p-msg small { display: block; font-size: 20px; line-height: 1.4; color: rgba(255,255,255,0.7); margin-top: 10px; }
 .p-skip { position: absolute; right: 96px; bottom: 96px; display: none; z-index: 5; }
 .p-skip.show { display: block; }
