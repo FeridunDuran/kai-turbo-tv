@@ -528,4 +528,5 @@ export const EN = {
   "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "Possible causes include an unsupported codec, damaged data, or incomplete playback data.",
   "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
   "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source.",
+  'Seeds: {n}': 'Seeds: {n}',
 };

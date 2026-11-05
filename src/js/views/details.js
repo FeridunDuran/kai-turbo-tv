@@ -33,6 +33,40 @@ export function sortedVideos(meta) {
     });
 }
 
+function sourceQuality(stream) {
+  const text = [stream.resolution, stream.quality, stream.name, stream.title, stream.description,
+    stream.behaviorHints && stream.behaviorHints.filename].join(' ');
+  const resolutions = text.match(/\b(4320|2160|1440|1080|720|576|480|360|240)p?\b/gi) || [];
+  let quality = resolutions.reduce((best, value) => Math.max(best, parseInt(value, 10)), 0);
+  if (/\b8k\b/i.test(text)) quality = Math.max(quality, 4320);
+  if (/\b4k\b|\buhd\b/i.test(text)) quality = Math.max(quality, 2160);
+  if (/\bfhd\b|full\s*hd/i.test(text)) quality = Math.max(quality, 1080);
+  return quality;
+}
+
+function sourceSeeds(stream) {
+  const values = [stream.seeders, stream.seeds, stream.behaviorHints && stream.behaviorHints.seeders];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] !== null && values[i] !== undefined && /^\d+$/.test(String(values[i]))) return Number(values[i]);
+  }
+  const text = [stream.name, stream.title, stream.description].join(' ');
+  const match = /(?:👤\s*|\bseeders?\s*[:=]\s*)(\d+)/i.exec(text) || /\b(\d+)\s+seeders?\b/i.exec(text);
+  return match ? Number(match[1]) : null;
+}
+
+function orderSources(streams) {
+  const http = [], torrents = [];
+  streams.forEach((stream, index) => (server.isTorrent(stream) ? torrents : http).push({ stream, index }));
+  http.sort((a, b) => sourceQuality(b.stream) - sourceQuality(a.stream) || a.index - b.index);
+  torrents.sort((a, b) => {
+    const x = sourceSeeds(a.stream), y = sourceSeeds(b.stream);
+    if (x === null || y === null) return x === y ? a.index - b.index : x === null ? 1 : -1;
+    return y - x || a.index - b.index;
+  });
+  let h = 0, t = 0;
+  return streams.map((stream) => (server.isTorrent(stream) ? torrents[t++] : http[h++]).stream);
+}
+
 // Smart Choice waits at most this long for slower add-ons, and keeps this many runners-up
 // for the player to fall back on if a source won't play.
 const SMART_WAIT_MS = 10000;
@@ -544,7 +578,7 @@ function DetailsView(type, id, opts) {
             g.done = true;
             // Hide torrents only when the TV engine is unavailable. Other playable links stay visible
             // and header-dependent links can still be tried directly.
-            const shown = streams.filter((s) => server.isPlayableType(s) && (server.isTorrent(s) ? torrentOk : server.canTryDirect(s)));
+            const shown = orderSources(streams.filter((s) => server.isPlayableType(s) && (server.isTorrent(s) ? torrentOk : server.canTryDirect(s))));
             const hidden = streams.length - shown.length;
             g.count = shown.length;
             g.streams = shown;
@@ -581,6 +615,8 @@ function DetailsView(type, id, opts) {
     const torrent = server.isTorrent(s);
     const disabled = !playableType || (torrent && !torrentOk);
     const tags = [];
+    const seeds = torrent ? sourceSeeds(s) : null;
+    if (seeds !== null) tags.push(h('span.s-tag', { text: t('Seeds: {n}', { n: seeds }) }));
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
     else if (needs) {
       const label = torrent

@@ -5290,7 +5290,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "The TV received video data, but decoding failed.": "The TV received video data, but decoding failed.",
     "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "Possible causes include an unsupported codec, damaged data, or incomplete playback data.",
     "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
-    "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source."
+    "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source.",
+    "Seeds: {n}": "Seeds: {n}"
   };
 
   // src/js/lib/i18n-ar.js
@@ -5804,7 +5805,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "The TV received video data, but decoding failed.": "استقبل التلفاز بيانات الفيديو، لكن فشل فك الترميز.",
     "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "تشمل الأسباب المحتملة ترميزاً غير مدعوم أو بيانات تالفة أو غير مكتملة.",
     "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
-    "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر."
+    "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر.",
+    "Seeds: {n}": "البذور: {n}"
   };
 
   // src/js/lib/i18n.js
@@ -11441,6 +11443,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return sa - sb || (a.episode || 0) - (b.episode || 0);
     });
   }
+  function sourceQuality(stream) {
+    var text = [stream.resolution, stream.quality, stream.name, stream.title, stream.description, stream.behaviorHints && stream.behaviorHints.filename].join(" ");
+    var resolutions = text.match(/\b(4320|2160|1440|1080|720|576|480|360|240)p?\b/gi) || [];
+    var quality = resolutions.reduce(function (best, value) {
+      return Math.max(best, parseInt(value, 10));
+    }, 0);
+    if (/\b8k\b/i.test(text)) quality = Math.max(quality, 4320);
+    if (/\b4k\b|\buhd\b/i.test(text)) quality = Math.max(quality, 2160);
+    if (/\bfhd\b|full\s*hd/i.test(text)) quality = Math.max(quality, 1080);
+    return quality;
+  }
+  function sourceSeeds(stream) {
+    var values = [stream.seeders, stream.seeds, stream.behaviorHints && stream.behaviorHints.seeders];
+    for (var i = 0; i < values.length; i++) {
+      if (values[i] !== null && values[i] !== void 0 && /^\d+$/.test(String(values[i]))) return Number(values[i]);
+    }
+    var text = [stream.name, stream.title, stream.description].join(" ");
+    var match = /(?:👤\s*|\bseeders?\s*[:=]\s*)(\d+)/i.exec(text) || /\b(\d+)\s+seeders?\b/i.exec(text);
+    return match ? Number(match[1]) : null;
+  }
+  function orderSources(streams) {
+    var http = [],
+      torrents = [];
+    streams.forEach(function (stream, index) {
+      return (isTorrent(stream) ? torrents : http).push({
+        stream: stream,
+        index: index
+      });
+    });
+    http.sort(function (a, b) {
+      return sourceQuality(b.stream) - sourceQuality(a.stream) || a.index - b.index;
+    });
+    torrents.sort(function (a, b) {
+      var x = sourceSeeds(a.stream),
+        y = sourceSeeds(b.stream);
+      if (x === null || y === null) return x === y ? a.index - b.index : x === null ? 1 : -1;
+      return y - x || a.index - b.index;
+    });
+    var h2 = 0,
+      t2 = 0;
+    return streams.map(function (stream) {
+      return (isTorrent(stream) ? torrents[t2++] : http[h2++]).stream;
+    });
+  }
   var SMART_WAIT_MS = 1e4;
   var SMART_FALLBACKS = 4;
   function DetailsView(type, id, opts) {
@@ -12086,9 +12132,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           if (g) {
             g.done = true;
-            var shown = streams.filter(function (s) {
+            var shown = orderSources(streams.filter(function (s) {
               return isPlayableType(s) && (isTorrent(s) ? torrentOk : canTryDirect(s));
-            });
+            }));
             var hidden = streams.length - shown.length;
             g.count = shown.length;
             g.streams = shown;
@@ -12129,6 +12175,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var torrent = isTorrent(s);
       var disabled = !playableType || torrent && !torrentOk;
       var tags = [];
+      var seeds = torrent ? sourceSeeds(s) : null;
+      if (seeds !== null) tags.push(h("span.s-tag", {
+        text: t("Seeds: {n}", {
+          n: seeds
+        })
+      }));
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
       }));else if (needs) {
@@ -13369,7 +13421,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T16:29:01.814Z";
+  var BUILD = "2026-11-05T16:31:02.696Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

@@ -145,3 +145,11 @@ test('a source-rendering exception is not reported as a second, empty addon resp
   await assert.rejects(f.addonApi.fetchStreams('series', 'tt0460649:1:1', () => { count++; throw new Error('render failure'); }), /render failure/);
   assert.equal(count, 3, 'one callback for each addon, without a second error callback');
 });
+
+test('HTTP sources sort by resolution and torrents by reported seeds inside addon groups',async()=>{
+ const f=await sourceFixture(true,[[{infoHash:'a'.repeat(40),name:'unknown'},{infoHash:'b'.repeat(40),name:'zero',seeders:0},{infoHash:'c'.repeat(40),title:'1080p 👤 87'},{infoHash:'d'.repeat(40),name:'many',seeders:200}],[],[{url:'https://x/720',name:'720p'},{url:'https://x/4k',name:'4K'},{url:'https://x/unknown',name:'Unknown'},{url:'https://x/1080',name:'1080p'}]]);
+ const groups=f.root.querySelectorAll('.stream-group');
+ assert.deepEqual(groups[0].querySelectorAll('.s-title').map(n=>n.textContent),['many','1080p 👤 87','zero','unknown']);
+ assert.deepEqual(groups[2].querySelectorAll('.s-title').map(n=>n.textContent),['4K','1080p','720p','Unknown']);
+ assert.match(groups[0].textContent,/Seeds: 200/);
+});

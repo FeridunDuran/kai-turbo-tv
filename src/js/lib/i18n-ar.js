@@ -518,4 +518,5 @@ export const AR = {
   "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "تشمل الأسباب المحتملة ترميزاً غير مدعوم أو بيانات تالفة أو غير مكتملة.",
   "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
   "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر.",
+  'Seeds: {n}': 'البذور: {n}',
 };
