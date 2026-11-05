@@ -413,11 +413,15 @@ function DetailsView(type, id, opts) {
       const el = h('div.stream-group', null, [heading, body]);
       list.appendChild(el);
       const group = { addon: a, el: el, heading: heading, body: body, countEl: countEl, toggleEl: toggleEl, count: 0, done: false, collapsed: true, streams: [] };
-      heading.__select = () => {
-        group.collapsed = !group.collapsed;
+      group.setCollapsed = (collapsed) => {
+        group.collapsed = collapsed;
         body.style.display = group.collapsed ? 'none' : '';
         heading.setAttribute('aria-expanded', group.collapsed ? 'false' : 'true');
         toggleEl.textContent = group.collapsed ? '+' : '−';
+      };
+      heading.__select = () => {
+        userToggledGroups = true;
+        group.setCollapsed(!group.collapsed);
       };
       return group;
     });
@@ -425,6 +429,8 @@ function DetailsView(type, id, opts) {
     list.appendChild(loadingLine);
     let filter = 'all';
     let typeFilter = 'all';
+    let userToggledGroups = false;
+    let autoExpanded = false;
     const typeChipEls = {};
     [['all', 'All types'], ['direct', 'Direct'], ['via-tv', 'Via TV'], ['torrent', 'Torrent']].forEach((entry) => {
       const chip = h('div.chip', { focusable: true, onSelect: () => { typeFilter = entry[0]; applyFilter(true); } });
@@ -521,7 +527,27 @@ function DetailsView(type, id, opts) {
       return 'direct';
     }
 
+    // Open the highest-priority add-on group that has sources, so the best source is one press
+    // away instead of two. Groups above it must have answered (empty) first; once the user opens
+    // or closes a group, the list is left as they arranged it.
+    function autoExpand() {
+      if (userToggledGroups || autoExpanded) return;
+      for (let i = 0; i < groups.length; i++) {
+        const g = groups[i];
+        if (g.el.style.display === 'none') continue;
+        if (!g.done) return;
+        if (g.count > 0) {
+          g.setCollapsed(false);
+          autoExpanded = true;
+          return;
+        }
+      }
+    }
+
     function firstVisibleItem() {
+      // Prefer an actual source; fall back to a group heading.
+      const rows = list.querySelectorAll('.stream');
+      for (let i = 0; i < rows.length; i++) if (rows[i].offsetParent !== null && !rows[i].classList.contains('disabled')) return rows[i];
       const items = list.querySelectorAll('.stream-group-head, .stream');
       for (let i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains('disabled')) return items[i];
       return null;
@@ -604,6 +630,7 @@ function DetailsView(type, id, opts) {
         });
         if (hidden) g.body.appendChild(h('div.loading-line', { text: t('{name}: {n} torrent sources hidden (TV torrent player unavailable)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
         applyFilter(false);
+        autoExpand();
       }
       // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
       if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {

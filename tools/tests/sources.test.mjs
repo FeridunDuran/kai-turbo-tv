@@ -92,7 +92,7 @@ async function sourceFixture(ready = true, initialStreams = null, options = {}) 
   });
   ctx.openDetails('series', 'tt0460649', { videoId: 'tt0460649:1:1', autoStreams: true });
   await new Promise(setImmediate);
-  return { root: view.el, addonApi, requested, releaseCheck, get played() { return played; }, view, selectTorrent: () => {
+  return { root: view.el, addonApi, requested, releaseCheck, get played() { return played; }, get focused() { return focused; }, view, selectTorrent: () => {
     const torrentChip = view.el.querySelectorAll('.chip').find((chip) => /^Torrent/.test(chip.textContent));
     torrentChip.__select();
     const torrent = view.el.querySelectorAll('.stream')[0];
@@ -101,17 +101,18 @@ async function sourceFixture(ready = true, initialStreams = null, options = {}) 
   } };
 }
 
-test('ready TV engine retains Torrentio infoHash/magnet and Comet sources in closed groups', async () => {
+test('ready TV engine retains Torrentio infoHash/magnet and Comet sources; only the top group opens', async () => {
   const f = await sourceFixture();
   const groups = f.root.querySelectorAll('.stream-group');
   assert.equal(f.root.querySelectorAll('.stream').length, 4);
   assert.equal(groups.length, 3);
   assert.deepEqual(groups.map((g) => g.querySelector('.stream-group-count').textContent), ['2', '1', '1']);
-  groups.forEach((g) => {
+  groups.forEach((g, i) => {
     assert.equal(g.style.display, '');
-    assert.equal(g.querySelector('.stream-group-head').getAttribute('aria-expanded'), 'false');
-    assert.equal(g.querySelector('.stream-group-body').style.display, 'none');
+    assert.equal(g.querySelector('.stream-group-head').getAttribute('aria-expanded'), i === 0 ? 'true' : 'false');
+    assert.equal(g.querySelector('.stream-group-body').style.display, i === 0 ? '' : 'none');
   });
+  assert.equal(f.focused && f.focused.classes.has('stream'), true, 'focus starts on the best source, not on a group heading');
   const torrentChip = f.root.querySelectorAll('.chip').find((chip) => /^Torrent/.test(chip.textContent));
   assert.match(torrentChip.textContent, /3/);
   torrentChip.__select();
@@ -191,4 +192,11 @@ test('a multi-line torrent diagnosis shows only its reason in the one-line sourc
   const status = f.root.querySelector('.details-sources-status').textContent;
   assert.match(status, /no BitTorrent handshake completed/);
   assert.doesNotMatch(status, /Peers discovered|\n/);
+});
+
+test('auto-open waits for higher-priority add-ons and stops once the user arranges groups', async () => {
+  const f = await sourceFixture(true, [[], [{ infoHash: 'c'.repeat(40), name: 'only comet' }], [{ url: 'https://x/1080', name: '1080p' }]]);
+  const groups = f.root.querySelectorAll('.stream-group');
+  assert.equal(groups[1].querySelector('.stream-group-head').getAttribute('aria-expanded'), 'true', 'first non-empty group opens');
+  assert.equal(groups[2].querySelector('.stream-group-head').getAttribute('aria-expanded'), 'false');
 });

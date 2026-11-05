@@ -12648,11 +12648,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           collapsed: true,
           streams: []
         };
-        heading.__select = function () {
-          group.collapsed = !group.collapsed;
+        group.setCollapsed = function (collapsed) {
+          group.collapsed = collapsed;
           body.style.display = group.collapsed ? "none" : "";
           heading.setAttribute("aria-expanded", group.collapsed ? "false" : "true");
           toggleEl.textContent = group.collapsed ? "+" : "−";
+        };
+        heading.__select = function () {
+          userToggledGroups = true;
+          group.setCollapsed(!group.collapsed);
         };
         return group;
       });
@@ -12660,6 +12664,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       list2.appendChild(loadingLine);
       var filter = "all";
       var typeFilter = "all";
+      var userToggledGroups = false;
+      var autoExpanded = false;
       var typeChipEls = {};
       [["all", "All types"], ["direct", "Direct"], ["via-tv", "Via TV"], ["torrent", "Torrent"]].forEach(function (entry) {
         var chip = h("div.chip", {
@@ -12769,9 +12775,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (needsHeaders(s) && tvOk && !serverOk) return "via-tv";
         return "direct";
       }
+      function autoExpand() {
+        if (userToggledGroups || autoExpanded) return;
+        for (var i = 0; i < groups.length; i++) {
+          var g = groups[i];
+          if (g.el.style.display === "none") continue;
+          if (!g.done) return;
+          if (g.count > 0) {
+            g.setCollapsed(false);
+            autoExpanded = true;
+            return;
+          }
+        }
+      }
       function firstVisibleItem() {
+        var rows = list2.querySelectorAll(".stream");
+        for (var i = 0; i < rows.length; i++) if (rows[i].offsetParent !== null && !rows[i].classList.contains("disabled")) return rows[i];
         var items = list2.querySelectorAll(".stream-group-head, .stream");
-        for (var i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains("disabled")) return items[i];
+        for (var _i = 0; _i < items.length; _i++) if (items[_i].offsetParent !== null && !items[_i].classList.contains("disabled")) return items[_i];
         return null;
       }
       function applyFilter(moveFocus) {
@@ -12867,6 +12888,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             })
           }));
           applyFilter(false);
+          autoExpand();
         }
         if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
           var first = firstVisibleItem();
@@ -14152,7 +14174,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:54:01.870Z";
+  var BUILD = "2026-11-05T18:56:33.513Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

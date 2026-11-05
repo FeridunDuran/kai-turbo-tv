@@ -150,7 +150,9 @@ or the bottom, or hide it. It works per profile and only changes this app, not y
 account. **Reset to add-on order** brings back the default.
 
 ### Better source list
-- **Direct / Via TV / Torrent** filters and collapsible add-on groups.
+- **Direct / Via TV / Torrent** filters and collapsible add-on groups. The highest-priority
+  add-on that has sources opens by itself and focus starts on its best source, so playing it is
+  one press.
 - Within each add-on, HTTP sources are ordered by resolution and torrents by reported seeds
   (unknown counts last). Seed counts come from the add-on and are hints, not live checks.
 - Links that need request headers are fetched by the TV's own service (**Via TV**). Without the
