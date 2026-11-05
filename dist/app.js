@@ -5279,7 +5279,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhuma faixa de áudio foi informada pela fonte.": "No audio tracks were reported by this source.",
     "A fonte respondeu, mas o vídeo não pôde ser reproduzido.": "The source responded, but the video could not be played.",
     "O servidor informou um tipo de arquivo genérico. Isso não identifica o formato nem comprova um codec incompatível.": "The server reported a generic file type. This does not identify the format or prove that its codec is unsupported.",
-    "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "The server-reported type ({type}) does not confirm the file codec. The format may need a different player, or the content may have a problem."
+    "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "The server-reported type ({type}) does not confirm the file codec. The format may need a different player, or the content may have a problem.",
+    "Torrent playback failed.": "Torrent playback failed.",
+    "Transfer details are unavailable. This error alone does not identify a codec problem.": "Transfer details are unavailable. This error alone does not identify a codec problem.",
+    "Connected peers: {peers}. Video delivered: {kb} KiB.": "Connected peers: {peers}. Video delivered: {kb} KiB.",
+    "No torrent video data reached the player.": "No torrent video data reached the player.",
+    "The source may be slow or its peers may not be sending data. Try another source. A codec problem has not been established.": "The source may be slow or its peers may not be sending data. Try another source. A codec problem has not been established.",
+    "Torrent data arrived, but the video header could not be read.": "Torrent data arrived, but the video header could not be read.",
+    "The header may be incomplete or delayed, or the file format may be unsupported. A successful server response does not prove that the video is playable.": "The header may be incomplete or delayed, or the file format may be unsupported. A successful server response does not prove that the video is playable.",
+    "The TV received video data, but decoding failed.": "The TV received video data, but decoding failed.",
+    "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "Possible causes include an unsupported codec, damaged data, or incomplete playback data.",
+    "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
+    "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source."
   };
 
   // src/js/lib/i18n-ar.js
@@ -5782,7 +5793,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhuma faixa de áudio foi informada pela fonte.": "لم يُبلغ هذا المصدر عن أي مسارات صوتية.",
     "A fonte respondeu, mas o vídeo não pôde ser reproduzido.": "استجاب المصدر، لكن تعذّر تشغيل الفيديو.",
     "O servidor informou um tipo de arquivo genérico. Isso não identifica o formato nem comprova um codec incompatível.": "أرسل الخادم نوع ملف عامًّا. هذا لا يحدد الصيغة ولا يثبت أن الترميز غير مدعوم.",
-    "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "النوع الذي أرسله الخادم ({type}) لا يؤكد ترميز الملف. قد تحتاج الصيغة إلى مشغّل آخر أو قد توجد مشكلة في المحتوى."
+    "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "النوع الذي أرسله الخادم ({type}) لا يؤكد ترميز الملف. قد تحتاج الصيغة إلى مشغّل آخر أو قد توجد مشكلة في المحتوى.",
+    "Torrent playback failed.": "تعذر تشغيل التورنت.",
+    "Transfer details are unavailable. This error alone does not identify a codec problem.": "تفاصيل النقل غير متاحة. هذا الخطأ وحده لا يثبت وجود مشكلة في الترميز.",
+    "Connected peers: {peers}. Video delivered: {kb} KiB.": "الأقران المتصلون: {peers}. بيانات الفيديو المرسلة: {kb} كيلوبايت.",
+    "No torrent video data reached the player.": "لم تصل بيانات فيديو التورنت إلى المشغل.",
+    "The source may be slow or its peers may not be sending data. Try another source. A codec problem has not been established.": "قد يكون المصدر بطيئاً أو لا يرسل الأقران بيانات. جرّب مصدراً آخر. لم يتم إثبات وجود مشكلة في الترميز.",
+    "Torrent data arrived, but the video header could not be read.": "وصلت بيانات التورنت، لكن تعذرت قراءة ترويسة الفيديو.",
+    "The header may be incomplete or delayed, or the file format may be unsupported. A successful server response does not prove that the video is playable.": "قد تكون الترويسة ناقصة أو متأخرة، أو صيغة الملف غير مدعومة. استجابة الخادم لا تثبت أن الفيديو قابل للتشغيل.",
+    "The TV received video data, but decoding failed.": "استقبل التلفاز بيانات الفيديو، لكن فشل فك الترميز.",
+    "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "تشمل الأسباب المحتملة ترميزاً غير مدعوم أو بيانات تالفة أو غير مكتملة.",
+    "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
+    "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر."
   };
 
   // src/js/lib/i18n.js
@@ -8793,6 +8815,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/mediaerror.js
   var CODEC_HINT = "Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).";
+  function explainTorrentError(code, stats, readyState) {
+    if (!stats) return {
+      title: t("Torrent playback failed."),
+      hint: t("Transfer details are unavailable. This error alone does not identify a codec problem.")
+    };
+    var sent = (stats.ranges || []).reduce(function (sum, range) {
+      return sum + (range.sent || 0);
+    }, 0);
+    var detail = t("Connected peers: {peers}. Video delivered: {kb} KiB.", {
+      peers: stats.peers || 0,
+      kb: Math.round(sent / 1024)
+    });
+    if (!sent) return {
+      title: t("No torrent video data reached the player."),
+      hint: detail + "\n" + t("The source may be slow or its peers may not be sending data. Try another source. A codec problem has not been established.")
+    };
+    if (code === 3) return {
+      title: t("The TV received video data, but decoding failed."),
+      hint: detail + "\n" + t("Possible causes include an unsupported codec, damaged data, or incomplete playback data.")
+    };
+    if (!readyState) return {
+      title: t("Torrent data arrived, but the video header could not be read."),
+      hint: detail + "\n" + t("The header may be incomplete or delayed, or the file format may be unsupported. A successful server response does not prove that the video is playable.")
+    };
+    return {
+      title: t("Torrent playback stopped after receiving data."),
+      hint: detail + "\n" + t("The transfer may have stalled or the player rejected the stream. Try another source.")
+    };
+  }
   function probe2(url2, timeoutMs) {
     return new Promise(function (resolve) {
       if (!/^https?:\/\//.test(url2)) return resolve({
@@ -10390,7 +10441,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (tryFallback()) return;
       var failedUrl = mediaUrl;
       var failedAttempt = startGeneration;
-      explainVideoError(err && err.code, failedUrl).then(function (why) {
+      var explanation = isTorrent(stream) ? torrentStats(failedUrl).then(function (stats) {
+        return explainTorrentError(err && err.code, stats, videoEl.readyState);
+      }) : explainVideoError(err && err.code, failedUrl);
+      explanation.then(function (why) {
         if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
         stopMedia();
         fail(why.title, why.hint);
@@ -13315,7 +13369,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T15:40:35.522Z";
+  var BUILD = "2026-11-05T16:10:52.706Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

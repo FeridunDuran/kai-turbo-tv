@@ -5,6 +5,16 @@ import { t } from './i18n.js';
 
 const CODEC_HINT = 'Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).';
 
+export function explainTorrentError(code, stats, readyState) {
+  if (!stats) return { title: t('Torrent playback failed.'), hint: t('Transfer details are unavailable. This error alone does not identify a codec problem.') };
+  const sent = (stats.ranges || []).reduce((sum, range) => sum + (range.sent || 0), 0);
+  const detail = t('Connected peers: {peers}. Video delivered: {kb} KiB.', { peers: stats.peers || 0, kb: Math.round(sent / 1024) });
+  if (!sent) return { title: t('No torrent video data reached the player.'), hint: detail + '\n' + t('The source may be slow or its peers may not be sending data. Try another source. A codec problem has not been established.') };
+  if (code === 3) return { title: t('The TV received video data, but decoding failed.'), hint: detail + '\n' + t('Possible causes include an unsupported codec, damaged data, or incomplete playback data.') };
+  if (!readyState) return { title: t('Torrent data arrived, but the video header could not be read.'), hint: detail + '\n' + t('The header may be incomplete or delayed, or the file format may be unsupported. A successful server response does not prove that the video is playable.') };
+  return { title: t('Torrent playback stopped after receiving data.'), hint: detail + '\n' + t('The transfer may have stalled or the player rejected the stream. Try another source.') };
+}
+
 // HEAD request: status and content type, without downloading the file. Status 0 means the
 // server did not answer or blocked the check (CORS), so we do not know.
 function probe(url, timeoutMs) {

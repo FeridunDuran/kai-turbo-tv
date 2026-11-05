@@ -8,7 +8,7 @@ import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { getText } from '../lib/http.js';
-import { explainVideoError } from '../lib/mediaerror.js';
+import { explainVideoError, explainTorrentError } from '../lib/mediaerror.js';
 import * as server from '../api/server.js';
 import * as tvproxy from '../api/tvproxy.js';
 import * as addons from '../api/addons.js';
@@ -467,7 +467,10 @@ function PlayerView(opts) {
     // Say what actually failed (network, server refusal, expired link, codec...).
     const failedUrl = mediaUrl;
     const failedAttempt = startGeneration;
-    explainVideoError(err && err.code, failedUrl).then((why) => {
+    const explanation = server.isTorrent(stream)
+      ? tvproxy.torrentStats(failedUrl).then((stats) => explainTorrentError(err && err.code, stats, videoEl.readyState))
+      : explainVideoError(err && err.code, failedUrl);
+    explanation.then((why) => {
       if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
       stopMedia();
       fail(why.title, why.hint);
