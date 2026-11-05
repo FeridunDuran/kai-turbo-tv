@@ -300,7 +300,7 @@ installed and newest version and can update from there too.
   running on the PC for torrent sources. Header links should be tagged **Via TV**; if they say
   **Direct · may fail**, neither the TV header proxy nor the PC proxy was detected. The app
   tries to start its own loopback proxy using the same commit as the running app, even when
-  TizenBrew has an older phone service cached. HTTP sources stop waiting after 15 seconds;
+  TizenBrew has an older phone service cached. HTTP sources stop waiting after 120 seconds;
   Smart Choice then tries its next backup.
 - **Audio track language is missing:** “Audio track N (language not provided)” means the
   source did not label the language; it does not mean that the file contains no sound.

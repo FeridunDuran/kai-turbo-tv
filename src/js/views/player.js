@@ -10,6 +10,7 @@ import { log } from '../lib/log.js';
 import { getText } from '../lib/http.js';
 import { explainVideoError } from '../lib/mediaerror.js';
 import * as server from '../api/server.js';
+import * as tvproxy from '../api/tvproxy.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
@@ -23,6 +24,7 @@ import { createVideo } from '../lib/tizenvideo.js';
 
 const HIDE_MS = 5000;
 const SAVE_MS = 15000;
+const STARTUP_MS = 120000;
 const LANG_NAMES = {
   por: 'Português', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
   spa: 'Espanhol', es: 'Espanhol', jpn: 'Japonês', ja: 'Japonês', fre: 'Francês', fra: 'Francês', fr: 'Francês',
@@ -120,9 +122,9 @@ function PlayerView(opts) {
       if (!alive || hasPlayed) return;
       if (tryFallback()) return;
       stopMedia();
-      fail(t('A fonte não iniciou em {n}s.', { n: 15 }), false,
+      fail(t('A fonte não iniciou em {n}s.', { n: STARTUP_MS / 1000 }), false,
         t('Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.'));
-    }, 15000);
+    }, STARTUP_MS);
   }
   function stopMedia() {
     clearStartup();
@@ -1049,7 +1051,7 @@ function PlayerView(opts) {
       onPick: (i) => {
         const s = opts.streams[i];
         if (!s || s === stream) return;
-        if (server.isTorrent(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
+        if (server.isTorrent(s) && !server.isAvailable() && !tvproxy.isTorrentAvailable()) return toast(t('Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV.'));
         saveProgress();
         pendingStart = videoEl.currentTime * 1000;
         stream = s;
@@ -1071,7 +1073,7 @@ function PlayerView(opts) {
     addons.fetchStreams(meta.type, nv.id).then((list) => {
       if (!alive) return;
       const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.isTorrent(match) || server.isAvailable())) {
+      if (match && (!server.isTorrent(match) || server.isAvailable() || tvproxy.isTorrentAvailable())) {
         video = nv;
         stream = match;
         opts.streams = list;

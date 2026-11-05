@@ -127,7 +127,7 @@ function playerFixture(fallbacks = []) {
   vm.runInNewContext(source, context);
   context.openPlayer({ meta: { name: 'Test' }, video: { id: 'test' }, stream: { url: 'old' }, fallbacks });
   return { video, pending, menus, timers, view, expire() {
-    const entry = [...timers.entries()].find(([, timer]) => timer.ms === 15000);
+    const entry = [...timers.entries()].find(([, timer]) => timer.ms === 120000);
     assert.ok(entry, 'HTTP startup deadline is armed');
     timers.delete(entry[0]); entry[1].fn();
   } };
@@ -135,6 +135,8 @@ function playerFixture(fallbacks = []) {
 
 test('HTTP startup deadline stops loading and ignores a late resolved URL', async () => {
   const fixture = playerFixture();
+  assert.ok([...fixture.timers.values()].some((timer) => timer.ms === 120000));
+  assert.ok(![...fixture.timers.values()].some((timer) => timer.ms === 15000));
   fixture.expire();
   assert.equal(fixture.menus.length, 1);
   assert.equal(fixture.video.src, '');
@@ -199,10 +201,15 @@ test('proxy bootstrap pins the app revision and coalesces concurrent checks', as
 
 test('real local proxy preserves HLS audio/key/map headers even on ranged manifests', async () => {
   const requests = [];
+  let segmentFinished = false;
   const upstream = http.createServer((req, res) => {
     requests.push({ url: req.url, headers: req.headers });
     if (req.headers.referer !== 'https://required.test/') { res.writeHead(403); res.end(); return; }
-    if (req.url === '/master.m3u8' || req.url === '/audio.m3u8') {
+    if (req.url === '/slow.ts') {
+      res.writeHead(200, { 'Content-Type': 'video/mp2t' });
+      res.write('first');
+      setTimeout(() => { segmentFinished = true; res.end('last'); }, 250);
+    } else if (req.url === '/master.m3u8' || req.url === '/audio.m3u8') {
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.end(req.url === '/master.m3u8'
         ? '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",URI="audio.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=5700000,AUDIO="aud"\nvideo.m3u8\n'
@@ -232,6 +239,15 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
     assert.equal((await fetch(segment, { headers: { Range: 'bytes=2-6' } })).status, 206);
     assert.equal(requests.at(-1).headers.range, 'bytes=2-6');
     assert.ok(requests.every((r) => r.headers.referer === 'https://required.test/'));
+    // Media must be delivered immediately, without buffering an entire segment
+    // in the TV proxy. Only the small manifest needs a complete body for rewriting.
+    const slowURL = 'http://127.0.0.1:8096/proxy?u=' + encodeURIComponent(root + 'slow.ts') + '&h=' + encodeURIComponent(JSON.stringify({ Referer: 'https://required.test/' }));
+    const response = await fetch(slowURL);
+    const reader = response.body.getReader();
+    const first = await reader.read();
+    assert.equal(Buffer.from(first.value).toString(), 'first');
+    assert.equal(segmentFinished, false, 'first bytes arrive before upstream completes');
+    while (!(await reader.read()).done) { /* consume remaining bytes */ }
   } finally {
     context.HTTP_AGENT.destroy(); context.HTTPS_AGENT.destroy();
     await Promise.all([new Promise((r) => proxy.close(r)), new Promise((r) => upstream.close(r))]);

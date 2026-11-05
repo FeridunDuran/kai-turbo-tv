@@ -5012,7 +5012,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhuma fonte encontrada.": "No sources found.",
     "Não suportado na TV": "Not supported on TV",
     "Torrent · via PC": "Torrent · via PC",
+    "Torrent · via TV": "Torrent · via TV",
     "Torrent · precisa do PC": "Torrent · needs PC",
+    "Sem servidor do PC: proxy e torrents na TV": "No PC server: TV proxy and torrent playback",
+    "Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV.": "Torrent playback needs an active engine on the PC or TV.",
+    "Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV.": "This source needs the PC server or the TV torrent engine.",
+    "{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)": "{name}: {n} sources hidden (need torrent playback on the PC or TV)",
     "Direto": "Direct",
     "Esse tipo de fonte não abre na TV.": "This kind of source doesn't open on the TV.",
     "Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.": "Torrents need stremio-service running on a PC. Set it up in Settings.",
@@ -5488,7 +5493,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhuma fonte encontrada.": "لم يُعثر على مصادر.",
     "Não suportado na TV": "غير مدعوم على التلفاز",
     "Torrent · via PC": "تورنت · عبر الكمبيوتر",
+    "Torrent · via TV": "تورنت · عبر التلفاز",
     "Torrent · precisa do PC": "تورنت · يحتاج الكمبيوتر",
+    "Sem servidor do PC: proxy e torrents na TV": "لا يوجد خادم كمبيوتر: وسيط وتشغيل تورنت على التلفاز",
+    "Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV.": "يحتاج تشغيل التورنت إلى محرك نشط على الكمبيوتر أو التلفاز.",
+    "Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV.": "يحتاج هذا المصدر إلى خادم الكمبيوتر أو محرك التورنت على التلفاز.",
+    "{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)": "{name}: {n} مصادر مخفية (تحتاج التورنت على الكمبيوتر أو التلفاز)",
     "Via TV": "عبر التلفاز",
     "Direto": "مباشر",
     "Direto · pode falhar": "مباشر · قد يفشل",
@@ -6931,6 +6941,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var launch = null;
   var status = {
     ok: false,
+    torrent: false,
     checkedAt: 0
   };
   function request2(url2, timeout) {
@@ -6967,7 +6978,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function probe(port) {
     var url2 = "http://127.0.0.1:" + port;
     return request2(url2 + "/api/info", 600).then(function (r) {
-      return r && r.proxy ? url2 : null;
+      return r && r.proxy ? {
+        url: url2,
+        torrent: !!r.torrent
+      } : null;
     }).catch(function () {
       return null;
     });
@@ -7015,25 +7029,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     return launch;
   }
-  function check() {
-    if (status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5e3)) return Promise.resolve(status);
+  function check(force) {
+    if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5e3)) return Promise.resolve(status);
     if (checking) return checking;
     checking = Promise.all([probe(8096), probe(8095)]).then(function (urls) {
-      if (urls[0]) return urls[0];
+      if (urls[0] && urls[0].torrent) return urls[0];
       return startPlayerService().then(function (started2) {
-        if (!started2) return urls[1];
+        if (!started2) return urls[0] || urls[1];
         return new Promise(function (resolve) {
           return setTimeout(resolve, 1800);
         }).then(function () {
           return probe(8096);
         }).then(function (url2) {
-          return url2 || urls[1];
+          return url2 || urls[0] || urls[1];
         });
       });
     }).then(function (url2) {
-      if (url2) base = url2;
+      if (url2) base = url2.url;
       status = {
         ok: !!url2,
+        torrent: !!(url2 && url2.torrent),
         checkedAt: Date.now()
       };
       checking = null;
@@ -7042,6 +7057,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       checking = null;
       status = {
         ok: false,
+        torrent: false,
         checkedAt: Date.now()
       };
       return status;
@@ -7054,8 +7070,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return s.ok;
     });
   }
+  function ensureTorrent() {
+    if (status.torrent) return Promise.resolve(true);
+    return check(true).then(function (s) {
+      return s.torrent;
+    });
+  }
   function isAvailable() {
     return status.ok;
+  }
+  function isTorrentAvailable() {
+    return status.torrent;
+  }
+  function openTorrent(args) {
+    return ensureTorrent().then(function (ok) {
+      if (!ok) throw new Error("TV torrent engine unavailable");
+      return new Promise(function (resolve, reject) {
+        var x = new XMLHttpRequest();
+        x.open("POST", base + "/torrent/open", true);
+        x.timeout = 45e3;
+        x.setRequestHeader("Content-Type", "application/json");
+        x.onload = function () {
+          var result;
+          try {
+            result = JSON.parse(x.responseText);
+          } catch (e) {
+            result = null;
+          }
+          if (x.status === 200 && result && result.url) resolve(result);else reject(new Error(result && result.error || "Could not open TV torrent"));
+        };
+        x.onerror = x.ontimeout = function () {
+          return reject(new Error("TV torrent service unreachable"));
+        };
+        x.send(JSON.stringify(args || {}));
+      });
+    });
   }
   function proxyUrl(streamUrl, requestHeaders, responseHeaders) {
     if (!status.ok) return null;
@@ -7157,9 +7206,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       trackers.push("tracker:" + decodeURIComponent(tracker));
       return "";
     });
+    var nameMatch = uri.match(/[?&]dn=([^&]+)/);
+    var name = "";
+    if (nameMatch) {
+      try {
+        name = decodeURIComponent(nameMatch[1].replace(/\+/g, "%20"));
+      } catch (e) {
+        name = "";
+      }
+    }
     return {
       infoHash: hash.toLowerCase(),
-      sources: trackers
+      sources: trackers,
+      name: name
     };
   }
   function base32ToHex(s) {
@@ -7268,14 +7327,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var base2 = baseUrl();
     if (typeof stream.url === "string") {
       if (stream.url.indexOf("magnet:") === 0) {
-        if (!base2) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
         var mg = parseMagnet(stream.url);
         if (!mg) return Promise.reject(new Error(t("Magnet inválido")));
-        return createTorrent(base2, mg.infoHash, null, mg.sources, seriesInfo).then(function (u) {
+        if (isAvailable2()) return createTorrent(base2, mg.infoHash, null, mg.sources, seriesInfo).then(function (u) {
           return {
             url: u,
             viaServer: true
           };
+        });
+        return openTorrent({
+          infoHash: mg.infoHash,
+          name: mg.name,
+          sources: mg.sources,
+          season: seriesInfo && seriesInfo.season,
+          episode: seriesInfo && seriesInfo.episode
         });
       }
       var ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
@@ -7305,12 +7370,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     if (typeof stream.infoHash === "string") {
-      if (!base2) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
-      return createTorrent(base2, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then(function (u) {
+      if (isAvailable2()) return createTorrent(base2, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then(function (u) {
         return {
           url: u,
           viaServer: true
         };
+      });
+      return openTorrent({
+        infoHash: stream.infoHash.toLowerCase(),
+        fileIdx: stream.fileIdx,
+        name: stream.name,
+        sources: stream.sources || [],
+        season: seriesInfo && seriesInfo.season,
+        episode: seriesInfo && seriesInfo.episode
       });
     }
     return Promise.reject(new Error(t("Tipo de link não suportado na TV")));
@@ -9401,6 +9473,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/views/player.js
   var HIDE_MS = 5e3;
   var SAVE_MS = 15e3;
+  var STARTUP_MS = 12e4;
   var LANG_NAMES = {
     por: "Português",
     pob: "Português (BR)",
@@ -9567,9 +9640,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (tryFallback()) return;
         stopMedia();
         fail(t("A fonte não iniciou em {n}s.", {
-          n: 15
+          n: STARTUP_MS / 1e3
         }), false, t("Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados."));
-      }, 15e3);
+      }, STARTUP_MS);
     }
     function stopMedia() {
       clearStartup();
@@ -10561,7 +10634,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onPick: function onPick(i) {
           var s = opts.streams[i];
           if (!s || s === stream) return;
-          if (isTorrent(s) && !isAvailable2()) return toast(t("Essa fonte precisa do servidor do PC."));
+          if (isTorrent(s) && !isAvailable2() && !isTorrentAvailable()) return toast(t("Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV."));
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
@@ -10586,7 +10659,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var match = group ? list2.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group;
         }) : null;
-        if (match && (!isTorrent(match) || isAvailable2())) {
+        if (match && (!isTorrent(match) || isAvailable2() || isTorrentAvailable())) {
           video = nv;
           stream = match;
           opts.streams = list2;
@@ -11390,6 +11463,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var autoFocused = null;
       var serverOk = isAvailable2();
       var tvOk = isAvailable();
+      var torrentOk2 = isTorrentAvailable();
       var smartActive = !!smart;
       var smartTimer = smartActive ? setTimeout(function () {
         return decideSmart(true);
@@ -11403,7 +11477,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         groups.forEach(function (g, gi) {
           (g.streams || []).forEach(function (s, si) {
             if (!isPlayableType(s)) return;
-            if (isTorrent(s) && !serverOk) return;
+            if (isTorrent(s) && !(serverOk || torrentOk2)) return;
             var needs = isTorrent(s) || needsHeaders(s) && !(serverOk || tvOk);
             var badges = streamBadges(s);
             var warn = badges.some(function (b) {
@@ -11455,7 +11529,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
           return;
         }
-        var srv = serverOk ? t("Servidor do PC conectado") : tvOk ? t("Sem servidor do PC: links diretos e proxy da TV") : t("Servidor do PC não conectado: só links diretos");
+        var srv = serverOk ? t("Servidor do PC conectado") : tvOk ? t(torrentOk2 ? "Sem servidor do PC: proxy e torrents na TV" : "Sem servidor do PC: links diretos e proxy da TV") : t("Servidor do PC não conectado: só links diretos");
         sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
         }) : "  ·  " + t("{n} fontes", {
@@ -11509,8 +11583,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       status3();
       Promise.all([serverOk ? Promise.resolve() : check2().then(function (r) {
         return serverOk = r.ok;
-      }), tvOk ? Promise.resolve() : check().then(function (r) {
-        return tvOk = r.ok;
+      }), tvOk && torrentOk2 ? Promise.resolve() : check(!torrentOk2).then(function (r) {
+        tvOk = r.ok;
+        torrentOk2 = r.torrent;
       })]).then(function () {
         status3();
         return fetchStreams(meta.type, video.id, function (addon, streams) {
@@ -11522,7 +11597,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             var shown = streams.filter(function (s) {
-              return isPlayableType(s) && (serverOk || canTryDirect(s));
+              return isPlayableType(s) && (serverOk || torrentOk2 || canTryDirect(s));
             });
             var hidden = streams.length - shown.length;
             g.count = shown.length;
@@ -11532,7 +11607,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               g.el.appendChild(streamItem(s, video, serverOk, tvOk, all2));
             });
             if (hidden) g.el.appendChild(h("div.loading-line", {
-              text: t("{name}: {n} fontes ocultas (precisam do servidor do PC)", {
+              text: t("{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)", {
                 name: addon.manifest.name || addon.manifest.id,
                 n: hidden
               })
@@ -11560,14 +11635,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var torrent = isTorrent(s);
-      var disabled = !playableType || torrent && !serverOk;
+      var disabled = !playableType || torrent && !(serverOk || torrentOk);
       var tags = [];
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
       }));else if (needs) {
-        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
+        var label = torrent ? serverOk ? "Torrent · via PC" : torrentOk ? "Torrent · via TV" : "Torrent · precisa do PC" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
         tags.push(h("span.s-tag", {
-          cls: torrent ? serverOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
+          cls: torrent ? serverOk || torrentOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
           text: t(label)
         }));
       } else tags.push(h("span.s-tag.ok", {
@@ -11584,7 +11659,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         cls: disabled ? "disabled" : "",
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
-          if (torrent && !serverOk) return toast(t("Torrent precisa do stremio-service rodando no PC. Configure em Ajustes."), 5e3);
+          if (torrent && !(serverOk || torrentOk)) return toast(t("Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV."), 5e3);
           play(video, s, all2);
         }
       }, [h("div.s-addon", {
@@ -12763,7 +12838,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T11:02:33.098Z";
+  var BUILD = "2026-11-05T11:09:45.301Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json"];
