@@ -110,7 +110,6 @@ function PlayerView(opts) {
   let addonSubs = null;
   let currentSub = { kind: 'off' };
   let currentAudio = null;
-  let triedTranscode = false;
   let startGeneration = 0;
   let startupTimer = null;
   function clearStartup() { clearTimeout(startupTimer); startupTimer = null; }
@@ -122,7 +121,7 @@ function PlayerView(opts) {
       if (!alive || hasPlayed) return;
       if (tryFallback()) return;
       stopMedia();
-      fail(t('A fonte não iniciou em {n}s.', { n: STARTUP_MS / 1000 }), false,
+      fail(t('A fonte não iniciou em {n}s.', { n: STARTUP_MS / 1000 }),
         t('Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.'));
     }, STARTUP_MS);
   }
@@ -136,7 +135,6 @@ function PlayerView(opts) {
     if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
     stream = opts.fallbacks.shift();
     toast(t('Essa fonte não tocou. Tentando outra...'));
-    triedTranscode = false;
     autoDone = { sub: false, audio: false };
     start();
     return true;
@@ -454,7 +452,7 @@ function PlayerView(opts) {
     explainVideoError(err && err.code, failedUrl).then((why) => {
       if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
       stopMedia();
-      fail(why.title, why.codec && !triedTranscode && server.isAvailable(), why.hint);
+      fail(why.title, why.hint);
     });
   });
 
@@ -580,27 +578,8 @@ function PlayerView(opts) {
     }
   });
 
-  function stuckMenu(pos) {
-    showSpinner(false);
-    menu(
-      t('O vídeo parou de carregar'),
-      [
-        { label: t('Tentar de novo'), sub: t('Reabre o vídeo em {time}', { time: fmtTime(pos) }), value: 'retry', checked: true },
-        { label: t('Escolher outra fonte'), value: 'src' },
-        { label: t('Voltar'), value: 'back' },
-      ],
-      {
-        center: true,
-        onPick: (v) => {
-          if (v === 'retry') {
-            gaveUp = false;
-            recoveries = 0;
-            reopenAt(pos);
-          } else if (v === 'src') sourcesMenu();
-          else router.pop();
-        },
-      }
-    );
+  function showStallError() {
+    fail(t('O vídeo parou de carregar'), t('Escolher outra fonte'));
   }
 
   // Memória: fecha apps pesados que o webOS deixa em segundo plano (ex.: Netflix ~80 MB)
@@ -635,7 +614,7 @@ function PlayerView(opts) {
       if (recoveries >= 3) {
         diag('travado-desisti');
         gaveUp = true; // para de vigiar até o usuário escolher (antes reabria o aviso sem parar)
-        stuckMenu(pos);
+        showStallError();
         return;
       }
       recoveries++;
@@ -673,40 +652,14 @@ function PlayerView(opts) {
     }, 300);
   }
 
-  function fail(text, offerTranscode, hint) {
+  function fail(text, hint) {
     showSpinner(false);
+    videoEl.pause();
     const box = h('div', null, [text, h('small', { text: hint || t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
     clear(msgEl);
     msgEl.appendChild(box);
-    const opts2 = [{ label: t('Escolher outra fonte'), value: 'src' }];
-    if (offerTranscode) opts2.unshift({ label: t('Converter no PC (experimental)'), sub: t('O servidor converte para HLS que a TV aceita'), value: 'hls' });
-    opts2.push({ label: t('Voltar'), value: 'back' });
-    menu(t('Problema na reprodução'), opts2, {
-      center: true,
-      onPick: (v) => {
-        if (v === 'hls') transcode();
-        else if (v === 'src') sourcesMenu();
-        else router.pop();
-      },
-    });
-  }
-
-  function transcode() {
-    triedTranscode = true;
-    const base = server.baseUrl();
-    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const q = ['mediaURL=' + encodeURIComponent(mediaUrl)];
-    ['h264', 'h265', 'hevc'].forEach((c) => q.push('videoCodecs=' + c));
-    ['aac', 'mp3', 'ac3', 'eac3'].forEach((c) => q.push('audioCodecs=' + c));
-    q.push('maxAudioChannels=6');
-    const url = base + 'hlsv2/' + id + '/master.m3u8?' + q.join('&');
-    pendingStart = videoEl.currentTime * 1000 || pendingStart;
-    showSpinner(true);
-    message('');
-    log.info('Transcodificando', url);
-    videoEl.src = url;
-    videoEl.load();
-    videoEl.play();
+    // Keep the normal player controls available; errors do not open a modal.
+    showControls(srcBtn);
   }
 
   // ---------- Controles ----------
@@ -1056,7 +1009,6 @@ function PlayerView(opts) {
         saveProgress();
         pendingStart = videoEl.currentTime * 1000;
         stream = s;
-        triedTranscode = false;
         autoDone = { sub: false, audio: false };
         start();
       },
@@ -1079,7 +1031,6 @@ function PlayerView(opts) {
         stream = match;
         opts.streams = list;
         pendingStart = 0;
-        triedTranscode = false;
         autoDone = { sub: false, audio: false };
         start();
       } else {

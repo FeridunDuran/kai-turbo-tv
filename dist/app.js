@@ -7137,7 +7137,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var x = new XMLHttpRequest();
         x.open("POST", base + "/torrent/open", true);
         x.timeout = 45e3;
-        x.setRequestHeader("Content-Type", "application/json");
+        x.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
         x.onload = function () {
           var result;
           try {
@@ -7147,8 +7147,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
           if (x.status === 200 && result && result.url) resolve(result);else reject(new Error(result && result.error || "Could not open TV torrent"));
         };
-        x.onerror = x.ontimeout = function () {
-          return reject(new Error("TV torrent service unreachable"));
+        var disconnected = function disconnected(message) {
+          status = {
+            ok: false,
+            torrent: false,
+            checkedAt: 0
+          };
+          reject(new Error(message));
+        };
+        x.onerror = function () {
+          return disconnected("TV torrent service unreachable");
+        };
+        x.ontimeout = function () {
+          return disconnected("TV torrent service did not respond within 45 seconds");
         };
         x.send(JSON.stringify(args || {}));
       });
@@ -9993,7 +10004,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       kind: "off"
     };
     var currentAudio = null;
-    var triedTranscode = false;
     var startGeneration = 0;
     var startupTimer = null;
     function clearStartup() {
@@ -10009,7 +10019,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         stopMedia();
         fail(t("A fonte não iniciou em {n}s.", {
           n: STARTUP_MS / 1e3
-        }), false, t("Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados."));
+        }), t("Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados."));
       }, STARTUP_MS);
     }
     function stopMedia() {
@@ -10021,7 +10031,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
       stream = opts.fallbacks.shift();
       toast(t("Essa fonte não tocou. Tentando outra..."));
-      triedTranscode = false;
       autoDone = {
         sub: false,
         audio: false
@@ -10344,7 +10353,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       explainVideoError(err && err.code, failedUrl).then(function (why) {
         if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
         stopMedia();
-        fail(why.title, why.codec && !triedTranscode && isAvailable2(), why.hint);
+        fail(why.title, why.hint);
       });
     });
     var segments = [];
@@ -10448,31 +10457,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (p && p.catch) p.catch(function () {});
       }
     });
-    function stuckMenu(pos) {
-      showSpinner(false);
-      menu(t("O vídeo parou de carregar"), [{
-        label: t("Tentar de novo"),
-        sub: t("Reabre o vídeo em {time}", {
-          time: fmtTime(pos)
-        }),
-        value: "retry",
-        checked: true
-      }, {
-        label: t("Escolher outra fonte"),
-        value: "src"
-      }, {
-        label: t("Voltar"),
-        value: "back"
-      }], {
-        center: true,
-        onPick: function onPick(v) {
-          if (v === "retry") {
-            gaveUp = false;
-            recoveries = 0;
-            reopenAt(pos);
-          } else if (v === "src") sourcesMenu();else pop();
-        }
-      });
+    function showStallError() {
+      fail(t("O vídeo parou de carregar"), t("Escolher outra fonte"));
     }
     function freeBackgroundMemory() {
       closeHeavyBackgroundApps().then(function (closed) {
@@ -10506,7 +10492,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (recoveries >= 3) {
           diag("travado-desisti");
           gaveUp = true;
-          stuckMenu(pos);
+          showStallError();
           return;
         }
         recoveries++;
@@ -10540,53 +10526,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       }, 300);
     }
-    function fail(text, offerTranscode, hint) {
+    function fail(text, hint) {
       showSpinner(false);
+      videoEl.pause();
       var box = h("div", null, [text, h("small", {
         text: hint || t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
       })]);
       clear(msgEl);
       msgEl.appendChild(box);
-      var opts2 = [{
-        label: t("Escolher outra fonte"),
-        value: "src"
-      }];
-      if (offerTranscode) opts2.unshift({
-        label: t("Converter no PC (experimental)"),
-        sub: t("O servidor converte para HLS que a TV aceita"),
-        value: "hls"
-      });
-      opts2.push({
-        label: t("Voltar"),
-        value: "back"
-      });
-      menu(t("Problema na reprodução"), opts2, {
-        center: true,
-        onPick: function onPick(v) {
-          if (v === "hls") transcode();else if (v === "src") sourcesMenu();else pop();
-        }
-      });
-    }
-    function transcode() {
-      triedTranscode = true;
-      var base2 = baseUrl();
-      var id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      var q = ["mediaURL=" + encodeURIComponent(mediaUrl)];
-      ["h264", "h265", "hevc"].forEach(function (c) {
-        return q.push("videoCodecs=" + c);
-      });
-      ["aac", "mp3", "ac3", "eac3"].forEach(function (c) {
-        return q.push("audioCodecs=" + c);
-      });
-      q.push("maxAudioChannels=6");
-      var url2 = base2 + "hlsv2/" + id + "/master.m3u8?" + q.join("&");
-      pendingStart = videoEl.currentTime * 1e3 || pendingStart;
-      showSpinner(true);
-      message("");
-      log.info("Transcodificando", url2);
-      videoEl.src = url2;
-      videoEl.load();
-      videoEl.play();
+      showControls(srcBtn);
     }
     function togglePlay() {
       if (videoEl.paused) videoEl.play();else videoEl.pause();
@@ -11006,7 +10954,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
-          triedTranscode = false;
           autoDone = {
             sub: false,
             audio: false
@@ -11032,7 +10979,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           stream = match;
           opts.streams = list2;
           pendingStart = 0;
-          triedTranscode = false;
           autoDone = {
             sub: false,
             audio: false
@@ -13312,7 +13258,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T12:27:35.781Z";
+  var BUILD = "2026-11-05T12:37:52.390Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

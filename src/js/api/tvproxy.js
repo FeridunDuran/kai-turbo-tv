@@ -147,14 +147,22 @@ export function openTorrent(args) {
       const x = new XMLHttpRequest();
       x.open('POST', base + '/torrent/open', true);
       x.timeout = 45000;
-      x.setRequestHeader('Content-Type', 'application/json');
+      // TizenBrew's page and this service have different ports/origins. JSON
+      // Content-Type triggers a preflight that older services do not support.
+      // The endpoint parses the body as JSON regardless of its media type.
+      x.setRequestHeader('Content-Type', 'text/plain;charset=UTF-8');
       x.onload = () => {
         let result;
         try { result = JSON.parse(x.responseText); } catch (e) { result = null; }
         if (x.status === 200 && result && result.url) resolve(result);
         else reject(new Error(result && result.error || 'Could not open TV torrent'));
       };
-      x.onerror = x.ontimeout = () => reject(new Error('TV torrent service unreachable'));
+      const disconnected = (message) => {
+        status = { ok: false, torrent: false, checkedAt: 0 };
+        reject(new Error(message));
+      };
+      x.onerror = () => disconnected('TV torrent service unreachable');
+      x.ontimeout = () => disconnected('TV torrent service did not respond within 45 seconds');
       x.send(JSON.stringify(args || {}));
     });
   });

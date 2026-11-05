@@ -98,19 +98,20 @@ test('outside Samsung the native HTML player is preserved', () => {
 });
 
 function playerFixture(fallbacks = []) {
-  const pending = [], menus = [], timers = new Map();
+  const pending = [], rejected = [], menus = [], timers = new Map();
+  let pauseCalls = 0;
   let timerId = 0, view;
   const node = () => ({ style: {}, classList: { add() {}, remove() {}, contains() { return false; } },
     appendChild() {}, removeAttribute() {}, setAttribute() {}, textContent: '' });
   const video = Object.assign(node(), { paused: true, currentTime: 0, duration: NaN, readyState: 0,
-    addEventListener() {}, load() {}, pause() {}, removeAttribute() { this.src = ''; } });
+    addEventListener() {}, load() {}, pause() { pauseCalls++; }, removeAttribute() { this.src = ''; } });
   const settings = {};
   const mocks = {
     dom: { h: node, clear() {} }, nav: { KEY: {}, focus() {}, current() {} },
     luna: { closeHeavyBackgroundApps: () => Promise.resolve([]) },
     subs: { Renderer: () => ({ clear() {} }) }, substyle: { apply() {} },
     store: { settings: () => settings }, log: { log: { info() {}, warn() {} } }, http: {}, mediaerror: {},
-    server: { isTorrent: () => false, toPlayable: () => new Promise((resolve) => pending.push(resolve)) },
+    server: { isTorrent: () => false, toPlayable: () => new Promise((resolve, reject) => { pending.push(resolve); rejected.push(reject); }) },
     addons: { fetchSubtitles: () => Promise.resolve() }, stremio: {}, skip: {},
     ui: { menu: (...args) => menus.push(args), toast() {}, fmtTime: () => '0:00', timeHM: () => '0:00' },
     router: { push(v) { view = v; v.onShow(); }, tabView() {} }, details: {},
@@ -126,7 +127,7 @@ function playerFixture(fallbacks = []) {
     clearTimeout: (id) => timers.delete(id), setInterval: () => 0, clearInterval() {} };
   vm.runInNewContext(source, context);
   context.openPlayer({ meta: { name: 'Test' }, video: { id: 'test' }, stream: { url: 'old' }, fallbacks });
-  return { video, pending, menus, timers, view, expire() {
+  return { video, pending, rejected, menus, timers, view, get pauseCalls() { return pauseCalls; }, expire() {
     const entry = [...timers.entries()].find(([, timer]) => timer.ms === 120000);
     assert.ok(entry, 'HTTP startup deadline is armed');
     timers.delete(entry[0]); entry[1].fn();
@@ -138,11 +139,20 @@ test('HTTP startup deadline stops loading and ignores a late resolved URL', asyn
   assert.ok([...fixture.timers.values()].some((timer) => timer.ms === 120000));
   assert.ok(![...fixture.timers.values()].some((timer) => timer.ms === 15000));
   fixture.expire();
-  assert.equal(fixture.menus.length, 1);
+  assert.equal(fixture.menus.length, 0);
   assert.equal(fixture.video.src, '');
   fixture.pending[0]({ url: 'https://late.invalid/video', viaServer: false });
   await Promise.resolve();
   assert.equal(fixture.video.src, '');
+  fixture.view.destroy();
+});
+
+test('torrent service failure keeps player controls without an automatic Sources/Back modal', async () => {
+  const fixture = playerFixture();
+  fixture.rejected[0](new Error('TV torrent service unreachable'));
+  await new Promise(setImmediate);
+  assert.equal(fixture.menus.length, 0);
+  assert.equal(fixture.pauseCalls, 1);
   fixture.view.destroy();
 });
 
