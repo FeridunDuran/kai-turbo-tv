@@ -50,10 +50,12 @@ Torrents play on the TV through its built-in engine and rolling RAM cache. Torre
 not use a PC server. If the TV engine is unavailable, torrent sources are hidden with a count per
 add-on.
 
-Torrent discovery uses UDP/DHT and HTTP trackers in parallel. Metadata may take up to 120 seconds;
-"ready" means the engine is installed, not that a particular swarm is reachable. Timeout errors
-distinguish no discovered peers, no completed handshake, and incomplete metadata. After a player
-service update, fully restart the TV so TizenBrew replaces the old service.
+Torrent discovery uses UDP/DHT and HTTP trackers in parallel. **Ready** means the engine is
+available, not that a particular source has reachable peers. Metadata retrieval has a 20-second
+inactivity deadline that resets when new metadata blocks arrive. Video reads also stop after
+20 seconds without incoming torrent data; active transfers can continue beyond that time.
+Errors distinguish peer discovery, handshake, metadata, missing video data and playback failures.
+After a player service update, fully restart the TV so TizenBrew replaces the old service.
 
 The TV keeps a moving window of torrent pieces in memory instead of saving the whole video to
 internal storage. Seeking outside that window fetches the needed pieces again.
@@ -62,6 +64,34 @@ Links that need extra request headers (Referer, User-Agent, Cookie...) work with
 app's small TizenBrew service on the TV fetches them and adds the headers, so the player gets a
 normal local URL. They are tagged **Via TV**. If the TV service is not running they show as
 **Direct · may fail**, the player tries them directly, and Smart Choice puts them last.
+
+### Source browsing and ordering
+Sources have type filters and collapsed add-on groups. Within each add-on, HTTP sources are
+ordered by reported resolution, highest first. Torrents are ordered by reported seed count,
+highest first; unknown counts come last. Reported seed counts are hints from the add-on, not
+live checks that a torrent will play.
+
+### Faster torrent startup
+The TV prioritizes the requested playback position, prefetches and retains MP4 header pieces,
+and adjusts peer request queues to their throughput. Switching episodes within the same torrent
+preserves its peer connections. The verified-piece cache is bounded to 48 MiB.
+
+A Joy HEVC/AAC episode was confirmed playing with picture and sound on the Q70T. A later cold
+start reached the player’s enough-data state in about 10 seconds; startup depends on the swarm,
+file and resume position, so this is an observation rather than a guaranteed loading time.
+Implementation and local test details: [Torrent startup](docs/torrent-startup.md).
+
+### Safer next-episode playback
+At the credits, or 25 seconds before the end when credits are unknown, a 10-second countdown
+offers the next episode. Pausing pauses the countdown; seeking away cancels the active countdown.
+Cancel or Back keeps the current episode. Unreleased episodes and a jump from regular seasons
+to specials are excluded.
+
+The player prefers a source in the same torrent, then a matching binge group from the same
+add-on. It can start as soon as a matching add-on responds. If no match exists, it opens the
+next episode’s source list. Duplicate transition requests are blocked, and the previous episode’s
+fallback sources and delayed playback actions cannot carry over to the next episode.
+These transition cases pass local integration tests; TV automatic-transition verification is pending.
 
 ### Other changes
 - The loader and in-app updater point to this repository, so the TV runs this fork's code.
