@@ -401,7 +401,30 @@ function handle(req, res) {
   // ---- TV side (app on the same TV only) ----
   if (url.pathname === '/api/info') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
-    return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 2, proxy: 1 });
+    return send(res, 200, {
+      ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 3, proxy: 1,
+      torrent: PORT === 8096 && typeof TV_TORRENT !== 'undefined' && TV_TORRENT.supported() ? 1 : 0
+    });
+  }
+  if (url.pathname === '/torrent/open' && req.method === 'POST') {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    if (typeof TV_TORRENT === 'undefined' || !TV_TORRENT.supported()) return send(res, 503, { error: 'torrent engine unavailable' });
+    return readBody(req, function (body) {
+      var args;
+      try { args = JSON.parse(body); } catch (e) { return send(res, 400, { error: 'invalid request' }); }
+      TV_TORRENT.create(args, function (err, result) {
+        if (err) return send(res, 502, { error: String(err.message || err) });
+        send(res, 200, result);
+      });
+    }, 8192);
+  }
+  if (url.pathname.indexOf('/torrent/') === 0) {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    if (typeof TV_TORRENT === 'undefined' || !TV_TORRENT.supported()) return send(res, 503, { error: 'torrent engine unavailable' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'method not allowed' });
+    var torrentId = url.pathname.slice('/torrent/'.length);
+    if (!/^[a-f0-9]{16}$/.test(torrentId)) return send(res, 404, { error: 'torrent session not found' });
+    return TV_TORRENT.serve(req, res, torrentId);
   }
   if (url.pathname === '/proxy' || url.pathname === '/proxy/stream.m3u8') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });

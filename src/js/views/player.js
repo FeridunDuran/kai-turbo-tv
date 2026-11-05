@@ -10,6 +10,7 @@ import { log } from '../lib/log.js';
 import { getText } from '../lib/http.js';
 import { explainVideoError } from '../lib/mediaerror.js';
 import * as server from '../api/server.js';
+import * as tvproxy from '../api/tvproxy.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
@@ -1050,7 +1051,7 @@ function PlayerView(opts) {
       onPick: (i) => {
         const s = opts.streams[i];
         if (!s || s === stream) return;
-        if (server.isTorrent(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
+        if (server.isTorrent(s) && !server.isAvailable() && !tvproxy.isTorrentAvailable()) return toast(t('Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV.'));
         saveProgress();
         pendingStart = videoEl.currentTime * 1000;
         stream = s;
@@ -1072,7 +1073,7 @@ function PlayerView(opts) {
     addons.fetchStreams(meta.type, nv.id).then((list) => {
       if (!alive) return;
       const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.isTorrent(match) || server.isAvailable())) {
+      if (match && (!server.isTorrent(match) || server.isAvailable() || tvproxy.isTorrentAvailable())) {
         video = nv;
         stream = match;
         opts.streams = list;

@@ -23,7 +23,8 @@
     "@webos-tools/cli": "^3.2.6",
     "acorn": "^8.19.0",
     "core-js": "^3.45.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "torrent-stream": "^1.0.3"
   },
   "repository": {
     "type": "git",

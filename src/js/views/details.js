@@ -374,6 +374,7 @@ function DetailsView(type, id, opts) {
     let autoFocused = null;
     let serverOk = server.isAvailable();
     let tvOk = tvproxy.isAvailable();
+    let torrentOk = tvproxy.isTorrentAvailable();
     // Smart Choice: picks a source once the debrid add-ons answer (or after SMART_WAIT_MS),
     // unless the user moves the focus first.
     let smartActive = !!smart;
@@ -393,7 +394,7 @@ function DetailsView(type, id, opts) {
       groups.forEach((g, gi) => {
         (g.streams || []).forEach((s, si) => {
           if (!server.isPlayableType(s)) return;
-          if (server.isTorrent(s) && !serverOk) return;
+          if (server.isTorrent(s) && !(serverOk || torrentOk)) return;
           // Torrents keep the PC penalty. Header links only go last when neither the PC
           // nor the TV proxy can add the headers.
           const needs = server.isTorrent(s) || (server.needsHeaders(s) && !(serverOk || tvOk));
@@ -439,7 +440,7 @@ function DetailsView(type, id, opts) {
       const srv = serverOk
         ? t('Servidor do PC conectado')
         : tvOk
-          ? t('Sem servidor do PC: links diretos e proxy da TV')
+          ? t(torrentOk ? 'Sem servidor do PC: proxy e torrents na TV' : 'Sem servidor do PC: links diretos e proxy da TV')
           : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
@@ -479,10 +480,11 @@ function DetailsView(type, id, opts) {
     }
 
     status();
-    Promise.all([
-      serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)),
-      tvOk ? Promise.resolve() : tvproxy.check().then((r) => (tvOk = r.ok)),
-    ])
+    (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
+      .then(() => {
+        if (serverOk || (tvOk && torrentOk)) return null;
+        return tvproxy.check(!torrentOk).then((r) => { tvOk = r.ok; torrentOk = r.torrent; });
+      })
       .then(() => {
         status();
         return addons.fetchStreams(meta.type, video.id, (addon, streams) => {
@@ -493,7 +495,7 @@ function DetailsView(type, id, opts) {
             g.done = true;
             // Torrents somem da lista quando não há servidor do PC (só fica a contagem). Links que pedem
             // cabeçalhos continuam visíveis: sem servidor eles são tentados direto.
-            const shown = streams.filter((s) => server.isPlayableType(s) && (serverOk || server.canTryDirect(s)));
+            const shown = streams.filter((s) => server.isPlayableType(s) && ((serverOk || torrentOk) || server.canTryDirect(s)));
             const hidden = streams.length - shown.length;
             g.count = shown.length;
             g.streams = shown;
@@ -501,7 +503,7 @@ function DetailsView(type, id, opts) {
               all.push(s);
               g.el.appendChild(streamItem(s, video, serverOk, tvOk, all));
             });
-            if (hidden) g.el.appendChild(h('div.loading-line', { text: t('{name}: {n} fontes ocultas (precisam do servidor do PC)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
+            if (hidden) g.el.appendChild(h('div.loading-line', { text: t('{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
           }
           // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
           if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
@@ -526,14 +528,14 @@ function DetailsView(type, id, opts) {
     const playableType = server.isPlayableType(s);
     const needs = server.needsServer(s);
     const torrent = server.isTorrent(s);
-    const disabled = !playableType || (torrent && !serverOk);
+    const disabled = !playableType || (torrent && !(serverOk || torrentOk));
     const tags = [];
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
     else if (needs) {
       const label = torrent
-        ? serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC'
+        ? serverOk ? 'Torrent · via PC' : torrentOk ? 'Torrent · via TV' : 'Torrent · precisa do PC'
         : serverOk ? 'Via PC' : tvOk ? 'Via TV' : 'Direto · pode falhar';
-      tags.push(h('span.s-tag', { cls: torrent ? (serverOk ? '' : 'warn') : serverOk || tvOk ? '' : 'warn', text: t(label) }));
+      tags.push(h('span.s-tag', { cls: torrent ? (serverOk || torrentOk ? '' : 'warn') : serverOk || tvOk ? '' : 'warn', text: t(label) }));
     }
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
     streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));
@@ -544,7 +546,7 @@ function DetailsView(type, id, opts) {
         cls: disabled ? 'disabled' : '',
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
-          if (torrent && !serverOk) return toast(t('Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.'), 5000);
+          if (torrent && !(serverOk || torrentOk)) return toast(t('Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV.'), 5000);
           play(video, s, all);
         },
       },

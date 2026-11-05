@@ -82,7 +82,12 @@ function parseMagnet(uri) {
     trackers.push('tracker:' + decodeURIComponent(tracker));
     return '';
   });
-  return { infoHash: hash.toLowerCase(), sources: trackers };
+  const nameMatch = uri.match(/[?&]dn=([^&]+)/);
+  let name = '';
+  if (nameMatch) {
+    try { name = decodeURIComponent(nameMatch[1].replace(/\+/g, '%20')); } catch (e) { name = ''; }
+  }
+  return { infoHash: hash.toLowerCase(), sources: trackers, name };
 }
 
 function base32ToHex(s) {
@@ -187,10 +192,11 @@ export function toPlayable(stream, seriesInfo) {
   const base = baseUrl();
   if (typeof stream.url === 'string') {
     if (stream.url.indexOf('magnet:') === 0) {
-      if (!base) return Promise.reject(new Error(t('Este link é torrent: configure o servidor do PC')));
       const mg = parseMagnet(stream.url);
       if (!mg) return Promise.reject(new Error(t('Magnet inválido')));
-      return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then((u) => ({ url: u, viaServer: true }));
+      if (isAvailable()) return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then((u) => ({ url: u, viaServer: true }));
+      return tvproxy.openTorrent({ infoHash: mg.infoHash, name: mg.name, sources: mg.sources,
+        season: seriesInfo && seriesInfo.season, episode: seriesInfo && seriesInfo.episode });
     }
     const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
     if (ph && needsHeaders(stream)) {
@@ -208,11 +214,12 @@ export function toPlayable(stream, seriesInfo) {
     return Promise.resolve({ url: stream.url, viaServer: false });
   }
   if (typeof stream.infoHash === 'string') {
-    if (!base) return Promise.reject(new Error(t('Este link é torrent: configure o servidor do PC')));
-    return createTorrent(base, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then((u) => ({
-      url: u,
-      viaServer: true,
+    if (isAvailable()) return createTorrent(base, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then((u) => ({
+      url: u, viaServer: true,
     }));
+    return tvproxy.openTorrent({ infoHash: stream.infoHash.toLowerCase(), fileIdx: stream.fileIdx,
+      name: stream.name, sources: stream.sources || [], season: seriesInfo && seriesInfo.season,
+      episode: seriesInfo && seriesInfo.episode });
   }
   return Promise.reject(new Error(t('Tipo de link não suportado na TV')));
 }

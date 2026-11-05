@@ -9,7 +9,7 @@ let base = 'http://127.0.0.1:8096';
 let checking = null;
 let launch = null;
 
-let status = { ok: false, checkedAt: 0 };
+let status = { ok: false, torrent: false, checkedAt: 0 };
 
 function request(url, timeout) {
   return new Promise((resolve, reject) => {
@@ -47,7 +47,7 @@ function cleanHeaders(headers) {
 // list does not probe the service for every row.
 function probe(port) {
   const url = 'http://127.0.0.1:' + port;
-  return request(url + '/api/info', 600).then((r) => r && r.proxy ? url : null).catch(() => null);
+  return request(url + '/api/info', 600).then((r) => r && r.proxy ? { url, torrent: !!r.torrent } : null).catch(() => null);
 }
 
 // Pin the service to the SAME commit as app.js, bypassing TizenBrew's stale
@@ -81,24 +81,24 @@ function startPlayerService() {
   return launch;
 }
 
-export function check() {
-  if (status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5000)) return Promise.resolve(status);
+export function check(force) {
+  if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5000)) return Promise.resolve(status);
   if (checking) return checking;
   checking = Promise.all([probe(8096), probe(8095)]).then((urls) => {
-    if (urls[0]) return urls[0];
+    if (urls[0] && urls[0].torrent) return urls[0];
     return startPlayerService().then((started) => {
-      if (!started) return urls[1];
+      if (!started) return urls[0] || urls[1];
       // One bounded startup grace period; no repeated launch/retry loop.
-      return new Promise((resolve) => setTimeout(resolve, 1800)).then(() => probe(8096)).then((url) => url || urls[1]);
+      return new Promise((resolve) => setTimeout(resolve, 1800)).then(() => probe(8096)).then((url) => url || urls[0] || urls[1]);
     });
   }).then((url) => {
-    if (url) base = url;
-    status = { ok: !!url, checkedAt: Date.now() };
+    if (url) base = url.url;
+    status = { ok: !!url, torrent: !!(url && url.torrent), checkedAt: Date.now() };
     checking = null;
     return status;
   }, () => {
     checking = null;
-    status = { ok: false, checkedAt: Date.now() };
+    status = { ok: false, torrent: false, checkedAt: Date.now() };
     return status;
   });
   return checking;
@@ -109,12 +109,41 @@ export function ensure() {
   return check().then((s) => s.ok);
 }
 
+export function ensureTorrent() {
+  if (status.torrent) return Promise.resolve(true);
+  return check(true).then((s) => s.torrent);
+}
+
 export function isAvailable() {
   return status.ok;
 }
 
+export function isTorrentAvailable() {
+  return status.torrent;
+}
+
 export function lastStatus() {
   return status;
+}
+
+export function openTorrent(args) {
+  return ensureTorrent().then((ok) => {
+    if (!ok) throw new Error('TV torrent engine unavailable');
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', base + '/torrent/open', true);
+      x.timeout = 45000;
+      x.setRequestHeader('Content-Type', 'application/json');
+      x.onload = () => {
+        let result;
+        try { result = JSON.parse(x.responseText); } catch (e) { result = null; }
+        if (x.status === 200 && result && result.url) resolve(result);
+        else reject(new Error(result && result.error || 'Could not open TV torrent'));
+      };
+      x.onerror = x.ontimeout = () => reject(new Error('TV torrent service unreachable'));
+      x.send(JSON.stringify(args || {}));
+    });
+  });
 }
 
 // Build the URL the <video> element opens. Request headers go in the query; they can be

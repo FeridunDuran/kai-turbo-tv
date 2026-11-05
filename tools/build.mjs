@@ -3,6 +3,7 @@ import { build, context } from 'esbuild';
 import { transformAsync } from '@babel/core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire, isBuiltin } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,6 +33,40 @@ async function downlevel(code) {
     presets: [['@babel/preset-env', { targets: { chrome: '38' }, modules: false, bugfixes: true }]],
   });
   return out.code;
+}
+
+async function torrentEngineBundle() {
+  const torrentRequire = createRequire(path.join(root, 'node_modules', 'torrent-stream', 'index.js'));
+  const bundled = await build({
+    entryPoints: [path.join(root, 'service', 'vendor', 'torrent-stream', 'index.cjs')],
+    bundle: true,
+    platform: 'node',
+    format: 'iife',
+    globalName: 'TorrentEngine',
+    target: 'es2015',
+    write: false,
+    charset: 'utf8',
+    legalComments: 'none',
+    logLevel: 'warning',
+    plugins: [{
+      name: 'torrent-stream-dependencies',
+      setup(builder) {
+        builder.onResolve({ filter: /^[^./]/ }, (args) => {
+          if (isBuiltin(args.path)) return { path: args.path, external: true };
+          try { return { path: torrentRequire.resolve(args.path) }; }
+          catch (error) { return { path: args.path, external: true }; }
+        });
+      },
+    }],
+  });
+  const result = await transformAsync(bundled.outputFiles[0].text, {
+    babelrc: false,
+    configFile: false,
+    sourceType: 'script',
+    compact: false,
+    presets: [['@babel/preset-env', { targets: { node: '4.4' }, modules: false, bugfixes: true }]],
+  });
+  return result.code;
 }
 
 const esbuildOptions = {
@@ -93,7 +128,9 @@ async function emit(result) {
   const page = fs.readFileSync(path.join(src, 'remote', 'remote.html'), 'utf8');
   const service = fs.readFileSync(path.join(root, 'service', 'remote-service.js'), 'utf8');
   fs.writeFileSync(path.join(dist, 'remote-service.js'), 'var REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
-  fs.writeFileSync(path.join(dist, 'player-service.js'), 'var PLAYER_SERVICE = true;\n' + service);
+  const torrentEngine = await torrentEngineBundle();
+  const torrent = fs.readFileSync(path.join(root, 'service', 'torrent.js'), 'utf8');
+  fs.writeFileSync(path.join(dist, 'player-service.js'), 'var PLAYER_SERVICE = true;\n' + torrentEngine + '\n' + torrent + '\nvar REMOTE_PAGE = ' + JSON.stringify(page) + ';\n' + service);
   console.log('[build] dist/remote-service.js (phone remote service)');
   fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ build: BUILD, version: APP_VERSION }) + '\n');
 }
