@@ -24,6 +24,12 @@ function testAddon(p, res) {
       streams: [
         { name: 'Teste\nMP4 720p', title: 'Big Buck Bunny (10s)\nH.264 · AAC', url: TEST_VIDEO, behaviorHints: { bingeGroup: 'kai-test' } },
         { name: 'Teste\nHLS longo', title: 'Big Buck Bunny (10 min)\nHLS', url: TEST_LONG, behaviorHints: { bingeGroup: 'kai-test-long' } },
+        // Request headers: without the PC server it must show as "Direct · may fail" and still play.
+        { name: 'Teste\nHeaders', title: 'proxyHeaders.request (Referer)', url: TEST_VIDEO, behaviorHints: { proxyHeaders: { request: { Referer: 'https://example.com/' } } } },
+        // Response headers only: must show as "Direct".
+        { name: 'Teste\nResponse', title: 'proxyHeaders.response', url: TEST_VIDEO, behaviorHints: { proxyHeaders: { response: { 'Content-Type': 'video/mp4' } } } },
+        // Torrent: without the PC server it must be hidden (count line only).
+        { name: 'Teste\nTorrent', title: 'infoHash', infoHash: '0000000000000000000000000000000000000000' },
       ],
     });
   }

@@ -391,8 +391,9 @@ function DetailsView(type, id, opts) {
       groups.forEach((g, gi) => {
         (g.streams || []).forEach((s, si) => {
           if (!server.isPlayableType(s)) return;
+          if (server.isTorrent(s) && !serverOk) return;
+          // Sem servidor, links com cabeçalhos vão por último (podem falhar direto).
           const needs = server.needsServer(s);
-          if (needs && !serverOk) return;
           const badges = streamBadges(s);
           const warn = badges.some((b) => b.warn);
           const heavy = badges.some((b) => b.t === '4K' || b.t === 'HDR');
@@ -479,9 +480,9 @@ function DetailsView(type, id, opts) {
           const g = groups.find((x) => x.addon === addon);
           if (g) {
             g.done = true;
-            // Fontes que a TV não toca sozinha (torrent ou link que exige cabeçalhos via servidor)
-            // somem da lista quando não há servidor do PC; só fica uma linha com a contagem.
-            const shown = streams.filter((s) => server.isPlayableType(s) && (serverOk || !server.needsServer(s)));
+            // Torrents somem da lista quando não há servidor do PC (só fica a contagem). Links que pedem
+            // cabeçalhos continuam visíveis: sem servidor eles são tentados direto.
+            const shown = streams.filter((s) => server.isPlayableType(s) && (serverOk || server.canTryDirect(s)));
             const hidden = streams.length - shown.length;
             g.count = shown.length;
             g.streams = shown;
@@ -513,12 +514,12 @@ function DetailsView(type, id, opts) {
   function streamItem(s, video, serverOk, all) {
     const playableType = server.isPlayableType(s);
     const needs = server.needsServer(s);
-    const disabled = !playableType || (needs && !serverOk);
+    const torrent = server.isTorrent(s);
+    const disabled = !playableType || (torrent && !serverOk);
     const tags = [];
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
     else if (needs) {
-      const torrent = typeof s.infoHash === 'string' || String(s.url).indexOf('magnet:') === 0;
-      const label = torrent ? (serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC') : serverOk ? 'Via PC' : 'Precisa do PC';
+      const label = torrent ? (serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC') : serverOk ? 'Via PC' : 'Direto · pode falhar';
       tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: t(label) }));
     }
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
@@ -530,7 +531,7 @@ function DetailsView(type, id, opts) {
         cls: disabled ? 'disabled' : '',
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
-          if (needs && !serverOk) return toast(t('Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.'), 5000);
+          if (torrent && !serverOk) return toast(t('Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.'), 5000);
           play(video, s, all);
         },
       },

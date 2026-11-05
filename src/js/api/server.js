@@ -150,13 +150,30 @@ export function getJSONViaProxy(url, opts) {
   });
 }
 
-// Diz se o stream precisa do servidor no PC (torrent) ou toca direto (HTTP/debrid).
-export function needsServer(stream) {
-  if (typeof stream.url === 'string') {
-    if (stream.url.indexOf('magnet:') === 0) return true;
-    return !!(stream.behaviorHints && stream.behaviorHints.proxyHeaders);
-  }
+// Torrent: só toca pelo servidor do PC.
+export function isTorrent(stream) {
+  if (typeof stream.url === 'string') return stream.url.indexOf('magnet:') === 0;
   return typeof stream.infoHash === 'string';
+}
+
+// Link HTTP que pede cabeçalhos de requisição (Referer, User-Agent...) que o <video> da TV não envia.
+// Só cabeçalhos de resposta não contam: eles só importam para o proxy, não para o player.
+export function needsHeaders(stream) {
+  if (typeof stream.url !== 'string' || isTorrent(stream)) return false;
+  const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
+  const req = ph && ph.request;
+  if (!req || typeof req !== 'object') return false;
+  return Object.keys(req).some((k) => req[k] != null && String(req[k]).trim() !== '');
+}
+
+// Diz se o stream prefere o servidor no PC (torrent ou cabeçalhos) ou toca direto (HTTP/debrid).
+export function needsServer(stream) {
+  return isTorrent(stream) || needsHeaders(stream);
+}
+
+// Sem servidor só o torrent é impossível; link com cabeçalhos ainda pode ser tentado direto.
+export function canTryDirect(stream) {
+  return isPlayableType(stream) && !isTorrent(stream);
 }
 
 export function isPlayableType(stream) {
@@ -174,7 +191,7 @@ export function toPlayable(stream, seriesInfo) {
       return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then((u) => ({ url: u, viaServer: true }));
     }
     const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
-    if (ph && base) {
+    if (ph && base && needsHeaders(stream)) {
       return Promise.resolve({ url: proxyUrl(base, stream.url, ph.request, ph.response), viaServer: true });
     }
     return Promise.resolve({ url: stream.url, viaServer: false });

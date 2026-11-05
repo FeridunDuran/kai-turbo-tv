@@ -992,7 +992,7 @@ function PlayerView(opts) {
       onPick: (i) => {
         const s = opts.streams[i];
         if (!s || s === stream) return;
-        if (server.needsServer(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
+        if (server.isTorrent(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
         saveProgress();
         pendingStart = videoEl.currentTime * 1000;
         stream = s;
@@ -1014,7 +1014,7 @@ function PlayerView(opts) {
     addons.fetchStreams(meta.type, nv.id).then((list) => {
       if (!alive) return;
       const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.needsServer(match) || server.isAvailable())) {
+      if (match && (!server.isTorrent(match) || server.isAvailable())) {
         video = nv;
         stream = match;
         opts.streams = list;

@@ -4949,9 +4949,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Mover para o fim": "Move to bottom",
     "Mostrar na tela inicial": "Show on home screen",
     "Ocultar da tela inicial": "Hide from home screen",
-    "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} sources hidden (need the PC server)",
+    "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} torrents hidden (need the PC server)",
     "Via PC": "Via PC",
     "Precisa do PC": "Needs the PC",
+    "Direto · pode falhar": "Direct · may fail",
     "Ordenar": "Sort",
     "Ordenar: {name}": "Sort: {name}",
     "Último assistido": "Last watched",
@@ -7014,12 +7015,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, opts));
     });
   }
-  function needsServer(stream) {
-    if (typeof stream.url === "string") {
-      if (stream.url.indexOf("magnet:") === 0) return true;
-      return !!(stream.behaviorHints && stream.behaviorHints.proxyHeaders);
-    }
+  function isTorrent(stream) {
+    if (typeof stream.url === "string") return stream.url.indexOf("magnet:") === 0;
     return typeof stream.infoHash === "string";
+  }
+  function needsHeaders(stream) {
+    if (typeof stream.url !== "string" || isTorrent(stream)) return false;
+    var ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
+    var req = ph && ph.request;
+    if (!req || _typeof(req) !== "object") return false;
+    return Object.keys(req).some(function (k) {
+      return req[k] != null && String(req[k]).trim() !== "";
+    });
+  }
+  function needsServer(stream) {
+    return isTorrent(stream) || needsHeaders(stream);
+  }
+  function canTryDirect(stream) {
+    return isPlayableType(stream) && !isTorrent(stream);
   }
   function isPlayableType(stream) {
     return typeof stream.url === "string" || typeof stream.infoHash === "string";
@@ -7039,7 +7052,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       var ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
-      if (ph && base) {
+      if (ph && base && needsHeaders(stream)) {
         return Promise.resolve({
           url: proxyUrl(base, stream.url, ph.request, ph.response),
           viaServer: true
@@ -9839,7 +9852,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onPick: function onPick(i) {
           var s = opts.streams[i];
           if (!s || s === stream) return;
-          if (needsServer(s) && !isAvailable()) return toast(t("Essa fonte precisa do servidor do PC."));
+          if (isTorrent(s) && !isAvailable()) return toast(t("Essa fonte precisa do servidor do PC."));
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
@@ -9864,7 +9877,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var match = group ? list2.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group;
         }) : null;
-        if (match && (!needsServer(match) || isAvailable())) {
+        if (match && (!isTorrent(match) || isAvailable())) {
           video = nv;
           stream = match;
           opts.streams = list2;
@@ -10677,8 +10690,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         groups.forEach(function (g, gi) {
           (g.streams || []).forEach(function (s, si) {
             if (!isPlayableType(s)) return;
+            if (isTorrent(s) && !serverOk) return;
             var needs = needsServer(s);
-            if (needs && !serverOk) return;
             var badges = streamBadges(s);
             var warn = badges.some(function (b) {
               return b.warn;
@@ -10793,7 +10806,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             var shown = streams.filter(function (s) {
-              return isPlayableType(s) && (serverOk || !needsServer(s));
+              return isPlayableType(s) && (serverOk || canTryDirect(s));
             });
             var hidden = streams.length - shown.length;
             g.count = shown.length;
@@ -10830,13 +10843,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function streamItem(s, video, serverOk, all2) {
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
-      var disabled = !playableType || needs && !serverOk;
+      var torrent = isTorrent(s);
+      var disabled = !playableType || torrent && !serverOk;
       var tags = [];
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
       }));else if (needs) {
-        var torrent = typeof s.infoHash === "string" || String(s.url).indexOf("magnet:") === 0;
-        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : "Precisa do PC";
+        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : "Direto · pode falhar";
         tags.push(h("span.s-tag", {
           cls: serverOk ? "" : "warn",
           text: t(label)
@@ -10855,7 +10868,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         cls: disabled ? "disabled" : "",
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
-          if (needs && !serverOk) return toast(t("Torrent precisa do stremio-service rodando no PC. Configure em Ajustes."), 5e3);
+          if (torrent && !serverOk) return toast(t("Torrent precisa do stremio-service rodando no PC. Configure em Ajustes."), 5e3);
           play(video, s, all2);
         }
       }, [h("div.s-addon", {
@@ -12034,7 +12047,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T09:30:38.229Z";
+  var BUILD = "2026-11-05T09:42:43.644Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
