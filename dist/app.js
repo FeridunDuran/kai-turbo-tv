@@ -4954,6 +4954,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} torrents hidden (need the PC server)",
     "Via PC": "Via PC",
     "Via TV": "Via TV",
+    "All types": "All types",
+    "Direct": "Direct",
+    "Torrent": "Torrent",
     "Precisa do PC": "Needs the PC",
     "Direto · pode falhar": "Direct · may fail",
     "Pôsteres sem barra de notas": "Posters without the rating bar",
@@ -5520,6 +5523,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV.": "يحتاج هذا المصدر إلى خادم الكمبيوتر أو محرك التورنت على التلفاز.",
     "{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)": "{name}: {n} مصادر مخفية (تحتاج التورنت على الكمبيوتر أو التلفاز)",
     "Via TV": "عبر التلفاز",
+    "All types": "كل الأنواع",
+    "Direct": "مباشر",
+    "Torrent": "تورنت",
     "Direto": "مباشر",
     "Direto · pode falhar": "مباشر · قد يفشل",
     "Esse tipo de fonte não abre na TV.": "هذا النوع من المصادر لا يعمل على التلفاز.",
@@ -11597,13 +11603,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var barFill = h("i");
       panel.appendChild(sub);
       panel.appendChild(h("div.load-bar", null, barFill));
+      var typeFilters = h("div.source-filters");
+      panel.appendChild(typeFilters);
       var list2 = h("div.list", {
         "data-scroll-y": "",
         "data-pad-y": "120",
         "data-group": "",
         "data-vertical": ""
       });
-      list2.style.top = "178px";
+      list2.style.top = "226px";
       panel.appendChild(list2);
       var srcs = withResource("stream", meta.type, video.id).map(function (a, i) {
         return {
@@ -11622,18 +11630,61 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return;
       }
       var groups = srcs.map(function (a) {
-        var el2 = h("div.stream-group");
+        var heading = h("div.stream-group-head", {
+          focusable: true,
+          "aria-expanded": "true"
+        });
+        var title = h("span.stream-group-name", {
+          text: a.manifest.name || a.manifest.id
+        });
+        var countEl = h("span.stream-group-count", {
+          text: "0"
+        });
+        var toggleEl = h("span.stream-group-toggle", {
+          text: "−"
+        });
+        heading.appendChild(title);
+        heading.appendChild(countEl);
+        heading.appendChild(toggleEl);
+        var body = h("div.stream-group-body");
+        var el2 = h("div.stream-group", null, [heading, body]);
         list2.appendChild(el2);
-        return {
+        var group = {
           addon: a,
           el: el2,
+          heading: heading,
+          body: body,
+          countEl: countEl,
+          toggleEl: toggleEl,
           count: 0,
-          done: false
+          done: false,
+          collapsed: false,
+          streams: []
         };
+        heading.__select = function () {
+          group.collapsed = !group.collapsed;
+          body.style.display = group.collapsed ? "none" : "";
+          heading.setAttribute("aria-expanded", group.collapsed ? "false" : "true");
+          toggleEl.textContent = group.collapsed ? "+" : "−";
+        };
+        return group;
       });
       var loadingLine = spinnerLine(t("Buscando fontes nos addons..."));
       list2.appendChild(loadingLine);
       var filter = "all";
+      var typeFilter = "all";
+      var typeChipEls = {};
+      [["all", "All types"], ["direct", "Direct"], ["via-tv", "Via TV"], ["torrent", "Torrent"]].forEach(function (entry) {
+        var chip = h("div.chip", {
+          focusable: true,
+          onSelect: function onSelect() {
+            typeFilter = entry[0];
+            applyFilter(true);
+          }
+        });
+        typeChipEls[entry[0]] = chip;
+        typeFilters.appendChild(chip);
+      });
       var pendingCount = srcs.length;
       var all2 = [];
       var autoFocused = null;
@@ -11717,20 +11768,43 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return x.addon.transportUrl === filter;
         });
         filterBtn.textContent = (g ? g.addon.manifest.name : t("Todos")) + " ▾";
+        [["all", "All types"], ["direct", "Direct"], ["via-tv", "Via TV"], ["torrent", "Torrent"]].forEach(function (entry) {
+          var value = entry[0];
+          var count = all2.filter(function (s) {
+            return value === "all" || sourceType(s) === value;
+          }).length;
+          typeChipEls[value].textContent = t(entry[1]) + " · " + count;
+          if (typeFilter === value) typeChipEls[value].classList.add("active");else typeChipEls[value].classList.remove("active");
+        });
+      }
+      function sourceType(s) {
+        if (isTorrent(s)) return "torrent";
+        if (needsHeaders(s) && tvOk && !serverOk) return "via-tv";
+        return "direct";
       }
       function firstVisibleItem() {
         var items = list2.querySelectorAll(".stream");
         for (var i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains("disabled")) return items[i];
         return null;
       }
-      function applyFilter() {
+      function applyFilter(moveFocus) {
         groups.forEach(function (g) {
-          return g.el.style.display = filter === "all" || filter === g.addon.transportUrl ? "" : "none";
+          var addonMatches = filter === "all" || filter === g.addon.transportUrl;
+          var matches = 0;
+          var rows = g.body.querySelectorAll(".stream");
+          for (var i = 0; i < rows.length; i++) {
+            var visible = addonMatches && (typeFilter === "all" || sourceType(g.streams[i]) === typeFilter);
+            rows[i].style.display = visible ? "" : "none";
+            if (visible) matches++;
+          }
+          g.el.style.display = addonMatches && (matches > 0 || !g.done) ? "" : "none";
         });
         list2.scrollTop = 0;
         status3();
-        var first = firstVisibleItem();
-        if (first) focus(first);
+        if (moveFocus) {
+          var first = firstVisibleItem();
+          if (first) focus(first);
+        }
       }
       function filterMenu() {
         var opts2 = [{
@@ -11753,7 +11827,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         menu(t("Mostrar fontes de"), opts2, {
           onPick: function onPick(v) {
             filter = v;
-            applyFilter();
+            applyFilter(true);
           }
         });
       }
@@ -11782,16 +11856,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             var hidden = streams.length - shown.length;
             g.count = shown.length;
             g.streams = shown;
+            g.countEl.textContent = String(shown.length);
             shown.forEach(function (s) {
               all2.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, tvOk, all2));
+              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, all2));
             });
-            if (hidden) g.el.appendChild(h("div.loading-line", {
+            if (hidden) g.body.appendChild(h("div.loading-line", {
               text: t("{name}: {n} torrent sources hidden (TV torrent player unavailable)", {
                 name: addon.manifest.name || addon.manifest.id,
                 n: hidden
               })
             }));
+            applyFilter(false);
           }
           if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
             var first = firstVisibleItem();
@@ -11811,7 +11887,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }).catch(function () {});
     }
-    function streamItem(s, video, serverOk, tvOk, all2) {
+    function streamItem(s, addonName, video, serverOk, tvOk, all2) {
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var torrent = isTorrent(s);
@@ -11821,12 +11897,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("Não suportado na TV")
       }));else if (needs) {
         var label = torrent ? torrentOk ? "Torrent · via TV" : "Torrent player unavailable" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
-        var tagColor = torrent ? torrentOk ? "ok" : "warn" : serverOk || tvOk ? "ok" : "warn";
+        var tagColor = torrent ? torrentOk ? "torrent" : "warn" : serverOk ? "via-pc" : tvOk ? "via-tv" : "warn";
         tags.push(h("span.s-tag", {
           cls: tagColor,
           text: t(label)
         }));
-      } else tags.push(h("span.s-tag.ok", {
+      } else tags.push(h("span.s-tag.direct", {
         text: t("Direto")
       }));
       streamBadges(s).forEach(function (b) {
@@ -11844,9 +11920,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           play(video, s, all2);
         }
       }, [h("div.s-addon", {
-        text: (s.name || s.addon || "").trim()
+        text: addonName
       }), h("div.s-body", null, [h("div.s-title", {
-        text: (s.title || s.description || "").trim()
+        text: (s.title || s.description || s.name || "").trim()
+      }), h("div.s-detail", {
+        text: s.name && s.name !== s.title && s.name !== s.description ? s.name.trim() : ""
       }), h("div.s-tags", null, tags)])]);
     }
     function play(video, stream, all2, fallbacks) {
@@ -13019,7 +13097,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T11:49:52.951Z";
+  var BUILD = "2026-11-05T12:00:20.145Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js"];
