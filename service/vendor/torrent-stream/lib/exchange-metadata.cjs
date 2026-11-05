@@ -36,6 +36,8 @@ module.exports = function (engine, callback) {
         return
       }
 
+      // BEP 10: the peer's limit on queued requests, used by the stream request pipeline.
+      if (!id && typeof handshake.reqq === 'number' && handshake.reqq > 0) wire.peerReqq = handshake.reqq
       if (id || !handshake.m || handshake.m.ut_metadata === undefined) return
 
       var channel = handshake.m.ut_metadata

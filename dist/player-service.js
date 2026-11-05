@@ -16809,6 +16809,7 @@ var TorrentEngine = function () {
             } catch (err) {
               return;
             }
+            if (!id && typeof handshake.reqq === "number" && handshake.reqq > 0) wire.peerReqq = handshake.reqq;
             if (id || !handshake.m || handshake.m.ut_metadata === void 0) return;
             var channel = handshake.m.ut_metadata;
             var size = handshake.metadata_size;
@@ -16980,9 +16981,11 @@ var TorrentEngine = function () {
   // service/vendor/torrent-stream/lib/stream-policy.cjs
   var require_stream_policy = __commonJS({
     "service/vendor/torrent-stream/lib/stream-policy.cjs"(exports) {
-      exports.pipeline = function (speed) {
-        if (!(speed > 0) || !isFinite(speed)) return 5;
-        return Math.max(2, Math.min(16, Math.ceil(speed * 0.75 / 16384)));
+      exports.MAX_PEER_BLOCKS = 64;
+      exports.pipeline = function (speed, reqq) {
+        var length = !(speed > 0) || !isFinite(speed) ? 5 : Math.min(exports.MAX_PEER_BLOCKS, 2 + Math.ceil(speed * 3 / 16384));
+        if (typeof reqq === "number" && reqq > 0) length = Math.min(length, reqq);
+        return Math.max(1, length);
       };
       exports.recovery = function (requests, wires, urgent, now) {
         for (var i = 0; i < requests.length; i++) {
@@ -16996,7 +16999,7 @@ var TorrentEngine = function () {
             var wire = wires[j],
               speed = wire.downloadSpeed() || 0;
             if (wire === request.wire || wire.peerChoking || !wire.peerPieces[request.index]) continue;
-            if (speed <= Math.max(16384, oldSpeed * 1.5) || wire.requests.length >= exports.pipeline(speed)) continue;
+            if (speed <= Math.max(16384, oldSpeed * 1.5) || wire.requests.length >= exports.pipeline(speed, wire.peerReqq)) continue;
             if (wire.requests.some(function (r) {
               return r.piece === request.index && r.offset === request.offset;
             })) continue;
@@ -17325,7 +17328,7 @@ var TorrentEngine = function () {
           var speedRanker = function speedRanker(wire) {
             var speed = wire.downloadSpeed() || 1;
             if (speed > SPEED_THRESHOLD) return thruthy;
-            var secs = streamPolicy.pipeline(speed) * piece.BLOCK_LENGTH / speed;
+            var secs = streamPolicy.pipeline(speed, wire.peerReqq) * piece.BLOCK_LENGTH / speed;
             var tries = 10;
             var ptr = 0;
             return function (index) {
@@ -17353,7 +17356,7 @@ var TorrentEngine = function () {
             engine.selection[last] = tmp;
           };
           var select = function select(wire, hotswap) {
-            var pipeline = streamPolicy.pipeline(wire.downloadSpeed());
+            var pipeline = streamPolicy.pipeline(wire.downloadSpeed(), wire.peerReqq);
             if (wire.requests.length >= pipeline) return true;
             if (swarm.downloaded > engine._flood && swarm.downloadSpeed() > engine._pulse) {
               return true;

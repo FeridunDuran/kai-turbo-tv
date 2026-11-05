@@ -537,4 +537,8 @@ export const AR = {
   "{rate} MB/s": "{rate} ميغابايت/ث",
   "slower than this video needs": "أبطأ مما يحتاجه هذا الفيديو",
   "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
+  "Hide stats": "إخفاء الإحصاءات",
+  "Show stats": "إظهار الإحصاءات",
+  "needs {rate} MB/s": "يحتاج {rate} ميغابايت/ث",
+  "buffer {n} s": "المخزن المؤقت {n} ث",
 };

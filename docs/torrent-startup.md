@@ -112,3 +112,20 @@ Whether the reported 15 seconds was spent between `canplay` and `canplaythrough`
 established: the previous diagnostics did not log either event. The player now logs both, plus
 a one-line startup timeline, so the next TV run shows how much of the wait was piece delivery
 and how much was the browser's own buffering threshold. No startup gain is claimed until then.
+
+## Per-peer request queue with long round trips
+
+The TV reported 0.1-0.2 MB/s. The adaptive pipeline was `max(2, ceil(0.75 s x rate / 16 KiB))`,
+capped at 16 blocks. Because a peer's measured rate is itself limited by its queue
+(`blocks x 16 KiB / RTT`), a peer whose round trip exceeds 0.75 s shrinks to 2 blocks (32 KiB
+per round trip) and cannot grow again: five such peers at 1 s RTT give about 0.15 MB/s. The
+formula now follows [WebTorrent's getBlockPipelineLength](https://github.com/webtorrent/webtorrent/blob/master/lib/torrent.js)
+(`2 + ceil(duration x rate / 16 KiB)`, the fixed +2 lets a queue grow) with libtorrent's default
+[request_queue_time](https://github.com/arvidn/libtorrent/blob/RC_2_0/src/settings_pack.cpp) of 3 s,
+capped at 64 blocks per peer and at a peer's BEP 10 `reqq`. The engine-wide cap of 256 active
+blocks (4 MiB) is unchanged, so outstanding-request memory is not increased.
+
+Whether this was the cause of the TV's low rate is not established: no TV log of per-peer rates
+was available, and swarm size or peer upload limits can produce the same numbers. Local tests
+cover queue growth at 0.3-2.5 s RTT and reqq limits; the Node 4.4.3 loopback fixture still passes.
+

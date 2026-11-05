@@ -383,7 +383,7 @@ var torrentStream = function (link, opts, cb) {
       var speed = wire.downloadSpeed() || 1
       if (speed > SPEED_THRESHOLD) return thruthy
 
-      var secs = streamPolicy.pipeline(speed) * piece.BLOCK_LENGTH / speed
+      var secs = streamPolicy.pipeline(speed, wire.peerReqq) * piece.BLOCK_LENGTH / speed
       var tries = 10
       var ptr = 0
 
@@ -418,7 +418,7 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var select = function (wire, hotswap) {
-      var pipeline = streamPolicy.pipeline(wire.downloadSpeed())
+      var pipeline = streamPolicy.pipeline(wire.downloadSpeed(), wire.peerReqq)
       if (wire.requests.length >= pipeline) return true
 
       // Pulse, or flood (default)

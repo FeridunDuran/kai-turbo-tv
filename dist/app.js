@@ -5309,7 +5309,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "{mb} MB received": "{mb} MB received",
     "{rate} MB/s": "{rate} MB/s",
     "slower than this video needs": "slower than this video needs",
-    "Press Back again to stop watching": "Press Back again to stop watching"
+    "Press Back again to stop watching": "Press Back again to stop watching",
+    "Hide stats": "Hide stats",
+    "Show stats": "Show stats",
+    "needs {rate} MB/s": "needs {rate} MB/s",
+    "buffer {n} s": "buffer {n} s"
   };
 
   // src/js/lib/i18n-ar.js
@@ -5842,7 +5846,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "{mb} MB received": "تم استلام {mb} ميغابايت",
     "{rate} MB/s": "{rate} ميغابايت/ث",
     "slower than this video needs": "أبطأ مما يحتاجه هذا الفيديو",
-    "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة"
+    "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
+    "Hide stats": "إخفاء الإحصاءات",
+    "Show stats": "إظهار الإحصاءات",
+    "needs {rate} MB/s": "يحتاج {rate} ميغابايت/ث",
+    "buffer {n} s": "المخزن المؤقت {n} ث"
   };
 
   // src/js/lib/i18n.js
@@ -10070,9 +10078,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return playNext();
       }
     });
+    var infoBtn = h("div.btn", {
+      focusable: true,
+      onSelect: function onSelect() {
+        return toggleStats();
+      }
+    });
     var buttons = h("div.p-buttons", {
       "data-group": ""
-    }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+    }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn, infoBtn]);
+    var statsEl = h("div.p-stats");
     var spinner = h("div.p-center", null, h("div.spinner"));
     var stageTitle = h("div.p-stage-title");
     var stageDetail = h("div.p-stage-detail");
@@ -10108,7 +10123,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), upNextTitle, upNextCount, h("div.un-buttons", {
       "data-group": ""
     }, [upNextPlay, upNextCancel])]);
-    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
+    var el = h("div.view.player", null, [videoEl, subsEl, statsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
     var alive = true;
@@ -10156,6 +10171,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       checkedAt: 0
     };
     var statsBusy = false;
+    var statsTicks = 0;
     function mark(name) {
       if (startedAt && marks[name] === void 0) marks[name] = Date.now() - startedAt;
     }
@@ -10894,7 +10910,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           mb: mb(p.bytes)
         }));
         if (p.rate > 0) parts.push(t("{rate} MB/s", {
-          rate: (p.rate / 1048576).toFixed(1)
+          rate: (p.rate / 1048576).toFixed(2)
         }));
         var d = videoEl.duration;
         var need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
@@ -10928,6 +10944,57 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {
         statsBusy = false;
       });
+    }
+    function statsOn() {
+      return settings().playerStats !== false;
+    }
+    function updateInfoBtn() {
+      infoBtn.innerHTML = '<span class="ico">ⓘ</span>' + (statsOn() ? t("Hide stats") : t("Show stats"));
+    }
+    function toggleStats() {
+      saveSettings({
+        playerStats: !statsOn()
+      });
+      updateInfoBtn();
+      updateStats();
+    }
+    function bufferedAhead() {
+      try {
+        var b = videoEl.buffered;
+        var pos = videoEl.currentTime;
+        for (var i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.5 && b.end(i) >= pos) return Math.max(0, b.end(i) - pos);
+      } catch (e) {}
+      return 0;
+    }
+    function updateStats() {
+      if (!statsOn() || !mediaUrl || failed) {
+        statsEl.style.display = "none";
+        return;
+      }
+      var parts = [];
+      if (isTorrent(stream)) {
+        if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress(true);
+        var p = torrentProgress;
+        if (p.checkedAt) {
+          parts.push(t("{n} peers", {
+            n: p.peers
+          }));
+          parts.push(t("{rate} MB/s", {
+            rate: (p.rate / 1048576).toFixed(2)
+          }));
+        }
+        var d = videoEl.duration;
+        var need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
+        if (need) parts.push(t("needs {rate} MB/s", {
+          rate: (need / 1048576).toFixed(1)
+        }));
+      }
+      if (mediaReady) parts.push(t("buffer {n} s", {
+        n: Math.round(bufferedAhead())
+      }));
+      if (videoEl.videoHeight) parts.push(videoEl.videoHeight + "p");
+      statsEl.textContent = parts.join("  ·  ");
+      statsEl.style.display = parts.length ? "" : "none";
     }
     function logStartupTimeline() {
       var p = torrentProgress;
@@ -11550,11 +11617,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onKey: onKey,
       onShow: function onShow() {
         if (!ticker) {
+          updateInfoBtn();
           start3();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
             checkSkip();
+            if (++statsTicks % 8 === 0) updateStats();
             if (spinner.style.display !== "none" && stage) {
               if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress();
               renderStage();
@@ -13819,7 +13888,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T17:17:25.928Z";
+  var BUILD = "2026-11-05T17:35:57.910Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

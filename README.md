@@ -110,6 +110,10 @@ episode list instead of the previous episode's sources.
   of the file. A slow torrent can already have playable data before that. The player now starts
   playback as soon as the browser reports that it can play (`canplay`), unless you paused it
   during loading. Whether the TV's browser engine behaves this way is not yet measured.
+- Peer request queues now grow with long round trips (three seconds of measured rate plus two
+  blocks, at most 64 per peer, as in WebTorrent/libtorrent). Before, a peer with more than 0.75 s
+  round trip was held at 32 KiB per round trip. The 4 MiB engine-wide request cap is unchanged.
+  This changes the TV player service: fully restart the TV after updating.
 - A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
   so the player no longer reopens it (and throws away its buffer) after 15 seconds.
 Piece verification and the 48 MiB cache limit are unchanged. These are code-path changes with
@@ -121,6 +125,10 @@ local tests; their effect on TV startup time has not been measured yet.
   information, jumping to the resume position, buffering, finding the next episode. For torrents
   a small line shows connected peers, data received and the current download rate, plus a note
   when the download is slower than the file's average bitrate. There are no estimated percentages.
+- A small line in the top-right corner shows connected peers, current download rate, the rate
+  the file needs on average, seconds buffered ahead and the video height. It stays during
+  playback without covering the picture; **Hide stats / Show stats** in the player buttons turns
+  it off or on (remembered).
 - Each start logs a startup timeline (milliseconds to URL, metadata, seek, first frame,
   `canplay`, `canplaythrough`, playing) to the remote log when it is enabled.
 - After an error the Play button becomes **Try again** (same source, from the last position that

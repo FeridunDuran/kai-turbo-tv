@@ -34,7 +34,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
     nav: { KEY, focus: (n) => { focused = n; }, current: () => focused, topLayer: () => ({ root: view && view.el }) },
     luna: { closeHeavyBackgroundApps: () => Promise.resolve([]) },
     subs: { Renderer: () => ({ clear() {}, update() {}, setOffset() {}, set() {}, offset: () => 0 }) }, substyle: { apply() {} },
-    store: { settings: () => settings, get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: {},
+    store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn() {} } }, http: {}, mediaerror: {},
     server: { isTorrent: (s) => !!s.infoHash, isPlayableType: (s) => !!(s.infoHash || s.url), isAvailable: () => false,
       toPlayable(s, series) { plays.push({ s, series, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
     tvproxy: { isTorrentAvailable: () => true, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
@@ -193,5 +193,26 @@ test('next-episode streams are prefetched near the credits and reused by the cou
   assert.equal(f.plays.length, 2);
   assert.equal(f.plays[1].s.fileIdx, 1);
   assert.equal(f.changed.id, 'tt:1:2', 'details learns which episode is now playing');
+  f.close();
+});
+
+test('playback stats line shows peers, rate, required rate and buffered seconds, and can be hidden', async () => {
+  const stats = [];
+  for (let i = 0; i < 20; i++) stats.push({ downloaded: (i + 1) * 524288, peers: 7, length: 1320000000, ranges: [{ sent: 1 }] });
+  const f = await fixture({ statsSeq: stats });
+  f.video.duration = 6600; f.video.videoHeight = 1080; f.video.currentTime = 100;
+  f.video.buffered = { length: 1, start: () => 90, end: () => 112 };
+  f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
+  for (let i = 0; i < 4; i++) { for (let j = 0; j < 8; j++) f.tick(); f.advance(2000); await flush(); }
+  for (let j = 0; j < 8; j++) f.tick();
+  const line = f.nodes.find((n) => n.tag === 'div.p-stats');
+  assert.equal(line.style.display, '');
+  assert.match(line.textContent, /7 peers/);
+  assert.match(line.textContent, /0\.13 MB\/s/);
+  assert.match(line.textContent, /needs 0\.2 MB\/s/);
+  assert.match(line.textContent, /buffer 12 s/);
+  assert.match(line.textContent, /1080p/);
+  f.byHtml('Hide stats').__select();
+  assert.equal(line.style.display, 'none');
   f.close();
 });

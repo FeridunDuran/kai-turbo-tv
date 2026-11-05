@@ -2,7 +2,11 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cre
 const require=createRequire(import.meta.url),policy=require('../../service/vendor/torrent-stream/lib/stream-policy.cjs');
 const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/index.cjs',import.meta.url),'utf8');
 function peer(speed,pieces={10:true}){return {downloadSpeed:()=>speed,requests:[],peerPieces:pieces,peerChoking:false};}
-test('pipeline adapts to throughput and remains bounded',()=>{assert.equal(policy.pipeline(0),5);assert.equal(policy.pipeline(16384),2);assert.equal(policy.pipeline(131072),6);assert.equal(policy.pipeline(1e9),16);assert.equal(policy.pipeline(Infinity),5);});
+test('pipeline adapts to throughput and remains bounded',()=>{assert.equal(policy.pipeline(0),5);assert.equal(policy.pipeline(16384),5);assert.equal(policy.pipeline(131072),26);assert.equal(policy.pipeline(1e9),64);assert.equal(policy.pipeline(Infinity),5);assert.equal(policy.pipeline(1e9,40),40,'peer reqq is honoured');assert.equal(policy.pipeline(16384,0),5,'invalid reqq ignored');});
+test('a peer with a long round trip can grow its queue instead of staying at the rate its queue allows',()=>{
+ // Throughput limited by the queue: speed = blocks * 16 KiB / rtt. Iterate the policy as the engine does.
+ for(const rtt of [0.3,1,2.5]){let blocks=policy.pipeline(0);for(let i=0;i<20;i++)blocks=policy.pipeline(blocks*16384/rtt);assert.ok(blocks>=40,'rtt '+rtt+'s grew to '+blocks);}
+});
 test('critical recovery waits, chooses a faster eligible peer, and rejects redundant retries',()=>{
  const old=peer(4096),fast=peer(131072),request={wire:old,index:10,offset:0,at:0};
  assert.equal(policy.recovery([request],[old,fast],{10:true},1000),null);

@@ -547,4 +547,8 @@ export const EN = {
   "{rate} MB/s": "{rate} MB/s",
   "slower than this video needs": "slower than this video needs",
   "Press Back again to stop watching": "Press Back again to stop watching",
+  "Hide stats": "Hide stats",
+  "Show stats": "Show stats",
+  "needs {rate} MB/s": "needs {rate} MB/s",
+  "buffer {n} s": "buffer {n} s",
 };

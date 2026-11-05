@@ -75,7 +75,10 @@ function PlayerView(opts) {
   const subsBtn = h('div.btn', { focusable: true, html: '<span class="ico">≡</span>' + t('Legendas'), onSelect: () => subsMenu() });
   const srcBtn = h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => sourcesMenu() });
   const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+  const infoBtn = h('div.btn', { focusable: true, onSelect: () => toggleStats() });
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn, infoBtn]);
+  // Small always-on line (peers, download rate, buffered seconds); never covers the picture's centre.
+  const statsEl = h('div.p-stats');
   const spinner = h('div.p-center', null, h('div.spinner'));
   // What the player is actually waiting for (no estimated percentages).
   const stageTitle = h('div.p-stage-title');
@@ -100,7 +103,7 @@ function PlayerView(opts) {
     upNextCount,
     h('div.un-buttons', { 'data-group': '' }, [upNextPlay, upNextCancel]),
   ]);
-  const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
+  const el = h('div.view.player', null, [videoEl, subsEl, statsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -141,6 +144,7 @@ function PlayerView(opts) {
   let stageSince = 0;
   let torrentProgress = { bytes: 0, at: 0, rate: 0, peers: 0, delivered: 0, length: 0, checkedAt: 0 };
   let statsBusy = false;
+  let statsTicks = 0;
   function mark(name) {
     if (startedAt && marks[name] === undefined) marks[name] = Date.now() - startedAt;
   }
@@ -887,7 +891,7 @@ function PlayerView(opts) {
     if (server.isTorrent(stream) && p.checkedAt && stage !== 'next') {
       parts.push(t('{n} peers', { n: p.peers }));
       if (p.bytes) parts.push(t('{mb} MB received', { mb: mb(p.bytes) }));
-      if (p.rate > 0) parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(1) }));
+      if (p.rate > 0) parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(2) }));
       // Average rate the file needs, from its real size and duration (only once both are known).
       const d = videoEl.duration;
       const need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
@@ -920,6 +924,53 @@ function PlayerView(opts) {
       if (stage === 'peers' && p.delivered > 0) setStage('header');
       else renderStage();
     }, () => { statsBusy = false; });
+  }
+
+  function statsOn() {
+    return store.settings().playerStats !== false;
+  }
+
+  function updateInfoBtn() {
+    infoBtn.innerHTML = '<span class="ico">ⓘ</span>' + (statsOn() ? t('Hide stats') : t('Show stats'));
+  }
+
+  function toggleStats() {
+    store.saveSettings({ playerStats: !statsOn() });
+    updateInfoBtn();
+    updateStats();
+  }
+
+  // Seconds of media the player holds ahead of the playhead (from the real buffered ranges).
+  function bufferedAhead() {
+    try {
+      const b = videoEl.buffered;
+      const pos = videoEl.currentTime;
+      for (let i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.5 && b.end(i) >= pos) return Math.max(0, b.end(i) - pos);
+    } catch (e) { /* no ranges yet */ }
+    return 0;
+  }
+
+  function updateStats() {
+    if (!statsOn() || !mediaUrl || failed) {
+      statsEl.style.display = 'none';
+      return;
+    }
+    const parts = [];
+    if (server.isTorrent(stream)) {
+      if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress(true);
+      const p = torrentProgress;
+      if (p.checkedAt) {
+        parts.push(t('{n} peers', { n: p.peers }));
+        parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(2) }));
+      }
+      const d = videoEl.duration;
+      const need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
+      if (need) parts.push(t('needs {rate} MB/s', { rate: (need / 1048576).toFixed(1) }));
+    }
+    if (mediaReady) parts.push(t('buffer {n} s', { n: Math.round(bufferedAhead()) }));
+    if (videoEl.videoHeight) parts.push(videoEl.videoHeight + 'p');
+    statsEl.textContent = parts.join('  ·  ');
+    statsEl.style.display = parts.length ? '' : 'none';
   }
 
   function logStartupTimeline() {
@@ -1447,11 +1498,13 @@ function PlayerView(opts) {
     onKey: onKey,
     onShow: () => {
       if (!ticker) {
+        updateInfoBtn();
         start();
         ticker = setInterval(() => {
           if (controlsOn) updateTimes();
           renderer.update(videoEl.currentTime);
           checkSkip();
+          if (++statsTicks % 8 === 0) updateStats();
           if (spinner.style.display !== 'none' && stage) {
             if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress();
             renderStage();
