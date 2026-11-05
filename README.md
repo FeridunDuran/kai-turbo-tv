@@ -5,168 +5,155 @@ run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd
 app module with the [Stremio Kai](https://github.com/allecsc/Stremio-Kai) look, fully
 controlled with the Samsung remote.
 
-This is a fork of [ITzAkai/kai](https://github.com/ITzAkai/kai). It follows upstream and adds
-its own fixes and features, listed below. The app loads and updates itself from **this**
-repository.
+This is a fork of [ITzAkai/kai](https://github.com/ITzAkai/kai) that plays **torrents on the TV
+itself, without a PC**, and adds faster, steadier playback on top (see [Why this fork](#why-this-fork)).
+It follows upstream and loads and updates itself from **this** repository.
 
 > **Unofficial.** Not affiliated with Stremio, Stremio Kai or Samsung. The app hosts no
 > content: it only shows what the add-ons on **your** Stremio account provide.
 
 ![Stremio Kai home screen on a Samsung TV](docs/screenshots/home.jpg)
 
+## Why this fork
+
+Upstream needs a PC running [stremio-service](https://github.com/Stremio/stremio-service) on the
+same Wi-Fi for every torrent. **This fork plays torrents on the TV itself**, with no PC, and
+then works on what happens after you press play: shorter waits, less wasted data, clearer
+loading and error screens, and fewer surprises with the remote. Everything else from upstream
+(home screen, Smart Choice, phone remote, calendar, themes...) is still here and kept in sync.
+
+### At a glance
+
+| | Upstream ([ITzAkai/kai](https://github.com/ITzAkai/kai)) | This fork |
+|---|---|---|
+| **Torrent sources** | Need stremio-service on a PC on the same network | Play on the TV: built-in engine, verified pieces, 48 MiB RAM cache, no PC |
+| **Links that need Referer / User-Agent / Cookie** | PC proxy, otherwise tried directly | The TV's own service adds the headers (**Via TV**) |
+| **HLS (.m3u8) and DASH (.mpd)** | TV's built-in player only | Bundled hls.js 1.7.4 and dash.js 4.7.4 players |
+| **Continue watching** | A series leaves the row when an episode ends | Moves on to the next episode, following stremio-core rules |
+| **Library** | One fixed order | Eight sort orders, remembered per profile |
+| **Home screen rows** | Add-on order | Reorder or hide rows per profile |
+| **Source list** | Filter by add-on | Also Direct / Via TV / Torrent filters, collapsible add-on groups, best quality / most seeds first |
+| **Loading screen** | Spinner | The real step, total wait, peers and download rate. No fake percentages |
+| **Playback errors** | Reported as an unsupported format or codec | Says whether peers, video data, the header or the decoder failed; **Try again** |
+| **Next episode** | Sources looked up after the countdown | Looked up a minute early; the same torrent keeps its peers |
+| **A stalled torrent mid-episode** | Not applicable (no TV torrent engine) | Buffers and continues where it stopped, never skips to the next episode |
+| **Back while watching** | One press leaves when the controls are hidden | Asks for a second press |
+| **Diagnostics** | Basic remote log | Adds a startup timeline, rebuffers, peer and piece timings |
+
+### Measured on a real TV
+
+Samsung Q70T (2020), Tizen 5.5, TizenBrew, torrents from public add-ons:
+
+- An HEVC/AAC episode plays with picture and sound through the TV's own torrent engine. A cold
+  start reached the player's "enough data" state in about 10 seconds.
+- The same episode of a season pack (690 MB file, 16 MiB pieces), resumed about eight minutes
+  in: **50 s and about 80 MB** before playback with an earlier build, **34 s and 51.6 MB**
+  after the start-up changes below. The first peer answered in 0.2 s and data arrived after 2.3 s.
+
+These are single runs on live swarms, so treat them as observations, not guarantees: speed
+depends on the source's peers, the file and where you resume. Every change below has local
+regression tests; TV checks are named where they were made.
+
 ## What this fork adds
+
+### Torrents on the TV, no PC
+- Torrents play through an engine inside the app's TizenBrew service. Pieces are verified
+  before the player sees them, and only a moving 48 MiB window stays in RAM; nothing is written
+  to the TV's storage. Seeking outside the window fetches the needed pieces again.
+- Discovery uses UDP/DHT and HTTP trackers in parallel. **Ready** on the source screen means the
+  engine is running, not that a particular source has reachable peers.
+- If the engine is unavailable, torrent sources are hidden with a count per add-on.
+- Errors say which step failed: peer discovery, handshake, metadata, missing video data, header
+  or decoding. Missing data is never reported as an unsupported codec.
+- After an update that changes the player service, fully restart the TV so TizenBrew loads it.
+
+### Faster start, less wasted data
+Ideas taken from [libtorrent](https://libtorrent.org/streaming.html), [WebTorrent](https://github.com/webtorrent/webtorrent),
+Peerflix and qBittorrent, checked against their source code and the TV's own logs
+([details](docs/torrent-startup.md)):
+- **Playhead first.** The piece being played outranks read-ahead. A peer may hold at most two
+  seconds of its own speed in playhead blocks, so a slow peer cannot hold up the piece you are
+  waiting for, and slow blocks are re-requested from a faster peer.
+- **Request queues that grow.** Each peer gets three seconds of its measured speed plus two
+  blocks (up to 64). The old formula kept peers with a slow round trip at 32 KiB.
+- **Nothing downloaded twice.** MP4 headers at both ends of the file stay cached, and the piece
+  read just before the jump to the end of the file is kept for the re-read that follows.
+- **Nothing downloaded for nothing.** When resuming, only the pieces the player reads at the
+  start and end of the file are fetched until it reaches the resume position.
+- **More peers.** Connections get 10 s instead of 3 s, a peer that failed once is retried up to
+  three times, and peers that delivered data before are tried first the next time the same
+  torrent opens.
+- **Nothing waits for unrelated work.** Add-on requests, service checks and subtitle lookups run
+  in parallel; the home screen no longer waits for the PC or TV service checks.
+- **Slow is not broken.** A torrent that is still receiving data counts as buffering, not as a
+  stall. The TV's player gives up after about 30 s without the first bytes; if data is still
+  arriving, the app reopens the stream instead of showing an error.
+- **A stall cannot skip an episode.** Once video has been delivered the stream stays open while
+  waiting for peers. Before, the TV's player read a closed stream as the end of the file and
+  jumped to the next episode (seen on the Q70T, now fixed).
+- The player starts as soon as the browser can play (`canplay`). On the Q70T this arrives
+  together with "enough data", so it only matters on engines that wait longer.
+
+### Clearer loading and watching
+- The loading screen shows the step in progress (starting the torrent player, getting the file
+  list, waiting for data from peers, reading the video information, jumping to your position,
+  buffering, finding the next episode) and the total time waited. Torrents also show peers,
+  data received and current speed, and say when the download is slower than the file's average
+  bitrate.
+- With the controls visible, a small line in the top-right corner shows peers, download rate,
+  "needs ~X MB/s" (the file's average bitrate, not a hard minimum) and the video height. It is
+  never shown during full-screen viewing; **Hide stats / Show stats** turns it off.
+- After an error, **Play** becomes **Try again** (same source, from the last position played),
+  with **Sources** next to it.
+- While a video is loaded, Back asks for a second press within three seconds; a held key or a
+  repeated key event does not count. Loading or failed playback closes with one press. Stop
+  always closes.
+
+### Next episode without the wait
+- At the credits, or 25 seconds before the end when credits are unknown, a 10-second countdown
+  offers the next episode. Pausing pauses it, seeking away cancels it, Cancel or Back keeps the
+  current episode. Unreleased episodes and a jump from regular seasons to specials are skipped.
+- The next episode's sources are requested about a minute before, as stremio-core does. The
+  player prefers the same torrent (its peers stay connected), then the same binge group from
+  the same add-on; otherwise it opens the next episode's source list.
+- Duplicate requests are ignored and the previous episode's fallback sources cannot carry over.
+  Back from the player then shows the episode you were actually watching.
 
 ### Continue watching keeps your series
 Upstream dropped a series from **Continue watching** as soon as you finished an episode. This
 fork follows the official Stremio logic (stremio-core):
 - When you leave an episode after 90% of it, the series moves on to the **next episode** and
   stays in the row, ready to play.
-- Like Stremio, it doesn't jump from a regular season into specials (season 0) and skips
-  episodes that haven't been released yet.
+- It doesn't jump from a regular season into specials (season 0) and skips episodes that
+  haven't been released yet.
 - A film, or the last episode of a series, leaves the row when finished.
-- Progress saved on your phone or PC shows up as soon as the app starts, without switching tabs.
+- Progress saved on your phone or PC shows up as soon as the app starts.
 
 ### Library sorting
-A **Sort** button next to All / Movies / Series, remembered per profile:
-- Last watched (default, as in Stremio), Recently added
-- Name A-Z, Name Z-A, Most watched
-- Release date (newest / oldest) and Rating (IMDb, highest)
-
-Library items don't carry release dates or ratings, so the first time you pick those sorts the
-app fetches them from your add-ons (two at a time, to spare the TV's memory) and keeps them on
-the TV. Titles without the information go last.
+A **Sort** button next to All / Movies / Series, remembered per profile: last watched (default),
+recently added, name A-Z / Z-A, most watched, release date (newest / oldest) and rating (IMDb).
+Release dates and ratings are fetched from your add-ons the first time (two at a time, to spare
+the TV's memory) and kept on the TV. Titles without the information go last.
 
 ### Home screen rows
-**Settings → Add-ons → Home screen rows** lists every catalog row. Pick one to move it up, down,
-to the top or the bottom, or to hide it. It works per profile and only changes this app, not
-your Stremio account. Rows from a newly added add-on appear at the bottom; **Reset to add-on
-order** brings back the default.
+**Settings → Add-ons → Home screen rows** lists every catalog row: move it up, down, to the top
+or the bottom, or hide it. It works per profile and only changes this app, not your Stremio
+account. **Reset to add-on order** brings back the default.
 
-Without this, rows follow the order of the add-ons on your account (the newest add-on last),
-which you can also change at web.stremio.com → Add-ons.
+### Better source list
+- **Direct / Via TV / Torrent** filters and collapsible add-on groups.
+- Within each add-on, HTTP sources are ordered by resolution and torrents by reported seeds
+  (unknown counts last). Seed counts come from the add-on and are hints, not live checks.
+- Links that need request headers are fetched by the TV's own service (**Via TV**). Without the
+  service they show as **Direct · may fail** and Smart Choice puts them last.
+- HLS and DASH streams play through the bundled hls.js / dash.js players, with their request
+  headers carried through the TV service.
 
-### Only sources the TV can play
-Torrents play on the TV through its built-in engine and rolling RAM cache. Torrent playback does
-not use a PC server. If the TV engine is unavailable, torrent sources are hidden with a count per
-add-on.
-
-Torrent discovery uses UDP/DHT and HTTP trackers in parallel. **Ready** means the engine is
-available, not that a particular source has reachable peers. Metadata retrieval has a 20-second
-inactivity deadline that resets when new metadata blocks arrive. Video reads also stop after
-20 seconds without incoming torrent data; active transfers can continue beyond that time.
-Errors distinguish peer discovery, handshake, metadata, missing video data and playback failures.
-After a player service update, fully restart the TV so TizenBrew replaces the old service.
-
-The TV keeps a moving window of torrent pieces in memory instead of saving the whole video to
-internal storage. Seeking outside that window fetches the needed pieces again.
-
-Links that need extra request headers (Referer, User-Agent, Cookie...) work without a PC: the
-app's small TizenBrew service on the TV fetches them and adds the headers, so the player gets a
-normal local URL. They are tagged **Via TV**. If the TV service is not running they show as
-**Direct · may fail**, the player tries them directly, and Smart Choice puts them last.
-
-### Source browsing and ordering
-Sources have type filters and collapsed add-on groups. Within each add-on, HTTP sources are
-ordered by reported resolution, highest first. Torrents are ordered by reported seed count,
-highest first; unknown counts come last. Reported seed counts are hints from the add-on, not
-live checks that a torrent will play.
-
-### Faster torrent startup
-The TV prioritizes the requested playback position, prefetches and retains MP4 header pieces,
-and adjusts peer request queues to their throughput. Switching episodes within the same torrent
-preserves its peer connections. The verified-piece cache is bounded to 48 MiB.
-
-A Joy HEVC/AAC episode was confirmed playing with picture and sound on the Q70T. A later cold
-start reached the player’s enough-data state in about 10 seconds; startup depends on the swarm,
-file and resume position, so this is an observation rather than a guaranteed loading time.
-Implementation and local test details: [Torrent startup](docs/torrent-startup.md).
-
-### Safer next-episode playback
-At the credits, or 25 seconds before the end when credits are unknown, a 10-second countdown
-offers the next episode. Pausing pauses the countdown; seeking away cancels the active countdown.
-Cancel or Back keeps the current episode. Unreleased episodes and a jump from regular seasons
-to specials are excluded.
-
-The player prefers a source in the same torrent, then a matching binge group from the same
-add-on. It can start as soon as a matching add-on responds. If no match exists, it opens the
-next episode’s source list. Duplicate transition requests are blocked, and the previous episode’s
-fallback sources and delayed playback actions cannot carry over to the next episode.
-These transition cases pass local integration tests; TV automatic-transition verification is pending.
-
-The next episode's add-on sources are requested about a minute before the up-next point (as
-stremio-core requests next-episode streams in advance), so the countdown or the Next button
-usually does not wait for add-ons. Lookups older than ten minutes are not reused, because HTTP
-links can expire. Only add-on lists are prefetched; no next-episode torrent data is downloaded.
-After the player moves to another episode, Back from the player shows that episode in the
-episode list instead of the previous episode's sources.
-
-### Shorter waits before playback
-- A source list requests every add-on immediately; service discovery (PC server check, TV player
-  service launch) runs at the same time instead of first. Torrent rows still appear only after
-  the TV engine state is known.
-- The home screen no longer waits for the PC server or TV player service checks at startup.
-- Chromium starts autoplay only at its "enough data" state; with its spec-compliant
-  can-play-through feature, that state also depends on a download-rate estimate covering the rest
-  of the file. A slow torrent can already have playable data before that. The player now starts
-  playback as soon as the browser reports that it can play (`canplay`), unless you paused it
-  during loading. Whether the TV's browser engine behaves this way is not yet measured.
-- Peer request queues now grow with long round trips (three seconds of measured rate plus two
-  blocks, at most 64 per peer, as in WebTorrent/libtorrent). Before, a peer with more than 0.75 s
-  round trip was held at 32 KiB per round trip. The 4 MiB engine-wide request cap is unchanged.
-  This changes the TV player service: fully restart the TV after updating.
-- The piece read just before the jump to the index at the end of the file stays in RAM in one
-  reserved cache slot (also with 16 MiB pieces). The TV re-reads it right after the jump and
-  previously had to download it again (4 MiB / 2-5 s, and 16 MiB in an MKV trace).
-- When playback resumes later in the file, the TV downloads only the pieces the player actually
-  reads at the start and end of the file (header and index) until the player reports that it has
-  reached the resume position. Before, it also downloaded read-ahead from the start of the file
-  that resumed playback never used (16-32 MiB in TV traces).
-- The TV's player gives up after about 30 seconds without the first bytes. If the torrent engine
-  is still receiving data at that moment, the player reopens the same local stream (up to three
-  times, each time only if more data arrived) instead of showing an error.
-- A TCP connection to a peer may take 10 s instead of 3 s (WebTorrent uses 5 s, libtorrent 15 s),
-  and a discovered peer whose first connection failed is tried again up to three times (after
-  5, 15 and 30 s) while fewer than 20 connections are open, as WebTorrent and libtorrent do.
-  Before, a peer was forgotten after one failed attempt; a TV trace connected to 5 of 59
-  discovered peers.
-- Peers that actually delivered data for a torrent are remembered in the app's own storage
-  (20 torrents, 30 peers each) and offered to the TV engine as connection hints the next time the
-  same torrent opens, as libtorrent does with the peers in its resume data. Discovery through
-  trackers/DHT still runs in parallel. Peer addresses are never written to the remote log.
-- A peer may hold at most two seconds of its measured rate in blocks of the piece being played
-  (as libtorrent does for time-critical pieces); the rest of its queue serves read-ahead.
-- A torrent that stalls after playback started no longer has its stream closed by the TV
-  service. The TV's player read a closed stream as the end of the file, jumped to the end and
-  started the next episode mid-way. The player also treats an "ended" event far from the
-  position it actually played as a cut stream and reconnects there (up to three times), and does
-  not save that jump as progress or start the up-next countdown from it.
-- A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
-  so the player no longer reopens it (and throws away its buffer) after 15 seconds.
-Piece verification and the 48 MiB cache limit are unchanged. These are code-path changes with
-local tests; their effect on TV startup time has not been measured yet.
-
-### While loading and watching
-- The loading screen names the step actually in progress, with the total wait since the start: starting the TV torrent player,
-  getting the torrent file list, waiting for video data from peers, reading the video
-  information, jumping to the resume position, buffering, finding the next episode. For torrents
-  a small line shows connected peers, data received and the current download rate, plus a note
-  when the download is slower than the file's average bitrate. There are no estimated percentages.
-- While the player controls are visible, a small line in the top-right corner shows connected
-  peers, current download rate, "needs ~X MB/s" (the file's average bitrate) and the video height. It is hidden during full-screen viewing; **Hide stats / Show stats** turns it off or on
-  (remembered). The average bitrate is not a minimum: scenes vary, so playback can keep up at a
-  lower download rate.
-- With the remote log on, torrent playback logs a compact service state every 3 s while starting
-  and every 10 s while playing (connections, unchoked peers, top peer rates, discovery times,
-  connection lifetimes, request-to-verify time of recent pieces, window and scheduler counters),
-  each rebuffer's start state and duration, and a playback summary when the player closes.
-- Each start logs a startup timeline (milliseconds to URL, metadata, seek, first frame,
-  `canplay`, `canplaythrough`, playing) to the remote log when it is enabled.
-- After an error the Play button becomes **Try again** (same source, from the last position that
-  played); Sources stays next to it. Errors that do not establish a codec problem no longer
-  suggest choosing a different codec.
-- Once a video has loaded (playing or paused), Back first asks for a second press; a second Back
-  within three seconds leaves. A held key or a duplicate of the same press (within 350 ms) does
-  not count. Loading or failed playback leaves with one press. Stop always leaves.
+### Diagnostics when you need them
+With **Settings → Remote log** pointed at `npm run logs` on a PC, the app sends a startup
+timeline, a compact torrent state every few seconds (connections, peer speeds, discovery and
+piece timings), each rebuffer with its duration and a summary when the player closes. Peer
+addresses, tokens and signed links are not logged.
 
 ### Other changes
 - The loader and in-app updater point to this repository, so the TV runs this fork's code.
@@ -302,7 +289,8 @@ Purple, gold, teal, red, blue or green: **Settings → Colour theme** recolours 
 
 ## Requirements
 
-- A Samsung TV running **Tizen 3.0 or newer** (2017 onwards). Tested on a 2017 UA65MU8500 (Tizen 3.0).
+- A Samsung TV running **Tizen 3.0 or newer** (2017 onwards). Upstream was tested on a 2017
+  UA65MU8500 (Tizen 3.0); this fork's torrent playback is tested on a 2020 Q70T (Tizen 5.5).
 - **TizenBrew** on the TV (installation steps below).
 - For playback, **one** of:
   - a **debrid** service (Real-Debrid, AllDebrid, etc.) in your Stremio add-ons: plays directly
@@ -420,6 +408,12 @@ installed and newest version and can update from there too.
   Silent or unsupported source audio cannot be repaired by adding request headers alone.
 - **Few or no sources:** torrents are hidden while the TV torrent player is unavailable; each
   add-on shows how many were hidden. Header links are no longer hidden.
+- **A torrent is slow or keeps buffering:** press a key to show the controls and read the stats
+  line. Few peers, or a download rate well below "needs ~X MB/s" for a long time, means the
+  source itself is slow; pick a source with more seeds or a smaller file. After an update that
+  changed the player service, restart the TV fully, otherwise the old engine keeps running.
+- **Reporting a problem:** run `npm run logs` on a PC, set **Settings → Remote log** to the
+  address it prints, and reproduce the problem. The log shows each loading step with timings.
 - **The Library tab or a new feature doesn't appear:** the TV is still running the old version;
   restart it fully (see Updating).
 
@@ -442,6 +436,10 @@ installed and newest version and can update from there too.
   the shipped proxy in desktop Chrome, including video/audio decoding, seek and source
   switching. Q70T hardware verification is still outstanding. Embedded subtitle switching through Samsung's
   API is not implemented; add-on subtitles still use the app's renderer.
+- Torrent speed is limited by the source's peers that the TV can reach. The engine makes
+  outgoing TCP connections only (no uTP, no incoming connections), so peers that accept
+  neither cannot be used. A whole piece must arrive and be verified before any of it plays,
+  which makes sources with very large pieces (16 MiB and more) slower to start.
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.
 
