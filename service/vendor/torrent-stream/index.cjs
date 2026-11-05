@@ -592,10 +592,10 @@ var torrentStream = function (link, opts, cb) {
   }
 
   var exchange = exchangeMetadata(engine, function (metadata) {
-    var buf = bncode.encode({
-      info: bncode.decode(metadata),
-      'announce-list': []
-    })
+    // Keep the verified info dictionary byte-for-byte. Decoding/re-encoding it
+    // through bncode can turn cross-context Arrays into dictionaries on TizenBrew.
+    // parseTorrent uses its own decoder to create the file list in its context.
+    var buf = Buffer.concat([new Buffer('d4:info'), metadata, new Buffer('e')])
 
     ontorrent(parseTorrent(buf))
 

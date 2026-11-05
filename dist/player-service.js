@@ -17442,10 +17442,7 @@ var TorrentEngine = function () {
           _loop2(0);
         };
         var exchange = exchangeMetadata(engine, function (metadata2) {
-          var buf = bncode.encode({
-            info: bncode.decode(metadata2),
-            "announce-list": []
-          });
+          var buf = Buffer.concat([new Buffer("d4:info"), metadata2, new Buffer("e")]);
           ontorrent(parseTorrent(buf));
           if (opts.cache === false) return;
           mkdirp(path.dirname(torrentPath), function (err) {
