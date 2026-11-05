@@ -369,3 +369,14 @@ received/missing bytes, active requests, oldest request age, and peers with the 
 unchoked peers. This distinguishes unavailable pieces, queue stalls and partial piece assembly.
 No peer addresses or media URLs are added to these records. 110 tests and build/ES5 pass;
 the Node 4.4.3 loopback startup fixture passes. These are diagnostics, not a measured speed gain.
+
+## Bound speculative tail queue (2026-11-06)
+
+New per-piece TV logs exposed 72 outstanding speculative tail requests while the first piece
+still had 9.5 MB missing. Lower selection priority alone did not bound occupied peer queues.
+Priority-zero requests are now capped at two per peer and sixteen per selected piece overall
+(256 KiB in-flight at 16 KiB/block). Reader priority supersedes speculative priority, so a
+real tail Range can use the normal pipeline immediately. Head/read-ahead queues are unchanged.
+Tests cover both caps and demand promotion;112 tests pass and the Node4 loopback fixture passes.
+The latest trace also confirms an unpaused14.2s rebuffer and premature ended at16/1302s;
+this patch does not claim to resolve that separate transport/player issue.

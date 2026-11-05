@@ -17123,6 +17123,23 @@ var TorrentEngine = function () {
         }
         return out;
       };
+      exports.prefetchAllowed = function (active, selections, index, wire) {
+        var priority = -1;
+        for (var i = 0; i < selections.length; i++) {
+          var s = selections[i];
+          if (index >= s.from && index <= s.to) priority = Math.max(priority, s.priority);
+        }
+        if (priority !== 0) return true;
+        var total = 0,
+          held = 0;
+        for (i = 0; i < active.length; i++) {
+          var r = active[i];
+          if (r.index !== index) continue;
+          total++;
+          if (r.wire === wire) held++;
+        }
+        return held < 2 && total < 16;
+      };
     }
   });
 
@@ -17406,6 +17423,7 @@ var TorrentEngine = function () {
           };
           var onrequest = function onrequest(wire, index, hotswap) {
             if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false;
+            if (!streamPolicy.prefetchAllowed(activeRequests, engine.selection, index, wire)) return false;
             if (!requestedAt[index]) requestedAt[index] = Date.now();
             var p = pieces[index];
             var reservation = p.reserve();

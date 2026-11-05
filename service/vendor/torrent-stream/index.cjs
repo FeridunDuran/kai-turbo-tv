@@ -332,6 +332,7 @@ var torrentStream = function (link, opts, cb) {
 
     var onrequest = function (wire, index, hotswap) {
       if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false
+      if (!streamPolicy.prefetchAllowed(activeRequests, engine.selection, index, wire)) return false
       // Diagnostics: when a piece was first requested, for request-to-verify times.
       if (!requestedAt[index]) requestedAt[index] = Date.now()
 

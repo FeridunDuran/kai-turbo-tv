@@ -17,7 +17,7 @@ test('critical recovery waits, chooses a faster eligible peer, and rejects redun
  request.retried=false;fast.peerChoking=true;assert.equal(policy.recovery([request],[old,fast],{10:true},20000),null);
 });
 test('actual engine request accounting caps outstanding blocks and releases cancelled capacity',()=>{
- const Piece=require('torrent-piece'),pending=[],activeRequests=[],context={pieces:[Piece(4194304)],activeRequests,MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,onupdatetick(){}};
+ const Piece=require('torrent-piece'),pending=[],activeRequests=[],context={pieces:[Piece(4194304)],activeRequests,MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,streamPolicy:policy,engine:{selection:[]},onupdatetick(){}};
  vm.runInNewContext(source.slice(source.indexOf('var onrequest = function'),source.indexOf('var onvalidatewire =')),context);
  const wire={request(i,offset,size,cb){pending.push(cb);}};for(let i=0;i<256;i++)assert.equal(context.onrequest(wire,0,false),true);
  assert.equal(context.onrequest(wire,0,false),false);assert.equal(activeRequests.length,256);pending[0](new Error('cancelled'));assert.equal(activeRequests.length,255);assert.equal(context.onrequest(wire,0,false),true);assert.equal(activeRequests.length,256);
@@ -30,7 +30,7 @@ test('engine recovery cancels the old request before reserving it on the alterna
 });
 
 test('a late cancellation cannot cancel a block reservation already handed to another peer',()=>{
- const Piece=require('torrent-piece'),p=Piece(32768),pending=[],context={pieces:[p],activeRequests:[],MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,onupdatetick(){}};
+ const Piece=require('torrent-piece'),p=Piece(32768),pending=[],context={pieces:[p],activeRequests:[],MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,streamPolicy:policy,engine:{selection:[]},onupdatetick(){}};
  vm.runInNewContext(source.slice(source.indexOf('var onrequest = function'),source.indexOf('var onvalidatewire =')),context);
  const wire={request(i,offset,size,cb){pending.push(cb);}};context.onrequest(wire,0,false);
  p.cancel(0);context.reservations[0][0]=null;pending[0](new Error('hotswap cancelled'));
@@ -68,3 +68,15 @@ test('a fast peer is not capped at 1 MiB in flight (TV trace: the only fast peer
  assert.ok(/var MAX_ACTIVE_BLOCKS = 512/.test(source),'engine-wide cap leaves room beyond one fast peer');
 });
 
+
+
+test('speculative tail has at most two requests per peer and sixteen globally; demanded tail bypasses cap',()=>{
+ const wire={},other={},selections=[{from:1,to:1,priority:2},{from:99,to:99,priority:0}];
+ assert.equal(policy.prefetchAllowed([],selections,99,wire),true);
+ const held=[{index:99,wire},{index:99,wire}];assert.equal(policy.prefetchAllowed(held,selections,99,wire),false);
+ assert.equal(policy.prefetchAllowed(held,selections,99,other),true);
+ const full=Array.from({length:16},()=>({index:99,wire:other}));assert.equal(policy.prefetchAllowed(full,selections,99,wire),false);
+ assert.equal(policy.prefetchAllowed(full,selections,1,wire),true);
+ selections.unshift({from:99,to:99,priority:2});assert.equal(policy.prefetchAllowed(full,selections,99,wire),true);
+ selections.shift();selections[1].priority=1;assert.equal(policy.prefetchAllowed(full,selections,99,wire),true);
+});
