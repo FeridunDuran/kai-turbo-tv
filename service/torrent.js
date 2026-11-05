@@ -282,6 +282,7 @@ var TV_TORRENT = (function () {
     var reader = new Reader(this, start, end, res);
     this.reader = reader;
     reader.start();
+    return reader;
   };
 
   Session.prototype.destroy = function (cb) {
@@ -532,10 +533,12 @@ var TV_TORRENT = (function () {
     res.writeHead(range ? 206 : 200, headers);
     if (req.method === 'HEAD') return res.end();
 
+    var reader = session.open(start, end, res);
     res.on('close', function () {
-      if (session.reader) session.reader.destroy();
+      // A previous Range response can close after its replacement has started.
+      // It owns only its own reader, never the session's newest request.
+      reader.destroy();
     });
-    session.open(start, end, res);
   }
 
   setInterval(function () {
