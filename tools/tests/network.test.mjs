@@ -82,7 +82,7 @@ test('timeout uTP probes are rate limited and never retry an established TCP con
  const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/lib/peer-wire-swarm.cjs',import.meta.url),'utf8');
  const begin=source.indexOf('var onend = function()'),end=source.indexOf("wire.on('end', onend)",begin);
  let now=100000,repushed=0,removed=0;const self={_peers:{},utpFallback:true,emit(){},_remove(){removed++;}};
- function attempt(opened=false){const peer={triedUtp:false},wire={};self._peers.fixture=peer;const c={ended:false,self,peer,wire,addr:'fixture',opened,tcpRefused:false,tcpTimedOut:true,viaUtp:false,Date:{now:()=>now},repush(){repushed++;},RECONNECT_WAIT:[],setTimeout(){}};vm.runInNewContext(source.slice(begin,end),c);c.onend();return peer;}
+ function attempt(opened=false){const peer={triedUtp:false},wire={};self._peers.fixture=peer;const c={connection:{},ended:false,self,peer,wire,addr:'fixture',opened,tcpRefused:false,tcpTimedOut:true,viaUtp:false,Date:{now:()=>now},repush(){repushed++;},RECONNECT_WAIT:[],setTimeout(){}};vm.runInNewContext(source.slice(begin,end),c);c.onend();return peer;}
  assert.equal(attempt().useUtp,true);assert.equal(repushed,1);now+=1000;assert.equal(attempt().useUtp,undefined);assert.equal(repushed,1);
  now+=15000;assert.equal(attempt(true).useUtp,undefined);assert.equal(repushed,1);assert.equal(attempt().useUtp,true);assert.equal(repushed,2);assert.ok(removed>=2);
 });
@@ -120,4 +120,35 @@ test('connect and handshake timeouts have separate transport counters',()=>{
  vm.runInNewContext(source.slice(source.indexOf('var onwire = function'),source.indexOf('var pools =')),c);c.onwire(swarm,connection,()=>{},false);return {timers,connection,swarm};}
  const a=fixture();a.timers.find(t=>t.ms===5000).fn();assert.equal(a.swarm.kaiNetwork.connectTimeouts,1);assert.equal(a.swarm.kaiNetwork.handshakeTimeouts,0);
  const b=fixture();b.connection.emit('connect');assert.equal(b.timers.find(t=>t.ms===5000).cleared,true);b.timers.find(t=>t.ms===25000).fn();assert.equal(b.swarm.kaiNetwork.connectTimeouts,0);assert.equal(b.swarm.kaiNetwork.handshakeTimeouts,1);
+});
+
+
+test('failure history survives peer removal, escalates cooldown, expires and stays bounded',()=>{
+ const Policy=require('../../service/vendor/torrent-stream/lib/connection-policy.cjs'),p=new Policy(2);let now=1000;
+ p.failed('a',now);assert.equal(p.wait('a',now),15000);assert.equal(p.tier('a','discovery',now),0);now+=15000;assert.equal(p.wait('a',now),0);
+ p.failed('a',now);assert.equal(p.wait('a',now),45000);assert.equal(p.tier('a','hint',now),0,'repeated failures demote even cached hints');
+ p.success('a',now);assert.equal(p.wait('a',now),0);assert.equal(p.tier('a','pex',now),3);
+ p.failed('b',now+1);p.failed('c',now+2);assert.equal(Object.keys(p.entries).length,2);assert.equal(p.evictions,1);
+ assert.equal(p.get('b',now+1800002),null);
+});
+
+test('new discovery offers cannot bypass a failed peer cooldown and preferred peers do not starve exploration',()=>{
+ const pws=require('../../service/vendor/torrent-stream/lib/peer-wire-swarm.cjs');const swarm=pws(crypto.randomBytes(20),Buffer.from('-KT0001-test00000000'),{size:55});swarm.pause();
+ const bad='127.0.0.1:20001';swarm._candidatePolicy.failed(bad,Date.now());assert.equal(swarm.add(bad,'discovery'),false);assert.equal(swarm.add(bad,'pex'),false);assert.equal(swarm.add(bad,'hint'),false);assert.equal(swarm.kaiNetwork.cooldownRejected,3);
+ swarm.add('127.0.0.1:20002','discovery');swarm.add('127.0.0.1:20003','hint');assert.equal(swarm._shift(false),'127.0.0.1:20003','preferred candidate can use reserved slots');
+ swarm.add('127.0.0.1:20004','hint');swarm._dialTurns=3;assert.equal(swarm._shift(true),'127.0.0.1:20002','exploration turn chooses a new candidate');swarm.destroy();
+});
+
+test('pending connection cap reserves capacity for hints and refills it when a blackhole closes',async()=>{
+ const pws=require('../../service/vendor/torrent-stream/lib/peer-wire-swarm.cjs'),servers=[],sockets=[];
+ const ports=await Promise.all(Array.from({length:7},()=>new Promise(resolve=>{const server=net.createServer(s=>sockets.push(s));servers.push(server);server.listen(0,'127.0.0.1',()=>resolve(server.address().port));})));
+ const swarm=pws(crypto.randomBytes(20),Buffer.from('-KT0001-test00000000'),{size:10,maxPending:4,connectTimeout:5000});
+ const wait=async predicate=>{for(let i=0;i<50&&!predicate();i++)await new Promise(r=>setTimeout(r,10));assert.ok(predicate());};
+ try{
+  ports.slice(0,5).forEach(port=>swarm.add('127.0.0.1:'+port,'discovery'));await wait(()=>swarm.connections.length===3);
+  assert.equal(swarm.queued,2);assert.equal(swarm.add('127.0.0.1:'+ports[5],'hint'),true);await wait(()=>swarm.connections.length===4);
+  swarm.add('127.0.0.1:'+ports[6],'hint');assert.equal(swarm.connections.length,4);assert.ok(swarm._peers['127.0.0.1:'+ports[6]].node);
+  const first=swarm._peers['127.0.0.1:'+ports[0]].connection;first.destroy();await wait(()=>!swarm._peers['127.0.0.1:'+ports[6]].node);
+  assert.equal(swarm.connections.length,4,'reserved candidate replaces a closed pending socket');assert.ok(swarm.kaiNetwork.preferredDials>=2);
+ }finally{swarm.destroy();sockets.forEach(s=>s.destroy());await Promise.all(servers.map(server=>new Promise(r=>server.close(r))));}
 });

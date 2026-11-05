@@ -12,6 +12,7 @@ var speedometer = require('speedometer');
 var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var ConnectionPolicy = require('./connection-policy.cjs');
 
 var HANDSHAKE_TIMEOUT = 25000;
 var CONNECTION_TIMEOUT = 3000;
@@ -178,7 +179,11 @@ var Swarm = function(infoHash, peerId, options) {
 	this.uploaded = 0;
 	this.kaiNetwork = { candidates: 0, accepted: 0, duplicates: 0, invalid: 0, attempts: 0,
         tcpAttempts: 0, utpAttempts: 0, outgoingConnected: 0, handshakes: 0, connectTimeouts: 0,
-        handshakeTimeouts: 0, refused: 0, resets: 0, dns: 0, otherErrors: 0, closedBeforeHandshake: 0 };
+        handshakeTimeouts: 0, refused: 0, resets: 0, dns: 0, otherErrors: 0, closedBeforeHandshake: 0, cooldownRejected: 0, failureCooldowns: 0, preferredDials: 0, newDials: 0, retryDials: 0, pendingLimitHits: 0 };
+    this.maxPending = Math.max(1, Math.min(this.size, options.maxPending || 24));
+    this.preferredReserve = Math.min(4, Math.floor(this.maxPending / 4));
+    this._candidatePolicy = new ConnectionPolicy(512);
+    this._dialTurns = 0;
     this.connections = [];
 	this.wires = [];
 	this.paused = false;
@@ -190,7 +195,7 @@ var Swarm = function(infoHash, peerId, options) {
 	this.uploadSpeed = speedometer();
 
 	this._destroyed = false;
-	this._queues = [fifo()];
+	this._queues = [fifo(), fifo(), fifo(), fifo()];
 	this._peers = {};
 	this._pwp = {speed:options.speed};
 };
@@ -229,20 +234,29 @@ Swarm.prototype.priority = function(addr, level) {
 	return peer.priority = level;
 };
 
-Swarm.prototype.add = function(addr) {
+Swarm.prototype.add = function(addr, source) {
 	this.kaiNetwork.candidates++;
     if (this._destroyed) return false;
-    if (this._peers[addr]) { this.kaiNetwork.duplicates++; return false; }
+    if (this._peers[addr]) {
+        this.kaiNetwork.duplicates++;
+        var promoted = this._candidatePolicy.tier(addr, source, Date.now());
+        if (promoted > this._peers[addr].priority) this.priority(addr, promoted);
+        if (source === 'hint') this._peers[addr].kaiSource = 'hint';
+        this._drain(); return false;
+    }
+    if (this._candidatePolicy.wait(addr, Date.now())) { this.kaiNetwork.cooldownRejected++; return false; }
 
     var port = Number(addr.split(':')[1]);
 	if (!(port > 0 && port < 65535)) { this.kaiNetwork.invalid++; return false; }
 
-	this._peers[addr] = {
-		node: this._queues[0].push(addr),
+    var tier = this._candidatePolicy.tier(addr, source, Date.now());
+    this._peers[addr] = {
+        node: this._queues[tier].push(addr),
+        kaiSource: source || 'external',
 		wire: null,
 		timeout: null,
 		reconnect: false,
-		priority: 0,
+		priority: tier,
 		retries: 0,
 		noUtp: false,
 	};
@@ -287,21 +301,30 @@ Swarm.prototype._remove = function(addr) {
 	delete this._peers[addr];
 	if (peer.node) this._queues[peer.priority].remove(peer.node);
 	if (peer.timeout) clearTimeout(peer.timeout);
+	if (peer.connection) peer.connection.destroy();
 	if (peer.wire) peer.wire.destroy();
 };
 
 Swarm.prototype._drain = function() {
-	if (this.connections.length >= this.size || this.paused) return;
+	if (this._destroyed || this.connections.length >= this.size || this.paused) return;
+    var pending = Math.max(0, this.connections.length - this.wires.length);
+    if (pending >= this.maxPending) { this.kaiNetwork.pendingLimitHits++; return; }
+    var allowGeneral = pending < this.maxPending - this.preferredReserve;
 
 	var self = this;
-	var addr = this._shift();
+	var addr = this._shift(allowGeneral);
 	if (!addr) return;
 
 	var peer = this._peers[addr];
 	if (!peer) return;
 
 	var repush = function() {
-		peer.node = self._queues[peer.priority].push(addr);
+        if (self._destroyed || self._peers[addr] !== peer) return;
+        var delay = self._candidatePolicy.wait(addr, Date.now());
+        if (delay) { peer.timeout = setTimeout(repush, delay); return; }
+        peer.timeout = null;
+        if (peer.node) return;
+        peer.node = self._queues[peer.priority].push(addr);
 		self._drain();
 	};
 
@@ -309,6 +332,10 @@ Swarm.prototype._drain = function() {
 	var connection;
 
 	var viaUtp = (this.utp && !peer.noUtp) || peer.useUtp;
+    this._dialTurns++;
+    if (peer.priority >= 2) this.kaiNetwork.preferredDials++;
+    else if (peer.priority === 1) this.kaiNetwork.newDials++;
+    else this.kaiNetwork.retryDials++;
     this.kaiNetwork.attempts++;
     if (viaUtp) this.kaiNetwork.utpAttempts++; else this.kaiNetwork.tcpAttempts++;
 	if (peer.useUtp) {
@@ -327,6 +354,7 @@ Swarm.prototype._drain = function() {
 		connection = net.connect(parts[1], parts[0]);
 	}
 
+	peer.connection = connection;
 	if (peer.timeout) clearTimeout(peer.timeout);
 
 	peer.node = null;
@@ -371,6 +399,7 @@ Swarm.prototype._drain = function() {
 		ended = true;
         if (self.kaiNetwork && !wire.kaiHandshake) self.kaiNetwork.closedBeforeHandshake++;
 		if (peer.wire === wire) peer.wire = null;
+        if (peer.connection === connection) peer.connection = null;
 		if (self._peers[addr] !== peer) return;
 		var timeoutProbe = tcpTimedOut && (!self._lastUtpProbe || Date.now() - self._lastUtpProbe >= 15000);
 		if (!opened && (tcpRefused || timeoutProbe) && !viaUtp && self.utpFallback && !peer.triedUtp && !self._destroyed) {
@@ -380,7 +409,12 @@ Swarm.prototype._drain = function() {
 			self.emit('utp-fallback', addr, timeoutProbe ? 'timeout' : 'refused');
 			return repush();
 		}
-		if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
+		if (!self._destroyed && !wire.lastPieceAt && !wire.kaiEverPayload && self._candidatePolicy) {
+            self._candidatePolicy.failed(addr, Date.now());
+            self.kaiNetwork.failureCooldowns++;
+            self.priority(addr, self._candidatePolicy.tier(addr, peer.kaiSource, Date.now()));
+        }
+        if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
 		peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++]);
 	};
 	wire.on('end', onend);
@@ -391,13 +425,23 @@ Swarm.prototype._drain = function() {
 
 	wire.peerAddress = addr;
 	wire.handshake(this.infoHash, this.peerId, this.handshake);
+    if (!this._drainScheduled) {
+        this._drainScheduled = true;
+        process.nextTick(function() { self._drainScheduled = false; self._drain(); });
+    }
 };
 
-Swarm.prototype._shift = function() {
-	for (var i = this._queues.length-1; i >= 0; i--) {
-		if (this._queues[i] && this._queues[i].length) return this._queues[i].shift();
-	}
-	return null;
+Swarm.prototype._shift = function(allowGeneral) {
+    // One exploration turn in four prevents a long remembered-peer list starving new peers.
+    if (allowGeneral !== false && this._dialTurns % 4 === 3) {
+        if (this._queues[1].length) return this._queues[1].shift();
+        if (this._queues[0].length) return this._queues[0].shift();
+    }
+    for (var i = this._queues.length - 1; i >= 0; i--) {
+        if (allowGeneral === false && i < 2) continue;
+        if (this._queues[i] && this._queues[i].length) return this._queues[i].shift();
+    }
+    return null;
 };
 
 Swarm.prototype._onincoming = function(connection, wire) {
@@ -454,8 +498,17 @@ Swarm.prototype._onwire = function(connection, wire) {
 	wire.on('close', cleanup);
 	wire.on('finish', cleanup);
 
-	this.wires.push(wire);
-	this.emit('wire', wire, connection);
+    wire.on('piece', function(index, offset, data) {
+        if (!data || !data.length) return;
+        wire.kaiEverPayload = true;
+        if ((wire.kaiGoodMarkedAt && Date.now() - wire.kaiGoodMarkedAt < 5000)) return;
+        wire.kaiGoodMarkedAt = Date.now();
+        self._candidatePolicy.success(wire.peerAddress, wire.kaiGoodMarkedAt);
+        self.priority(wire.peerAddress, 3);
+    });
+    this.wires.push(wire);
+    this.emit('wire', wire, connection);
+    this._drain();
 };
 
 module.exports = Swarm;

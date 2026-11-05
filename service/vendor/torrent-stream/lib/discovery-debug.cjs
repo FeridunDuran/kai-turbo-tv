@@ -71,11 +71,17 @@ module.exports = function (engine, discovery, swarm, infoHash) {
       var queued = swarm.queued || 0, connections = (swarm.connections || []).length;
       var known = Object.keys(swarm._peers || {}), backoff = 0;
       known.forEach(function (addr) { if (swarm._peers[addr].timeout) backoff++; });
-      var reason = swarm.paused ? 'paused' : connections >= swarm.size ? 'connection-limit'
+      var pending = Math.max(0, connections - peers.length);
+      var preferredQueued = 0;
+      (swarm._queues || []).forEach(function (q, index) { if (index >= 2) preferredQueued += q.length; });
+      var reason = swarm.paused ? 'paused'  : connections >= swarm.size ? 'connection-limit'
+        : swarm.maxPending && pending >= swarm.maxPending ? 'pending-limit'
+        : queued && !preferredQueued && swarm.maxPending && pending >= swarm.maxPending - swarm.preferredReserve ? 'preferred-reserve'
         : queued ? 'queue-has-free-slots' : connections > peers.length ? 'awaiting-connection-or-handshake' : 'candidate-queue-empty';
       return { sources: counts, failures: failures, trackerProtocols: trackerProtocols, offers: offers, accepted: accepted, bySource: bySource, transport: swarm.kaiNetwork || null,
         queue: { knownPeers: known.length, retryBackoff: backoff, queued: queued, connections: connections, handshakes: peers.length,
-          pending: Math.max(0, connections - peers.length), freeSlots: Math.max(0, swarm.size - connections), reason: reason },
+          pending: pending, maxPending: swarm.maxPending || null, preferredReserve: swarm.preferredReserve || 0, preferredQueued: preferredQueued,
+          historyEntries: swarm._candidatePolicy ? Object.keys(swarm._candidatePolicy.entries).length : 0, historyEvictions: swarm._candidatePolicy ? swarm._candidatePolicy.evictions : 0, freeSlots: Math.max(0, swarm.size - connections), reason: reason },
         payload: { choked: choked, everSent: productive, active5s: active, neverSent: peers.length - productive,
           waitingWithoutRecentData: waiting, oldestEmptyMs: oldestEmptyMs } };
     }

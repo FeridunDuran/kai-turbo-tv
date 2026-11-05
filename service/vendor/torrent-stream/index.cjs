@@ -826,9 +826,10 @@ var torrentStream = function (link, opts, cb) {
   }
 
   engine.connect = function (addr, source) {
-    var added = swarm.add(addr)
+    var added = swarm.add(addr, source)
     if (added && swarm._peers[addr]) swarm._peers[addr].kaiSource = source || 'external'
     discoveryTrace.offer(source || 'external', !!added)
+    return added
   }
 
   engine.disconnect = function (addr) {

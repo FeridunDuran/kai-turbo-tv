@@ -2441,6 +2441,67 @@ var TorrentEngine = function () {
     }
   });
 
+  // service/vendor/torrent-stream/lib/connection-policy.cjs
+  var require_connection_policy = __commonJS({
+    "service/vendor/torrent-stream/lib/connection-policy.cjs"(exports, module) {
+      function Policy(limit) {
+        this.limit = limit || 512;
+        this.entries = {};
+        this.evictions = 0;
+      }
+      Policy.prototype.get = function (addr, now) {
+        var e = this.entries[addr];
+        if (e && now - e.at > 18e5) {
+          delete this.entries[addr];
+          return null;
+        }
+        return e || null;
+      };
+      Policy.prototype.put = function (addr, entry) {
+        this.entries[addr] = entry;
+        var keys = Object.keys(this.entries),
+          self = this;
+        if (keys.length > this.limit) {
+          keys.sort(function (a, b) {
+            return self.entries[a].at - self.entries[b].at;
+          });
+          delete this.entries[keys[0]];
+          this.evictions++;
+        }
+      };
+      Policy.prototype.wait = function (addr, now) {
+        var e = this.get(addr, now);
+        return e ? Math.max(0, e.until - now) : 0;
+      };
+      Policy.prototype.failed = function (addr, now) {
+        var old = this.get(addr, now),
+          failures = old ? old.failures + 1 : 1;
+        var delays = [15e3, 45e3, 12e4, 3e5];
+        this.put(addr, {
+          at: now,
+          failures,
+          good: !!(old && old.good),
+          until: now + delays[Math.min(failures - 1, delays.length - 1)]
+        });
+      };
+      Policy.prototype.success = function (addr, now) {
+        this.put(addr, {
+          at: now,
+          failures: 0,
+          good: true,
+          until: 0
+        });
+      };
+      Policy.prototype.tier = function (addr, source, now) {
+        var e = this.get(addr, now);
+        if (e && e.failures > 1) return 0;
+        if (source === "hint" || e && e.good) return 3;
+        return e && e.failures ? 0 : 1;
+      };
+      module.exports = Policy;
+    }
+  });
+
   // service/vendor/torrent-stream/lib/peer-wire-swarm.cjs
   var require_peer_wire_swarm = __commonJS({
     "service/vendor/torrent-stream/lib/peer-wire-swarm.cjs"(exports, module) {
@@ -2452,6 +2513,7 @@ var TorrentEngine = function () {
       var peerWireProtocol = require_peer_wire_protocol();
       var EventEmitter = __require("events").EventEmitter;
       var util = __require("util");
+      var ConnectionPolicy = require_connection_policy();
       var HANDSHAKE_TIMEOUT = 25e3;
       var CONNECTION_TIMEOUT = 3e3;
       var RECONNECT_WAIT = [1e3, 5e3, 15e3];
@@ -2598,8 +2660,18 @@ var TorrentEngine = function () {
           resets: 0,
           dns: 0,
           otherErrors: 0,
-          closedBeforeHandshake: 0
+          closedBeforeHandshake: 0,
+          cooldownRejected: 0,
+          failureCooldowns: 0,
+          preferredDials: 0,
+          newDials: 0,
+          retryDials: 0,
+          pendingLimitHits: 0
         };
+        this.maxPending = Math.max(1, Math.min(this.size, options.maxPending || 24));
+        this.preferredReserve = Math.min(4, Math.floor(this.maxPending / 4));
+        this._candidatePolicy = new ConnectionPolicy(512);
+        this._dialTurns = 0;
         this.connections = [];
         this.wires = [];
         this.paused = false;
@@ -2608,7 +2680,7 @@ var TorrentEngine = function () {
         this.downloadSpeed = speedometer();
         this.uploadSpeed = speedometer();
         this._destroyed = false;
-        this._queues = [fifo()];
+        this._queues = [fifo(), fifo(), fifo(), fifo()];
         this._peers = {};
         this._pwp = {
           speed: options.speed
@@ -2639,11 +2711,19 @@ var TorrentEngine = function () {
         }
         return peer.priority = level;
       };
-      _Swarm.prototype.add = function (addr) {
+      _Swarm.prototype.add = function (addr, source) {
         this.kaiNetwork.candidates++;
         if (this._destroyed) return false;
         if (this._peers[addr]) {
           this.kaiNetwork.duplicates++;
+          var promoted = this._candidatePolicy.tier(addr, source, Date.now());
+          if (promoted > this._peers[addr].priority) this.priority(addr, promoted);
+          if (source === "hint") this._peers[addr].kaiSource = "hint";
+          this._drain();
+          return false;
+        }
+        if (this._candidatePolicy.wait(addr, Date.now())) {
+          this.kaiNetwork.cooldownRejected++;
           return false;
         }
         var port = Number(addr.split(":")[1]);
@@ -2651,12 +2731,14 @@ var TorrentEngine = function () {
           this.kaiNetwork.invalid++;
           return false;
         }
+        var tier = this._candidatePolicy.tier(addr, source, Date.now());
         this._peers[addr] = {
-          node: this._queues[0].push(addr),
+          node: this._queues[tier].push(addr),
+          kaiSource: source || "external",
           wire: null,
           timeout: null,
           reconnect: false,
-          priority: 0,
+          priority: tier,
           retries: 0,
           noUtp: false
         };
@@ -2693,22 +2775,39 @@ var TorrentEngine = function () {
         delete this._peers[addr];
         if (peer.node) this._queues[peer.priority].remove(peer.node);
         if (peer.timeout) clearTimeout(peer.timeout);
+        if (peer.connection) peer.connection.destroy();
         if (peer.wire) peer.wire.destroy();
       };
       _Swarm.prototype._drain = function () {
-        if (this.connections.length >= this.size || this.paused) return;
+        if (this._destroyed || this.connections.length >= this.size || this.paused) return;
+        var pending = Math.max(0, this.connections.length - this.wires.length);
+        if (pending >= this.maxPending) {
+          this.kaiNetwork.pendingLimitHits++;
+          return;
+        }
+        var allowGeneral = pending < this.maxPending - this.preferredReserve;
         var self = this;
-        var addr = this._shift();
+        var addr = this._shift(allowGeneral);
         if (!addr) return;
         var peer = this._peers[addr];
         if (!peer) return;
-        var repush = function repush() {
+        var _repush = function repush() {
+          if (self._destroyed || self._peers[addr] !== peer) return;
+          var delay = self._candidatePolicy.wait(addr, Date.now());
+          if (delay) {
+            peer.timeout = setTimeout(_repush, delay);
+            return;
+          }
+          peer.timeout = null;
+          if (peer.node) return;
           peer.node = self._queues[peer.priority].push(addr);
           self._drain();
         };
         var parts = addr.split(":");
         var connection;
         var viaUtp = this.utp && !peer.noUtp || peer.useUtp;
+        this._dialTurns++;
+        if (peer.priority >= 2) this.kaiNetwork.preferredDials++;else if (peer.priority === 1) this.kaiNetwork.newDials++;else this.kaiNetwork.retryDials++;
         this.kaiNetwork.attempts++;
         if (viaUtp) this.kaiNetwork.utpAttempts++;else this.kaiNetwork.tcpAttempts++;
         if (peer.useUtp) {
@@ -2718,11 +2817,12 @@ var TorrentEngine = function () {
           connection = utp.connect(parts[1], parts[0]);
           connection.on("timeout", function () {
             peer.noUtp = true;
-            repush();
+            _repush();
           });
         } else {
           connection = net.connect(parts[1], parts[0]);
         }
+        peer.connection = connection;
         if (peer.timeout) clearTimeout(peer.timeout);
         peer.node = null;
         peer.timeout = null;
@@ -2761,6 +2861,7 @@ var TorrentEngine = function () {
           ended = true;
           if (self.kaiNetwork && !wire.kaiHandshake) self.kaiNetwork.closedBeforeHandshake++;
           if (peer.wire === wire) peer.wire = null;
+          if (peer.connection === connection) peer.connection = null;
           if (self._peers[addr] !== peer) return;
           var timeoutProbe = tcpTimedOut && (!self._lastUtpProbe || Date.now() - self._lastUtpProbe >= 15e3);
           if (!opened && (tcpRefused || timeoutProbe) && !viaUtp && self.utpFallback && !peer.triedUtp && !self._destroyed) {
@@ -2768,10 +2869,15 @@ var TorrentEngine = function () {
             peer.triedUtp = true;
             peer.useUtp = true;
             self.emit("utp-fallback", addr, timeoutProbe ? "timeout" : "refused");
-            return repush();
+            return _repush();
+          }
+          if (!self._destroyed && !wire.lastPieceAt && !wire.kaiEverPayload && self._candidatePolicy) {
+            self._candidatePolicy.failed(addr, Date.now());
+            self.kaiNetwork.failureCooldowns++;
+            self.priority(addr, self._candidatePolicy.tier(addr, peer.kaiSource, Date.now()));
           }
           if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
-          peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++]);
+          peer.timeout = setTimeout(_repush, RECONNECT_WAIT[peer.retries++]);
         };
         wire.on("end", onend);
         connection.once("close", onend);
@@ -2779,9 +2885,21 @@ var TorrentEngine = function () {
         self._onconnection(connection);
         wire.peerAddress = addr;
         wire.handshake(this.infoHash, this.peerId, this.handshake);
+        if (!this._drainScheduled) {
+          this._drainScheduled = true;
+          process.nextTick(function () {
+            self._drainScheduled = false;
+            self._drain();
+          });
+        }
       };
-      _Swarm.prototype._shift = function () {
+      _Swarm.prototype._shift = function (allowGeneral) {
+        if (allowGeneral !== false && this._dialTurns % 4 === 3) {
+          if (this._queues[1].length) return this._queues[1].shift();
+          if (this._queues[0].length) return this._queues[0].shift();
+        }
         for (var i = this._queues.length - 1; i >= 0; i--) {
+          if (allowGeneral === false && i < 2) continue;
           if (this._queues[i] && this._queues[i].length) return this._queues[i].shift();
         }
         return null;
@@ -2831,8 +2949,17 @@ var TorrentEngine = function () {
         wire.on("end", cleanup);
         wire.on("close", cleanup);
         wire.on("finish", cleanup);
+        wire.on("piece", function (index, offset, data) {
+          if (!data || !data.length) return;
+          wire.kaiEverPayload = true;
+          if (wire.kaiGoodMarkedAt && Date.now() - wire.kaiGoodMarkedAt < 5e3) return;
+          wire.kaiGoodMarkedAt = Date.now();
+          self._candidatePolicy.success(wire.peerAddress, wire.kaiGoodMarkedAt);
+          self.priority(wire.peerAddress, 3);
+        });
         this.wires.push(wire);
         this.emit("wire", wire, connection);
+        this._drain();
       };
       module.exports = _Swarm;
     }
@@ -16599,7 +16726,12 @@ var TorrentEngine = function () {
             known.forEach(function (addr) {
               if (swarm._peers[addr].timeout) backoff++;
             });
-            var reason = swarm.paused ? "paused" : connections >= swarm.size ? "connection-limit" : queued ? "queue-has-free-slots" : connections > peers.length ? "awaiting-connection-or-handshake" : "candidate-queue-empty";
+            var pending = Math.max(0, connections - peers.length);
+            var preferredQueued = 0;
+            (swarm._queues || []).forEach(function (q, index) {
+              if (index >= 2) preferredQueued += q.length;
+            });
+            var reason = swarm.paused ? "paused" : connections >= swarm.size ? "connection-limit" : swarm.maxPending && pending >= swarm.maxPending ? "pending-limit" : queued && !preferredQueued && swarm.maxPending && pending >= swarm.maxPending - swarm.preferredReserve ? "preferred-reserve" : queued ? "queue-has-free-slots" : connections > peers.length ? "awaiting-connection-or-handshake" : "candidate-queue-empty";
             return {
               sources: counts,
               failures,
@@ -16614,7 +16746,12 @@ var TorrentEngine = function () {
                 queued,
                 connections,
                 handshakes: peers.length,
-                pending: Math.max(0, connections - peers.length),
+                pending,
+                maxPending: swarm.maxPending || null,
+                preferredReserve: swarm.preferredReserve || 0,
+                preferredQueued,
+                historyEntries: swarm._candidatePolicy ? Object.keys(swarm._candidatePolicy.entries).length : 0,
+                historyEvictions: swarm._candidatePolicy ? swarm._candidatePolicy.evictions : 0,
                 freeSlots: Math.max(0, swarm.size - connections),
                 reason
               },
@@ -18082,9 +18219,10 @@ var TorrentEngine = function () {
           engine._pulse = Number.MAX_SAFE_INTEGER;
         };
         engine.connect = function (addr, source) {
-          var added = swarm.add(addr);
+          var added = swarm.add(addr, source);
           if (added && swarm._peers[addr]) swarm._peers[addr].kaiSource = source || "external";
           discoveryTrace.offer(source || "external", !!added);
+          return added;
         };
         engine.disconnect = function (addr) {
           swarm.remove(addr);
@@ -18489,11 +18627,11 @@ var TV_TORRENT = (function () {
         if (batch >= PEER_RETRY_BATCH) return;
         if (swarm._peers[addr] || entry.tries >= PEER_RETRY_WAIT.length) return;
         if (t - entry.at < PEER_RETRY_WAIT[entry.tries]) return;
-        entry.tries++;
         entry.at = t;
+        if (engine.connect(addr, 'retry') === false) return;
+        entry.tries++;
         batch++;
         if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
-        engine.connect(addr, 'retry');
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();

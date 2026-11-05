@@ -538,3 +538,8 @@ Remote diagnostics include bounded queue estimates and first-block response timi
 Torrent remote logs also include a discovery funnel: DHT/tracker signals, new versus duplicate
 candidates, TCP/uTP and handshake results, queue/free-slot state, and actually productive peers
 by discovery route. Counts contain no peer addresses or tracker configuration URLs.
+
+Failed no-payload candidates have bounded retry cooldowns even when rediscovered. Productive
+peer hints have queue priority, with exploration turns for new candidates. Pending connections
+are limited separately from established peers:24 pending, including four reserved preferred
+slots, while the total limit remains55. Remote logs expose cooldown and reservation decisions.

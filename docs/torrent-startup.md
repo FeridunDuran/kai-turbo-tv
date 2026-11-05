@@ -486,3 +486,31 @@ are removed on engine destruction. Debugging adds no network requests or timers 
 connection policy.129 tests/build/ES5 pass. Node4 startup250ms and network1515ms fixtures pass;
 real loopback tests validate refusal/uTP/handshake counters and incoming payload attribution.
 TV must reload the service before these fields can be observed; live diagnosis remains pending.
+
+## Candidate cooldown and pending-slot reservation (2026-11-06)
+
+TV snapshots showed42-48 unfinished connections occupying the55-slot pool and hundreds of
+connect timeouts. A failed peer was removed from _peers and could immediately be re-offered
+by tracker/PEX, bypassing retry pacing. A separate bounded512-entry,30min per-swarm history
+now survives removal. Failed no-payload attempts wait15/45/120/300s before another offer is
+accepted; duplicate discovery and internal reconnect timers cannot shorten this wait. A paired
+TCP/uTP fallback remains one attempt sequence. Verified payload resets failure history.
+
+Candidate tiers prefer remembered hints/recent productive peers, then untried candidates,
+then failed retries. Repeatedly failing hints are demoted. One exploration turn in four
+prevents a long preferred queue starving new candidates. Retry bookkeeping counts actual
+accepted retries, not rejected cooldown offers.
+
+The55 total connection limit remains. Unfinished connections have a separate24-slot cap;
+four slots are reserved for preferred candidates (20 general pending attempts). A completed
+handshake or closed socket refills the queue asynchronously. Reserved capacity can intentionally
+remain idle while only general candidates wait; network.queue.reason distinguishes this from
+an accidentally undrained queue. Pending sockets are physically closed during removal/destroy.
+
+Logs add cooldownRejected/failureCooldowns, preferred/new/retryDials, pendingLimitHits,
+maxPending/preferredReserve/preferredQueued and history size/evictions.132 tests pass, including
+real loopback blackholes checking the reserved slot and refill after close, plus history expiry,
+bounds, re-offer suppression and exploration fairness. Node4 network1529ms/startup274ms pass.
+The limits are a bounded starting policy, not a proven optimum; compare first-piece time,
+productive peers and timeout attempts in the next TV trial. Per-swarm history does not survive
+engine destruction or TV restart. TV performance gain has not been measured.

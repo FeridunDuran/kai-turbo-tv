@@ -117,11 +117,11 @@ var TV_TORRENT = (function () {
         if (batch >= PEER_RETRY_BATCH) return;
         if (swarm._peers[addr] || entry.tries >= PEER_RETRY_WAIT.length) return;
         if (t - entry.at < PEER_RETRY_WAIT[entry.tries]) return;
-        entry.tries++;
         entry.at = t;
+        if (engine.connect(addr, 'retry') === false) return;
+        entry.tries++;
         batch++;
         if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
-        engine.connect(addr, 'retry');
       });
     }, 2500);
     if (timer && timer.unref) timer.unref();
