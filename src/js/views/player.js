@@ -128,7 +128,8 @@ function PlayerView(opts) {
   }
   function stopMedia() {
     clearStartup();
-    videoEl.removeAttribute('src');
+    if (videoEl.clearSource) videoEl.clearSource();
+    else videoEl.removeAttribute('src');
     videoEl.load();
   }
   function tryFallback() {

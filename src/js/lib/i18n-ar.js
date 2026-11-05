@@ -502,4 +502,7 @@ export const AR = {
   'Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.': 'اختر مصدرًا آخر. قد يكون الخادم بطيئًا أو يتطلب ترويسات لم تُرسل.',
   'Faixa de áudio {n} (idioma não informado)': 'المسار الصوتي {n} (اللغة غير محددة)',
   'Nenhuma faixa de áudio foi informada pela fonte.': 'لم يُبلغ هذا المصدر عن أي مسارات صوتية.',
+  "A fonte respondeu, mas o vídeo não pôde ser reproduzido.": "استجاب المصدر، لكن تعذّر تشغيل الفيديو.",
+  "O servidor informou um tipo de arquivo genérico. Isso não identifica o formato nem comprova um codec incompatível.": "أرسل الخادم نوع ملف عامًّا. هذا لا يحدد الصيغة ولا يثبت أن الترميز غير مدعوم.",
+  "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "النوع الذي أرسله الخادم ({type}) لا يؤكد ترميز الملف. قد تحتاج الصيغة إلى مشغّل آخر أو قد توجد مشكلة في المحتوى.",
 };

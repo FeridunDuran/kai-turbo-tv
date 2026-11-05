@@ -64,8 +64,10 @@ function fromStatus(p) {
   }
   if (s >= 200 && s < 300) {
     return {
-      title: t('A TV não reconhece o formato deste arquivo{type}.', { type: p.type ? ' (' + p.type + ')' : '' }),
-      hint: t(CODEC_HINT),
+      title: t('A fonte respondeu, mas o vídeo não pôde ser reproduzido.'),
+      hint: !p.type || /^application\/(?:octet-stream|binary)(?:;|$)/.test(p.type)
+        ? t('O servidor informou um tipo de arquivo genérico. Isso não identifica o formato nem comprova um codec incompatível.')
+        : t('O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.', { type: p.type }),
       codec: true,
     };
   }

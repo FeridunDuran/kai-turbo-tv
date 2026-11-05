@@ -326,7 +326,7 @@ installed and newest version and can update from there too.
 
 ## Known limitations
 
-- **Playback on TizenBrew** uses HLS.js for HLS streams when MediaSource is available;
+- **Playback on TizenBrew** uses HLS.js for HLS and DASH.js for MPEG-DASH streams when MediaSource is available;
   TizenBrew module pages do not have packaged-app AVPlay privileges. Other HTTP files
   keep using HTML video. Real PenguPlay VidFast vRapid/vBlaze streams were tested through
   the shipped proxy in desktop Chrome, including video/audio decoding, seek and source
@@ -372,3 +372,8 @@ Keep `REPO` in `src/static/loader.js` and `src/js/api/update.js` pointing to
 ## License
 
 [GPL-3.0](LICENSE), the same as the projects it is based on.
+
+MovieBoxProviderIN DASH links require the DASH player as well as the header proxy.
+A server type of `application/octet-stream` does not identify the media codec.
+The MovieBox HEVC/AAC DASH source was verified in desktop Chrome with the TV proxy
+code, including audio/video decoding. Q70T hardware verification remains pending.

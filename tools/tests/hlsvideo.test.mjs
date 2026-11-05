@@ -63,6 +63,16 @@ test('late library loading cannot reopen a replaced source', async () => {
   } finally { f.restore(); }
 });
 
+test('HLS is detected inside a generic TV proxy URL too', async () => {
+  const f = fixture();
+  try {
+    f.video.src = 'http://127.0.0.1:8097/proxy?u=' + encodeURIComponent('https://example.invalid/list.m3u8?token=example') + '&h=%7B%7D';
+    await Promise.resolve();
+    assert.equal(f.video.playbackEngine, 'hls.js');
+    assert.equal(f.instances[0].loads[0], f.video.src);
+  } finally { f.restore(); }
+});
+
 test('media recovery does not destroy the engine or reload the source', async () => {
   const f = fixture();
   try {

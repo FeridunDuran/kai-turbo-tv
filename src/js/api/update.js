@@ -12,7 +12,7 @@ export const BUILD = __KAI_BUILD__; // ISO time of this build
 const RAW = 'https://raw.githubusercontent.com/' + REPO + '/main/';
 const PURGE = 'https://purge.jsdelivr.net/gh/' + REPO + '/';
 // Everything TizenBrew fetches for this module.
-const FILES = ['package.json', 'dist/index.html', 'dist/loader.js', 'dist/app.js', 'dist/app.css', 'dist/remote-service.js', 'dist/player-service.js', 'dist/build.json', 'dist/vendor/hls.min.js'];
+const FILES = ['package.json', 'dist/index.html', 'dist/loader.js', 'dist/app.js', 'dist/app.css', 'dist/remote-service.js', 'dist/player-service.js', 'dist/build.json', 'dist/vendor/hls.min.js', 'dist/vendor/dash.all.min.js'];
 
 // { build, version, message, date } of the newest build on GitHub.
 export function latest() {

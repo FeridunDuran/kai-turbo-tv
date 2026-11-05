@@ -512,4 +512,7 @@ export const EN = {
   'Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.': 'Choose another source. The server may be slow or require request headers that were not sent.',
   'Faixa de áudio {n} (idioma não informado)': 'Audio track {n} (language not provided)',
   'Nenhuma faixa de áudio foi informada pela fonte.': 'No audio tracks were reported by this source.',
+  "A fonte respondeu, mas o vídeo não pôde ser reproduzido.": "The source responded, but the video could not be played.",
+  "O servidor informou um tipo de arquivo genérico. Isso não identifica o formato nem comprova um codec incompatível.": "The server reported a generic file type. This does not identify the format or prove that its codec is unsupported.",
+  "O tipo informado pelo servidor ({type}) não confirma o codec do arquivo. Pode faltar suporte ao formato ou haver um problema no conteúdo.": "The server-reported type ({type}) does not confirm the file codec. The format may need a different player, or the content may have a problem.",
 };
