@@ -533,7 +533,8 @@ function DetailsView(type, id, opts) {
       const label = torrent
         ? torrentOk ? 'Torrent · via TV' : 'Torrent player unavailable'
         : serverOk ? 'Via PC' : tvOk ? 'Via TV' : 'Direto · pode falhar';
-      tags.push(h('span.s-tag', { cls: torrent ? (torrentOk ? '' : 'warn') : serverOk || tvOk ? '' : 'warn', text: t(label) }));
+      const tagColor = torrent ? (torrentOk ? 'ok' : 'warn') : serverOk || tvOk ? 'ok' : 'warn';
+      tags.push(h('span.s-tag', { cls: tagColor, text: t(label) }));
     }
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
     streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));

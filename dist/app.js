@@ -11821,8 +11821,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("Não suportado na TV")
       }));else if (needs) {
         var label = torrent ? torrentOk ? "Torrent · via TV" : "Torrent player unavailable" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
+        var tagColor = torrent ? torrentOk ? "ok" : "warn" : serverOk || tvOk ? "ok" : "warn";
         tags.push(h("span.s-tag", {
-          cls: torrent ? torrentOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
+          cls: tagColor,
           text: t(label)
         }));
       } else tags.push(h("span.s-tag.ok", {
@@ -13018,7 +13019,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T11:45:57.511Z";
+  var BUILD = "2026-11-05T11:49:52.951Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js"];
