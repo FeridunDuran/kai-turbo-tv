@@ -181,9 +181,10 @@ var TV_TORRENT = (function () {
     this.last = Math.floor((file.offset + file.length - 1) / this.pieceLength);
     var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength));
     this.headerPieces = [];
-    if (/\.(mp4|m4v|mov)$/i.test(file.name) && slots >= 4) {
+    this.startupComplete = this.store.present.indexOf(this.first) >= 0;
+    if (slots >= 4 && /\.(mp4|m4v|mov|mkv|webm)$/i.test(file.name)) {
       this.headerPieces.push(this.first);
-      if (this.last !== this.first) this.headerPieces.push(this.last);
+      if (/\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
     }
     var windowSlots = Math.max(1, slots - this.headerPieces.length);
     this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, windowSlots - 2));
@@ -216,6 +217,7 @@ var TV_TORRENT = (function () {
       if (this.store.remove(index)) this.engine.release(index);
       return;
     }
+    if (index === this.first) this.startupComplete = true;
     var list = this.waiters[index];
     if (!list) return;
     delete this.waiters[index];
@@ -277,8 +279,10 @@ var TV_TORRENT = (function () {
     // Retain already cached pieces behind the reader, but never download them
     // ahead of the requested piece (e.g. an MP4 moov atom after a tail seek).
     this.selFrom = index;
-    this.selTo = to;
-    this.engine.select(index, to, 1, noop);
+    // Cold-start bandwidth must finish the first verified piece before read-ahead.
+    // Resume seeks continue to use the normal window after the header is delivered.
+    this.selTo = !this.startupComplete && index === this.first ? index : to;
+    this.engine.select(index, this.selTo, 1, noop);
     this._prioritize(index);
   };
 

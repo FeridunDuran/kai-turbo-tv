@@ -58,3 +58,17 @@ test('MP4 head and tail are prefetched together and remain cached across header 
  for(const index of [408,410,425,449]){s.ensureWindow(index,true);const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);assert.ok(retained.size*s.pieceLength<=48*1024*1024);}
  for(const size of [16384,1048576,16777216,33554432]){engine.torrent.pieceLength=size;const sample=new context.TV_TORRENT.Session(engine,{name:'episode.mp4',offset:0,length:size*100},0);sample.ensureWindow(50,true);const retained=new Set(sample.headerPieces);for(let i=sample.windowFrom;i<=sample.windowTo;i++)retained.add(i);assert.ok(retained.size*size<=48*1024*1024);}
 });
+
+
+test('cold MKV startup concentrates on the header and pins it across tail and resume seeks',()=>{
+ const selected=[],removed=[],store={present:[],remove(i){removed.push(i);return true;}},engine=new EventEmitter();
+ Object.assign(engine,{store:{store},torrent:{pieceLength:2097152},select:(a,b,p)=>selected.push([a,b,p]),deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const s=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:578*2097152,length:200*2097152},0);
+ assert.deepEqual(Array.from(s.headerPieces),[578]); // no speculative MKV tail
+ s.ensureWindow(578);assert.equal(s.selTo,578);assert.ok(selected.every(([a,b])=>a===578&&b===578));
+ store.present.push(578);s._pieceDone(578);assert.equal(s.startupComplete,true);
+ s.ensureWindow(777);s.ensureWindow(660);assert.ok(s.selTo>660);assert.deepEqual(removed,[]);
+ const warm=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:578*2097152,length:200*2097152},0);warm.ensureWindow(578);assert.ok(warm.selTo>578);
+});

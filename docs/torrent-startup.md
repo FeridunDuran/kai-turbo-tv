@@ -49,3 +49,23 @@ The four requested follow-ups are now implemented:
 Verification includes pipeline limits, recovery eligibility/retry bounds, active-request accounting, cancellation ownership, header pinning, parallel header selections, and cache-window slot budgets for 16 KiB–32 MiB pieces. The controlled loopback fixture in `tools/tests/fixtures/torrent-startup-node4.cjs` executes the built engine under Node 4.4.3 with a local synthetic seeder: it preloads only the first/last 4 MiB pieces of a 64 MiB synthetic MP4, serves HTTP head/tail/head requests, verifies payload, and confirms no repeated download of the first piece. This tests real TCP/BitTorrent/HTTP behavior without public media or a TV connection. It is not a TV startup benchmark.
 
 Next: compare cold-start Joy and ViETNAM runs on the actual TV at the same resume position. Diagnostics expose pinned header indices, active block count and critical retry count. Next-episode speculative prefetch remains outside this four-part package; warm-engine reuse is already implemented.
+
+## Cold MKV startup follow-up
+
+The latest TV trace took about 42 seconds including torrent setup and resuming at 480.5s.
+The 416 MB file used 2 MiB pieces: after the local URL was assigned, no payload arrived for
+about 14 seconds, and only 1.4 MB had arrived after 26 seconds. First video data appeared
+around 30 seconds; the resume seek completed afterward. This proves a slow initial swarm
+ramp, but does not by itself prove the bandwidth was spent on read-ahead.
+
+Following the playhead-first principle in [libtorrent streaming](https://libtorrent.org/streaming.html)
+and [WebTorrent selections](https://webtorrent.io/docs), cold sessions now restrict the initial
+read-ahead selection to the first requested piece until that piece is verified. MP4 tail
+prefetch remains enabled. Normal read-ahead resumes on subsequent reads. Already cached
+first pieces bypass this restriction, preserving warm-start behavior.
+
+MKV/WebM first pieces are now pinned across tail/index and resume seeks, within the existing
+48 MiB cache budget. Their tails are not speculatively fetched. A regression checks initial
+selection concentration, header retention, resumed read-ahead and warm-cache behavior.
+All 62 local tests pass; the Node 4.4.3 synthetic BitTorrent/HTTP fixture also passes.
+Actual TV startup improvement remains to be measured after restarting the updated service.
