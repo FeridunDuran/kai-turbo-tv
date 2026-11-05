@@ -50,6 +50,11 @@ Torrents play on the TV through its built-in engine and rolling RAM cache. Torre
 not use a PC server. If the TV engine is unavailable, torrent sources are hidden with a count per
 add-on.
 
+Torrent discovery uses UDP/DHT and HTTP trackers in parallel. Metadata may take up to 120 seconds;
+"ready" means the engine is installed, not that a particular swarm is reachable. Timeout errors
+distinguish no discovered peers, no completed handshake, and incomplete metadata. After a player
+service update, fully restart the TV so TizenBrew replaces the old service.
+
 The TV keeps a moving window of torrent pieces in memory instead of saving the whole video to
 internal storage. Seeking outside that window fetches the needed pieces again.
 

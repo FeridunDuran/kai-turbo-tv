@@ -12,7 +12,7 @@ var TV_TORRENT = (function () {
   var CACHE_BYTES = 48 * 1024 * 1024;
   var AHEAD_BYTES = 32 * 1024 * 1024;
   var BEHIND_BYTES = 8 * 1024 * 1024;
-  var OPEN_TIMEOUT_MS = 35000;
+  var OPEN_TIMEOUT_MS = 120000;
   var IDLE_MS = 3 * 60 * 1000;
   var STALL_MS = 75000;
   var MAX_SESSIONS = 2;
@@ -22,7 +22,11 @@ var TV_TORRENT = (function () {
     'udp://tracker.opentrackr.org:1337/announce',
     'udp://tracker.openbittorrent.com:80/announce',
     'udp://tracker.torrent.eu.org:451/announce',
-    'udp://exodus.desync.com:6969/announce'
+    'udp://exodus.desync.com:6969/announce',
+    // TCP alternatives: UDP/DHT can be blocked while HTTP still works.
+    'http://tracker.dler.com:6969/announce',
+    'http://tracker2.dler.org:80/announce',
+    'http://tracker.renfei.net:8080/announce'
   ];
 
   var VIDEO_RE = /\.(mp4|m4v|mkv|webm|avi|mov|mpg|mpeg|ts|m2ts|wmv|flv|ogv)$/i;
@@ -396,8 +400,19 @@ var TV_TORRENT = (function () {
     }
 
     var done = false;
+    var peerCount = 0;
+    var wireCount = 0;
+    engine.on('peer', function () { peerCount++; });
+    engine.on('wire', function () { wireCount++; });
+    (body.sources || []).forEach(function (source) {
+      var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
+      if (match) { peerCount++; engine.connect(match[1]); }
+    });
     var timer = setTimeout(function () {
-      finish(new Error('torrent metadata timeout'));
+      var reason = !peerCount && !wireCount ? 'no peers found; tracker/DHT discovery may be blocked or the torrent is inactive'
+        : !wireCount ? 'peers found but no BitTorrent handshake completed; peers may be unreachable'
+        : 'peers connected but did not supply complete metadata';
+      finish(new Error('torrent metadata timeout after 120 seconds: ' + reason));
     }, OPEN_TIMEOUT_MS);
 
     function finish(err, file, fileIdx) {

@@ -16,7 +16,7 @@ function client(outcome = 'success') {
             this.responseText = JSON.stringify({ proxy: 1, torrent: this.url.includes(':8097/') ? 1 : 0 });
             this.onload(); return;
           }
-          posts.push({ url: this.url, headers: this.headers, args: JSON.parse(body) });
+          posts.push({ url: this.url, headers: this.headers, timeout: this.timeout, args: JSON.parse(body) });
           if (outcome === 'timeout') return this.ontimeout();
           if (outcome === 'network') return this.onerror();
           this.status = 200;
@@ -39,6 +39,7 @@ test('ready TV service opens a torrent with a CORS-safelisted JSON body', async 
   assert.match(posts[0].headers['content-type'], /^text\/plain(?:;|$)/);
   assert.equal(posts[0].args.infoHash, 'a'.repeat(40));
   assert.equal(posts[0].args.fileIdx, 2);
+  assert.equal(posts[0].timeout, 130000);
   assert.equal(new URL(posts[0].url).port, '8097');
   assert.match(result.url, /\/torrent\//);
 });
@@ -48,7 +49,7 @@ test('actual disconnects and timeouts clear stale torrent readiness without retr
     const { api, posts } = client(outcome);
     await api.check();
     assert.equal(api.isTorrentAvailable(), true);
-    await assert.rejects(api.openTorrent({ infoHash: 'a'.repeat(40) }), outcome === 'timeout' ? /45 seconds/ : /unreachable/);
+    await assert.rejects(api.openTorrent({ infoHash: 'a'.repeat(40) }), outcome === 'timeout' ? /130 seconds/ : /unreachable/);
     assert.equal(api.isTorrentAvailable(), false);
     assert.equal(posts.length, 1);
   }

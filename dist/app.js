@@ -3159,7 +3159,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/qrcode-generator/qrcode.js
   var require_qrcode = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/qrcode-generator/qrcode.js": function ____Desktop_stremioKaiTizen_node_modules_qrcodeGenerator_qrcodeJs(exports, module) {
+    "node_modules/qrcode-generator/qrcode.js": function ____Desktop_stremioKaiTizen_node_modules_qrcodeGenerator_qrcodeJs(exports, module) {
       var qrcode2 = function () {
         var qrcode3 = function qrcode3(typeNumber, errorCorrectionLevel) {
           var PAD0 = 236;
@@ -7136,7 +7136,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return new Promise(function (resolve, reject) {
         var x = new XMLHttpRequest();
         x.open("POST", base + "/torrent/open", true);
-        x.timeout = 45e3;
+        x.timeout = 13e4;
         x.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
         x.onload = function () {
           var result;
@@ -7159,7 +7159,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return disconnected("TV torrent service unreachable");
         };
         x.ontimeout = function () {
-          return disconnected("TV torrent service did not respond within 45 seconds");
+          return disconnected("TV torrent service did not respond within 130 seconds");
         };
         x.send(JSON.stringify(args || {}));
       });
@@ -13258,7 +13258,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T12:37:52.390Z";
+  var BUILD = "2026-11-05T12:52:44.228Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
