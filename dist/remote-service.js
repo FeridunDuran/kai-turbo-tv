@@ -1,12 +1,16 @@
 var REMOTE_PAGE = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover\">\n<meta name=\"theme-color\" content=\"#0d0b14\">\n<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">\n<title>Stremio Kai remote</title>\n<style>\n  :root { --bg: #0d0b14; --card: #1b1826; --key: #262236; --text: #f2f0f8; --muted: #9a94ad; --accent: #7b5bf5; }\n  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }\n  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, -apple-system, \"Segoe UI\", Roboto, \"Noto Sans Arabic\", sans-serif; }\n  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }\n  header { width: 100%; max-width: 420px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }\n  .brand { font-size: 20px; } .brand b { color: #9d85ff; }\n  .status { font-size: 13px; color: var(--muted); }\n  .status.ok { color: #8fe3aa; } .status.bad { color: #ff8f8f; }\n  main { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 22px; }\n  button { font: inherit; color: var(--text); background: var(--key); border: 0; border-radius: 18px; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }\n  button:active { transform: scale(0.96); background: #332d47; }\n  .pad { position: relative; width: min(300px, 78vw); height: min(300px, 78vw); margin: 4px auto 0; border-radius: 50%; background: var(--card); }\n  .pad button { position: absolute; width: 33%; height: 33%; border-radius: 50%; background: transparent; font-size: 30px; color: #d8d2ea; }\n  .pad button:active { background: rgba(255,255,255,0.08); }\n  .pad .up { top: 2%; left: 33.5%; } .pad .down { bottom: 2%; left: 33.5%; }\n  .pad .left { left: 2%; top: 33.5%; } .pad .right { right: 2%; top: 33.5%; }\n  .pad .ok { left: 31%; top: 31%; width: 38%; height: 38%; background: var(--accent); color: #fff; font-size: 20px; font-weight: 700; }\n  .pad .ok:active { background: #6847e8; }\n  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }\n  .row.two { grid-template-columns: 1fr 1fr; }\n  .row button { height: 58px; font-size: 22px; }\n  .row button small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }\n  .type { display: flex; gap: 10px; }\n  .type input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--card); border: 2px solid #2d2840; border-radius: 16px; padding: 14px 16px; outline: none; }\n  .type input:focus { border-color: var(--accent); }\n  .type button { padding: 0 20px; background: var(--accent); font-weight: 700; }\n  .hint { color: var(--muted); font-size: 13px; text-align: center; margin: -10px 0 0; }\n  .tabs { width: 100%; max-width: 420px; display: flex; gap: 8px; margin-bottom: 18px; }\n  .tabs button { flex: 1; height: 42px; border-radius: 14px; font-weight: 600; }\n  .tabs button.on { background: var(--accent); }\n  body.locked .tabs { display: none; }\n  body.tab-browse main { display: none; }\n  .browse { width: 100%; max-width: 420px; }\n  .browse[hidden] { display: none; }\n  .browse h2 { font-size: 16px; margin: 6px 0 10px; }\n  .browse .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 14px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }\n  .browse .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }\n  .browse .grid .item { max-width: none; }\n  .browse .item { flex: 0 0 31%; max-width: 31%; min-width: 0; overflow: hidden; scroll-snap-align: start; background: none; padding: 0; border-radius: 12px; text-align: left; color: var(--text); }\n  .browse .item img, .browse .item .ph { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; background: var(--card); display: block; }\n  .browse .item .t { font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n  .browse .item .s { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n  .browse .item .bar { height: 3px; background: #2d2840; border-radius: 2px; margin-top: 4px; }\n  .browse .item .bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }\n  .browse .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }\n  .now { display: flex; gap: 14px; background: var(--card); border-radius: 18px; padding: 12px; }\n  .now[hidden] { display: none; }\n  .now img { width: 74px; height: 110px; object-fit: cover; border-radius: 10px; background: #2d2840; flex-shrink: 0; }\n  .np-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }\n  .np-title { font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n  .np-ep { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 17px; }\n  .np-info input[type=range] { width: 100%; margin: 10px 0 4px; accent-color: var(--accent); }\n  .np-times { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }\n  .np-times button { width: 46px; height: 34px; border-radius: 12px; font-size: 16px; }\n  .type .mic { padding: 0 16px; background: var(--key); font-size: 22px; }\n  .type .mic.on { background: #e5484d; }\n  .pin { display: none; flex-direction: column; gap: 14px; align-items: center; text-align: center; padding-top: 30px; }\n  .pin input { width: 200px; text-align: center; font-size: 34px; letter-spacing: 12px; color: var(--text); background: var(--card); border: 2px solid #2d2840; border-radius: 16px; padding: 12px; outline: none; }\n  .pin button { padding: 14px 40px; background: var(--accent); font-weight: 700; }\n  body.locked main { display: none; } body.locked .pin { display: flex; }\n</style>\n</head>\n<body class=\"locked\">\n<header>\n  <div class=\"brand\">Stremio <b>Kai</b> remote</div>\n  <div class=\"status\" id=\"status\">…</div>\n</header>\n\n<section class=\"pin\">\n  <div>Enter the PIN shown on the TV<br><small style=\"color:var(--muted)\">Settings → Phone remote</small></div>\n  <input id=\"pin\" inputmode=\"numeric\" maxlength=\"4\" autocomplete=\"off\" placeholder=\"····\">\n  <button id=\"pinGo\">Connect</button>\n</section>\n\n<nav class=\"tabs\" id=\"tabs\">\n  <button class=\"on\" data-tab=\"remote\">Remote</button>\n  <button data-tab=\"browse\">Browse</button>\n</nav>\n\n<section class=\"browse\" id=\"browse\" hidden></section>\n\n<main>\n  <section class=\"now\" id=\"now\" hidden>\n    <img id=\"npPoster\" alt=\"\">\n    <div class=\"np-info\">\n      <div class=\"np-title\" id=\"npTitle\"></div>\n      <div class=\"np-ep\" id=\"npEp\"></div>\n      <input type=\"range\" id=\"npSeek\" min=\"0\" max=\"100\" value=\"0\">\n      <div class=\"np-times\"><span id=\"npPos\">0:00</span><button id=\"npPlay\" data-key=\"10252\">⏯</button><span id=\"npDur\">0:00</span></div>\n    </div>\n  </section>\n  <div class=\"pad\">\n    <button class=\"up\" data-key=\"38\" aria-label=\"Up\">▲</button>\n    <button class=\"left\" data-key=\"37\" aria-label=\"Left\">◀</button>\n    <button class=\"ok\" data-key=\"13\">OK</button>\n    <button class=\"right\" data-key=\"39\" aria-label=\"Right\">▶</button>\n    <button class=\"down\" data-key=\"40\" aria-label=\"Down\">▼</button>\n  </div>\n  <div class=\"row\">\n    <button data-key=\"10009\">↩<small>Back</small></button>\n    <button data-key=\"10252\">⏯<small>Play / pause</small></button>\n    <button data-key=\"413\">⏹<small>Stop</small></button>\n  </div>\n  <div class=\"row two\">\n    <button data-key=\"412\">⏪<small>Rewind</small></button>\n    <button data-key=\"417\">⏩<small>Forward</small></button>\n  </div>\n  <div class=\"row\">\n    <button data-vol=\"down\">🔉<small>Volume −</small></button>\n    <button data-vol=\"mute\">🔇<small>Mute</small></button>\n    <button data-vol=\"up\">🔊<small>Volume +</small></button>\n  </div>\n  <div class=\"row two\">\n    <button data-key=\"428\">⏪ Aa<small>Subtitles earlier</small></button>\n    <button data-key=\"427\">Aa ⏩<small>Subtitles later</small></button>\n  </div>\n  <form class=\"type\" id=\"searchForm\">\n    <input id=\"query\" type=\"search\" placeholder=\"Search on the TV…\" autocomplete=\"off\" enterkeyhint=\"search\">\n    <button type=\"button\" id=\"mic\" class=\"mic\" aria-label=\"Voice search\" hidden>🎤</button>\n    <button type=\"submit\">Search</button>\n  </form>\n  <p class=\"hint\" id=\"voiceHint\">Speak your search: tap 🎤 on your phone's keyboard, or the mic button.</p>\n  <form class=\"type\" id=\"typeForm\">\n    <input id=\"text\" placeholder=\"Type on the TV…\" autocomplete=\"off\" enterkeyhint=\"send\">\n    <button type=\"submit\">Send</button>\n  </form>\n  <p class=\"hint\">Typing fills the selected text box on the TV (search, sign-in…).</p>\n</main>\n\n<script>\n(function () {\n  var pin = '';\n  var statusEl = document.getElementById('status');\n  function status(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); }\n\n  // The QR code on the TV opens this page with #pin=1234, so scanning connects straight away.\n  var m = location.hash.match(/pin=(\\d{4})/);\n  try { pin = (m && m[1]) || localStorage.getItem('kaiRemotePin') || ''; } catch (e) { pin = (m && m[1]) || ''; }\n  if (m) history.replaceState(null, '', location.pathname);\n\n  function check(p) {\n    return fetch('/api/check?pin=' + encodeURIComponent(p)).then(function (r) { return r.ok; }).catch(function () { return false; });\n  }\n  function unlock(p) {\n    return check(p).then(function (ok) {\n      if (!ok) { status('Wrong PIN', 'bad'); document.body.classList.add('locked'); return false; }\n      pin = p;\n      try { localStorage.setItem('kaiRemotePin', p); } catch (e) {}\n      document.body.classList.remove('locked');\n      status('Connected', 'ok');\n      refreshNow();\n      return true;\n    });\n  }\n  document.getElementById('pinGo').onclick = function () { unlock(document.getElementById('pin').value.trim()); };\n  document.getElementById('pin').onkeydown = function (e) { if (e.key === 'Enter') unlock(this.value.trim()); };\n\n  function post(url, body) {\n    return fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'pin=' + encodeURIComponent(pin), { method: 'POST', body: body || '' })\n      .then(function (r) {\n        if (r.status === 401) { status('PIN changed: enter it again', 'bad'); document.body.classList.add('locked'); }\n        else status('Connected', 'ok');\n      })\n      .catch(function () { status('TV not reachable', 'bad'); });\n  }\n\n  // Holding an arrow repeats it, like the real remote.\n  Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (b) {\n    var code = b.getAttribute('data-key');\n    var repeat = null, delay = null;\n    var arrow = /^3[7-9]$|^40$/.test(code);\n    function stop() { clearTimeout(delay); clearInterval(repeat); delay = repeat = null; }\n    b.addEventListener('pointerdown', function (e) {\n      e.preventDefault();\n      if (navigator.vibrate) navigator.vibrate(10);\n      post('/api/key?code=' + code);\n      if (arrow) delay = setTimeout(function () { repeat = setInterval(function () { post('/api/key?code=' + code); }, 140); }, 400);\n    });\n    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, stop); });\n  });\n\n  document.getElementById('typeForm').onsubmit = function (e) {\n    e.preventDefault();\n    var input = document.getElementById('text');\n    if (!input.value) return;\n    post('/api/text?submit=1', input.value).then(function () { input.value = ''; });\n  };\n\n  // ---- Browse: Continue watching, New episodes and Library from the TV; tap to open on the TV ----\n  var browseEl = document.getElementById('browse');\n  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {\n    b.onclick = function () {\n      var browse = b.getAttribute('data-tab') === 'browse';\n      document.body.classList.toggle('tab-browse', browse);\n      browseEl.hidden = !browse;\n      Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (x) { x.classList.toggle('on', x === b); });\n      if (browse) loadBrowse();\n    };\n  });\n  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }\n  function item(it) {\n    var b = el('button', 'item');\n    if (it.poster) { var im = el('img'); im.loading = 'lazy'; im.alt = ''; im.src = it.poster; b.appendChild(im); } else b.appendChild(el('div', 'ph'));\n    b.appendChild(el('div', 't', it.name));\n    if (it.sub) b.appendChild(el('div', 's', it.sub));\n    if (it.progress) { var bar = el('div', 'bar'), fill = el('i'); fill.style.width = Math.round(it.progress * 100) + '%'; bar.appendChild(fill); b.appendChild(bar); }\n    b.onclick = function () {\n      if (navigator.vibrate) navigator.vibrate(15);\n      post('/api/open?type=' + encodeURIComponent(it.type) + '&id=' + encodeURIComponent(it.id) + (it.video ? '&video=' + encodeURIComponent(it.video) : ''))\n        .then(function () { status('Opening on the TV…', 'ok'); });\n    };\n    return b;\n  }\n  function loadBrowse() {\n    fetch('/api/browse?pin=' + encodeURIComponent(pin)).then(function (r) { return r.json(); }).then(function (d) {\n      browseEl.innerHTML = '';\n      var labels = d.labels || {};\n      var any = false;\n      [['continueWatching', 'strip'], ['newEpisodes', 'strip'], ['library', 'grid']].forEach(function (sec) {\n        var list = d[sec[0]] || [];\n        if (!list.length) return;\n        any = true;\n        browseEl.appendChild(el('h2', '', labels[sec[0]] || sec[0]));\n        var box = el('div', sec[1]);\n        list.forEach(function (it) { box.appendChild(item(it)); });\n        browseEl.appendChild(box);\n      });\n      if (!any) browseEl.appendChild(el('div', 'empty', 'Nothing yet: open the app on the TV and sign in to your Stremio account.'));\n    }).catch(function () { status('TV not reachable', 'bad'); });\n  }\n\n  // Volume: the TV's own volume, through the TV.\n  Array.prototype.forEach.call(document.querySelectorAll('[data-vol]'), function (b) {\n    b.addEventListener('click', function () {\n      if (navigator.vibrate) navigator.vibrate(10);\n      fetch('/api/volume?dir=' + b.getAttribute('data-vol') + '&pin=' + encodeURIComponent(pin), { method: 'POST' })\n        .then(function (r) { return r.json(); })\n        .then(function (r) { if (r.ok) status('Connected', 'ok'); else status(/allow/.test(r.error || '') ? 'Allow the remote on the TV' : 'Volume not available', 'bad'); })\n        .catch(function () { status('TV not reachable', 'bad'); });\n    });\n  });\n\n  // Now playing: poster, title and a progress bar you can drag to jump.\n  var nowEl = document.getElementById('now'), seek = document.getElementById('npSeek'), dragging = false, lastPoster = '';\n  function fmt(sec) {\n    sec = Math.max(0, Math.floor(sec)); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;\n    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;\n  }\n  function refreshNow() {\n    if (!pin || document.body.classList.contains('locked') || document.hidden) return;\n    fetch('/api/state?pin=' + encodeURIComponent(pin)).then(function (r) { return r.json(); }).then(function (r) {\n      var p = r.playing;\n      nowEl.hidden = !p;\n      if (!p) return;\n      document.getElementById('npTitle').textContent = p.title;\n      document.getElementById('npEp').textContent = p.episode || '';\n      if (p.poster && p.poster !== lastPoster) { document.getElementById('npPoster').src = lastPoster = p.poster; }\n      document.getElementById('npDur').textContent = fmt(p.duration);\n      document.getElementById('npPlay').textContent = p.paused ? '▶' : '⏸';\n      if (!dragging && p.duration) {\n        // The TV reports every few seconds; move the bar along in between.\n        var pos = p.paused ? p.position : p.position + (Date.now() - r.at) / 1000;\n        seek.max = p.duration; seek.value = Math.min(pos, p.duration);\n        document.getElementById('npPos').textContent = fmt(pos);\n      }\n    }).catch(function () {});\n  }\n  seek.addEventListener('input', function () { dragging = true; document.getElementById('npPos').textContent = fmt(seek.value); });\n  seek.addEventListener('change', function () {\n    dragging = false;\n    post('/api/seek?to=' + Math.floor(seek.value));\n  });\n  setInterval(refreshNow, 2000);\n\n  // Search on the TV from anywhere in the app (typed, keyboard dictation, or the mic button).\n  var query = document.getElementById('query');\n  function search(q) {\n    q = (q || '').trim();\n    if (q.length < 2) return;\n    post('/api/search', q).then(function () { query.value = ''; status('Searching on the TV…', 'ok'); });\n  }\n  document.getElementById('searchForm').onsubmit = function (e) { e.preventDefault(); search(query.value); };\n\n  // The browser's speech recognition only runs on secure (https) pages; on the TV's local\n  // address the keyboard's own dictation button does the same job, so the hint stays.\n  var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;\n  if (!(Rec && window.isSecureContext)) document.getElementById('voiceHint').textContent = \"Speak your search: tap 🎤 on your phone's keyboard, then Search.\";\n  if (Rec && window.isSecureContext) {\n    var mic = document.getElementById('mic');\n    mic.hidden = false;\n    mic.onclick = function () {\n      var r = new Rec();\n      r.lang = navigator.language || 'en-US';\n      r.interimResults = false;\n      mic.classList.add('on');\n      r.onresult = function (e) { var q = e.results[0][0].transcript; query.value = q; search(q); };\n      r.onend = function () { mic.classList.remove('on'); };\n      r.onerror = function () { mic.classList.remove('on'); status('Mic not available: use the keyboard 🎤', 'bad'); };\n      r.start();\n    };\n  }\n\n  if (pin) unlock(pin); else status('Locked');\n})();\n</script>\n</body>\n</html>\n";
-// Phone remote: a TizenBrew service (Node.js 4 on the TV, so plain ES5).
+// Phone remote + header proxy: a TizenBrew service (Node.js 4 on the TV, so plain ES5).
 // - Serves the remote page to phones on the same Wi-Fi at http://<TV IP>:8095
 // - Phones send key presses and text, guarded by a 4-digit PIN shown in the app's Settings.
 // - The app on the TV long-polls /api/events from 127.0.0.1 and replays them as remote keys.
+// - /proxy fetches a stream on the TV and adds request headers (Referer, User-Agent, Cookie...)
+//   that the <video> element cannot send. Local only, so it is not an open proxy on the LAN.
 'use strict';
 
 var http = require('http');
+var https = require('https');
 var os = require('os');
+var urlLib = require('url');
 
 var PORT = 8095;
 var HOLD_MS = 25000; // long-poll hold time
@@ -49,6 +53,229 @@ function send(res, status, body, type) {
     'Cache-Control': 'no-store'
   });
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+// ---- Header proxy for the TV player ----
+// The <video> element cannot set Referer/User-Agent/Cookie. This service runs on the TV and
+// fetches the stream with those headers, so header-requiring links work without a PC.
+
+var PROXY_MAX_REDIRECTS = 5;
+var PROXY_TIMEOUT_MS = 30000;
+var MAX_PLAYLIST_BYTES = 4 * 1024 * 1024;
+var DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var HOP_HEADER = /^(host|connection|proxy-connection|content-length|transfer-encoding|upgrade|keep-alive|te|trailer)$/i;
+
+function hasHeader(headers, name) {
+  var lower = String(name).toLowerCase();
+  for (var key in headers) {
+    if (headers.hasOwnProperty(key) && String(key).toLowerCase() === lower) return true;
+  }
+  return false;
+}
+
+function jsonParam(value) {
+  if (Object.prototype.toString.call(value) === '[object Array]') value = value[0];
+  if (!value) return {};
+  try {
+    var parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// HLS playlists contain relative segment/variant URLs. They must be rewritten through the
+// proxy too, otherwise the player would request them from 127.0.0.1 without the headers.
+function isPlaylist(target, headers) {
+  var type = String((headers && headers['content-type']) || '').toLowerCase();
+  return type.indexOf('mpegurl') >= 0 || /\.m3u8(\?|#|$)/i.test(target);
+}
+
+function proxyLink(target, headers, extraResponseHeaders) {
+  var url = 'http://127.0.0.1:' + PORT + '/proxy?u=' + encodeURIComponent(target);
+  if (headers && Object.keys(headers).length) url += '&h=' + encodeURIComponent(JSON.stringify(headers));
+  if (extraResponseHeaders && Object.keys(extraResponseHeaders).length) {
+    url += '&r=' + encodeURIComponent(JSON.stringify(extraResponseHeaders));
+  }
+  return url;
+}
+
+function rewritePlaylist(text, playlistUrl, headers, extraResponseHeaders) {
+  var childHeaders = {};
+  for (var key in headers) {
+    if (!headers.hasOwnProperty(key)) continue;
+    if (/^(range|if-range|if-none-match|if-modified-since)$/i.test(key)) continue;
+    childHeaders[key] = headers[key];
+  }
+  function link(uri) {
+    if (!uri) return uri;
+    var absolute = urlLib.resolve(playlistUrl, uri);
+    if (!/^https?:\/\//i.test(absolute)) return uri;
+    return proxyLink(absolute, childHeaders, extraResponseHeaders);
+  }
+
+  var lines = String(text).split(/\r?\n/);
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.replace(/^\s+|\s+$/g, '');
+    if (!trimmed) {
+      out.push(line);
+    } else if (trimmed.charAt(0) === '#') {
+      // Keys, init segments, audio tracks and preload hints keep their URI in an attribute.
+      out.push(line.replace(/URI="([^"]+)"/g, function (all, uri) { return 'URI="' + link(uri) + '"'; }));
+    } else {
+      out.push(link(trimmed));
+    }
+  }
+  return out.join('\n');
+}
+
+function proxy(req, res, q) {
+  var target = q.u || q.url;
+  if (Object.prototype.toString.call(target) === '[object Array]') target = target[0];
+  if (typeof target !== 'string' || !/^https?:\/\//i.test(target)) {
+    return send(res, 400, 'invalid url', 'text/plain; charset=utf-8');
+  }
+
+  var source = jsonParam(q.h);
+  var extraResponseHeaders = jsonParam(q.r);
+  var headers = {};
+  var key;
+  for (key in source) {
+    if (!source.hasOwnProperty(key)) continue;
+    // Playlists are rewritten as text; ask upstream for the uncompressed body.
+    if (/^accept-encoding$/i.test(key)) continue;
+    if (HOP_HEADER.test(key) || !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(key)) continue;
+    var value = source[key];
+    if (value === null || value === undefined) continue;
+    value = String(value);
+    if (!value || /[\r\n]/.test(value)) continue;
+    headers[key] = value;
+  }
+  if (!hasHeader(headers, 'user-agent')) headers['User-Agent'] = DEFAULT_UA;
+  if (!hasHeader(headers, 'accept')) headers['Accept'] = '*/*';
+
+  // Seeking and resume need the player's Range/conditional headers passed through.
+  ['range', 'if-range', 'if-none-match', 'if-modified-since'].forEach(function (name) {
+    if (req.headers[name] && !hasHeader(headers, name)) headers[name] = req.headers[name];
+  });
+
+  fetchStream(req, res, target, headers, extraResponseHeaders, 0);
+}
+
+function fetchStream(req, res, target, headers, extraResponseHeaders, redirects) {
+  var parsed = urlLib.parse(target);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return send(res, 400, 'invalid protocol', 'text/plain; charset=utf-8');
+  }
+
+  var transport = parsed.protocol === 'https:' ? https : http;
+  var options = {
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: parsed.path || '/',
+    method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+    headers: headers,
+    // Node 4 on the TV has an old CA store; media links are not a trust boundary here.
+    rejectUnauthorized: false
+  };
+
+  var upstream;
+  try {
+    upstream = transport.request(options, function (upstreamRes) {
+      var status = upstreamRes.statusCode || 502;
+      if (status >= 300 && status < 400 && upstreamRes.headers.location && redirects < PROXY_MAX_REDIRECTS) {
+        upstreamRes.resume();
+        return fetchStream(req, res, urlLib.resolve(target, upstreamRes.headers.location), headers, extraResponseHeaders, redirects + 1);
+      }
+
+      var out = {};
+      ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition',
+        'cache-control', 'expires', 'last-modified', 'etag', 'date', 'content-encoding', 'vary'].forEach(function (name) {
+        if (upstreamRes.headers[name] !== undefined) out[name] = upstreamRes.headers[name];
+      });
+
+      // proxyHeaders.response from the add-on: safe headers only, never framing/body headers.
+      for (var key in extraResponseHeaders) {
+        if (!extraResponseHeaders.hasOwnProperty(key)) continue;
+        if (HOP_HEADER.test(key) || /^content-(length|range)$/i.test(key) || /^set-cookie$/i.test(key)) continue;
+        if (!/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(key)) continue;
+        var extraValue = String(extraResponseHeaders[key]);
+        if (!extraValue || /[\r\n]/.test(extraValue)) continue;
+        out[key] = extraValue;
+      }
+      out['Access-Control-Allow-Origin'] = '*';
+      out['Access-Control-Expose-Headers'] = 'Content-Length, Content-Range, Accept-Ranges';
+
+      var playlist = isPlaylist(target, upstreamRes.headers) && req.method !== 'HEAD' && !req.headers.range;
+      if (playlist) {
+        var chunks = [];
+        var size = 0;
+        var tooBig = false;
+        upstreamRes.on('data', function (chunk) {
+          if (tooBig) return;
+          size += chunk.length;
+          if (size > MAX_PLAYLIST_BYTES) {
+            tooBig = true;
+            chunks = [];
+            return;
+          }
+          chunks.push(chunk);
+        });
+        upstreamRes.on('error', function () {
+          try { res.destroy(); } catch (e) { /* already closed */ }
+        });
+        upstreamRes.on('end', function () {
+          if (tooBig) {
+            if (!res.headersSent) send(res, 502, 'proxy: playlist too large', 'text/plain; charset=utf-8');
+            return;
+          }
+          var body = rewritePlaylist(Buffer.concat(chunks).toString('utf8'), target, headers, extraResponseHeaders);
+          delete out['content-length'];
+          delete out['content-range'];
+          delete out['content-encoding'];
+          out['Content-Type'] = 'application/vnd.apple.mpegurl';
+          out['Content-Length'] = Buffer.byteLength(body, 'utf8');
+          try {
+            res.writeHead(status, out);
+          } catch (e) {
+            try { res.destroy(); } catch (e2) { /* already closed */ }
+            return;
+          }
+          res.end(body);
+        });
+        return;
+      }
+
+      try {
+        res.writeHead(status, out);
+      } catch (e) {
+        upstreamRes.resume();
+        try { res.destroy(); } catch (e2) { /* already closed */ }
+        return;
+      }
+      if (req.method === 'HEAD') res.end();
+      else upstreamRes.pipe(res);
+      upstreamRes.on('error', function () {
+        try { res.destroy(); } catch (e) { /* already closed */ }
+      });
+    });
+  } catch (e) {
+    return send(res, 502, 'proxy: ' + (e && e.message ? e.message : 'invalid request'), 'text/plain; charset=utf-8');
+  }
+
+  upstream.on('error', function (err) {
+    if (!res.headersSent) {
+      send(res, 502, 'proxy: ' + (err && err.message ? err.message : 'upstream error'), 'text/plain; charset=utf-8');
+    } else {
+      try { res.destroy(); } catch (e) { /* already closed */ }
+    }
+  });
+  // Only the connect/response wait, not the whole download: slow streams keep streaming.
+  upstream.setTimeout(PROXY_TIMEOUT_MS, function () { upstream.abort(); });
+  res.on('close', function () { upstream.abort(); });
+  upstream.end();
 }
 
 function push(ev) {
@@ -140,7 +367,7 @@ var server = http.createServer(function (req, res) {
 });
 
 function handle(req, res) {
-  var url = require('url').parse(req.url, true);
+  var url = urlLib.parse(req.url, true);
   var q = url.query;
 
   if (req.method === 'OPTIONS') return send(res, 204, '');
@@ -148,7 +375,11 @@ function handle(req, res) {
   // ---- TV side (app on the same TV only) ----
   if (url.pathname === '/api/info') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
-    return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 1 });
+    return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 2, proxy: 1 });
+  }
+  if (url.pathname === '/proxy') {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    return proxy(req, res, q);
   }
   if (url.pathname === '/api/events') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });

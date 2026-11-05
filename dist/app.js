@@ -58,14 +58,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/global-this.js": function node_modules_coreJs_internals_globalThisJs(exports, module) {
       "use strict";
 
-      var check3 = function check3(it) {
+      var check4 = function check4(it) {
         return it && it.Math === Math && it;
       };
       module.exports =
       // eslint-disable-next-line es/no-global-this -- safe
-      check3((typeof globalThis === "undefined" ? "undefined" : _typeof(globalThis)) == "object" && globalThis) || check3((typeof window === "undefined" ? "undefined" : _typeof(window)) == "object" && window) ||
+      check4((typeof globalThis === "undefined" ? "undefined" : _typeof(globalThis)) == "object" && globalThis) || check4((typeof window === "undefined" ? "undefined" : _typeof(window)) == "object" && window) ||
       // eslint-disable-next-line no-restricted-globals -- safe
-      check3((typeof self === "undefined" ? "undefined" : _typeof(self)) == "object" && self) || check3((typeof global === "undefined" ? "undefined" : _typeof(global)) == "object" && global) || check3(_typeof(exports) == "object" && exports) ||
+      check4((typeof self === "undefined" ? "undefined" : _typeof(self)) == "object" && self) || check4((typeof global === "undefined" ? "undefined" : _typeof(global)) == "object" && global) || check4(_typeof(exports) == "object" && exports) ||
       // eslint-disable-next-line no-new-func -- fallback
       /* @__PURE__ */
       function () {
@@ -4951,6 +4951,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Ocultar da tela inicial": "Hide from home screen",
     "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} torrents hidden (need the PC server)",
     "Via PC": "Via PC",
+    "Via TV": "Via TV",
     "Precisa do PC": "Needs the PC",
     "Direto · pode falhar": "Direct · may fail",
     "Ordenar": "Sort",
@@ -5002,6 +5003,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Buscando fontes nos addons...": "Searching add-ons for sources...",
     "Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.": "No stream add-on installed (e.g. Torrentio). Install one in your Stremio account.",
     "Servidor do PC não conectado: só links diretos": "PC server not connected: direct links only",
+    "Sem servidor do PC: links diretos e proxy da TV": "No PC server: direct links and the TV proxy",
     "{n} addon(s) ainda carregando": "{n} add-on(s) still loading",
     "{n} fontes": "{n} sources",
     "Mostrar fontes de": "Show sources from",
@@ -5400,6 +5402,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Nenhum addon com busca instalado.": "لا توجد إضافة بحث مثبّتة.",
     'Nada encontrado para "{q}".': 'لا توجد نتائج لـ "{q}".',
     "Tudo": "الكل",
+    "Fileiras da tela inicial": "صفوف الشاشة الرئيسية",
+    "Ordem e quais catálogos aparecem (só neste perfil)": "الترتيب والكتالوجات الظاهرة (هذا الملف فقط)",
+    "Oculta": "مخفي",
+    "Restaurar ordem dos addons": "استعادة ترتيب الإضافات",
+    "Mostra todas as fileiras de novo": "يعرض كل الصفوف مرة أخرى",
+    "Ordem restaurada": "تمت استعادة الترتيب",
+    "Mover para cima": "نقل لأعلى",
+    "Mover para baixo": "نقل لأسفل",
+    "Mover para o topo": "نقل إلى الأعلى",
+    "Mover para o fim": "نقل إلى الآخر",
+    "Mostrar na tela inicial": "إظهار في الشاشة الرئيسية",
+    "Ocultar da tela inicial": "إخفاء من الشاشة الرئيسية",
+    "Ordenar": "ترتيب",
+    "Ordenar: {name}": "ترتيب: {name}",
+    "Carregando detalhes {done}/{total}...": "جارٍ تحميل التفاصيل {done}/{total}...",
     "Sua biblioteca está vazia.": "مكتبتك فارغة.",
     "Entre na sua conta em Ajustes para ver a biblioteca.": "سجّل الدخول إلى حسابك من الإعدادات لعرض مكتبتك.",
     "Carregando biblioteca...": "جارٍ تحميل المكتبة...",
@@ -5438,6 +5455,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Buscando fontes nos addons...": "جارٍ البحث عن مصادر في الإضافات...",
     "Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.": "لا توجد إضافة بث مثبّتة (مثل Torrentio). ثبّت واحدة من حساب Stremio.",
     "Servidor do PC não conectado: só links diretos": "خادم الكمبيوتر غير متصل: الروابط المباشرة فقط",
+    "Sem servidor do PC: links diretos e proxy da TV": "دون خادم الكمبيوتر: روابط مباشرة ووسيط التلفاز",
+    "{name}: {n} fontes ocultas (precisam do servidor do PC)": "{name}: {n} تورنت مخفي (يحتاج خادم الكمبيوتر)",
     "{n} addon(s) ainda carregando": "{n} إضافة لا تزال قيد التحميل",
     "{n} fontes": "{n} مصادر",
     "Mostrar fontes de": "عرض المصادر من",
@@ -5445,7 +5464,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Não suportado na TV": "غير مدعوم على التلفاز",
     "Torrent · via PC": "تورنت · عبر الكمبيوتر",
     "Torrent · precisa do PC": "تورنت · يحتاج الكمبيوتر",
+    "Via TV": "عبر التلفاز",
     "Direto": "مباشر",
+    "Direto · pode falhar": "مباشر · قد يفشل",
     "Esse tipo de fonte não abre na TV.": "هذا النوع من المصادر لا يعمل على التلفاز.",
     "Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.": "التورنت يحتاج إلى تشغيل stremio-service على الكمبيوتر. أعدّه من الإعدادات.",
     "Continuar de onde parou?": "المتابعة من حيث توقفت؟",
@@ -6843,8 +6864,84 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/api/server.js
+  // src/js/api/tvproxy.js
+  var PORT = 8095;
+  var BASE = "http://127.0.0.1:" + PORT;
+  var TTL_MS = 3e4;
   var status = {
+    ok: false,
+    checkedAt: 0
+  };
+  function request2(url2, timeout) {
+    return new Promise(function (resolve, reject) {
+      var x = new XMLHttpRequest();
+      x.open("GET", url2, true);
+      x.timeout = timeout;
+      x.onload = function () {
+        try {
+          resolve(x.status === 200 ? JSON.parse(x.responseText) : null);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      x.onerror = x.ontimeout = function () {
+        return reject(new Error("TV proxy unreachable"));
+      };
+      x.send();
+    });
+  }
+  function cleanHeaders(headers) {
+    if (!headers || _typeof(headers) !== "object") return null;
+    var out = {};
+    Object.keys(headers).forEach(function (name) {
+      if (!name || /^(host|connection|content-length|transfer-encoding|upgrade|keep-alive)$/i.test(name)) return;
+      var value = headers[name];
+      if (value === null || value === void 0) return;
+      var text = String(value);
+      if (!text) return;
+      out[name] = text;
+    });
+    return Object.keys(out).length ? out : null;
+  }
+  function check() {
+    if (status.ok && Date.now() - status.checkedAt < TTL_MS) return Promise.resolve(status);
+    return request2(BASE + "/api/info", 2500).then(function (r) {
+      status = {
+        ok: !!(r && r.proxy),
+        checkedAt: Date.now()
+      };
+      return status;
+    }).catch(function () {
+      status = {
+        ok: false,
+        checkedAt: Date.now()
+      };
+      return status;
+    });
+  }
+  function ensure() {
+    if (status.ok) return Promise.resolve(true);
+    return check().then(function (s) {
+      return s.ok;
+    });
+  }
+  function isAvailable() {
+    return status.ok;
+  }
+  function proxyUrl(streamUrl, requestHeaders, responseHeaders) {
+    if (!status.ok) return null;
+    var request4 = cleanHeaders(requestHeaders);
+    if (!request4) return null;
+    var response = cleanHeaders(responseHeaders);
+    var url2 = BASE + "/proxy?u=" + encodeURIComponent(streamUrl);
+    url2 += "&h=" + encodeURIComponent(JSON.stringify(request4));
+    if (response) url2 += "&r=" + encodeURIComponent(JSON.stringify(response));
+    log.info("TV proxy", streamUrl);
+    return url2;
+  }
+
+  // src/js/api/server.js
+  var status2 = {
     ok: false,
     checkedAt: 0,
     url: ""
@@ -6856,41 +6953,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!/:\d+/.test(u.replace(/^https?:\/\//, ""))) u = u.replace(/\/$/, "") + ":11470";
     return u.replace(/\/$/, "") + "/";
   }
-  function check(urlOverride) {
+  function check2(urlOverride) {
     var u = urlOverride || baseUrl();
     if (!u) {
-      status = {
+      status2 = {
         ok: false,
         checkedAt: Date.now(),
         url: ""
       };
-      return Promise.resolve(status);
+      return Promise.resolve(status2);
     }
     return getJSON(u + "settings", {
       timeout: 4e3,
       quiet: true
     }).then(function (r) {
-      status = {
+      status2 = {
         ok: true,
         checkedAt: Date.now(),
         url: u,
         version: r && r.values && r.values.serverVersion
       };
-      return status;
+      return status2;
     }).catch(function () {
-      status = {
+      status2 = {
         ok: false,
         checkedAt: Date.now(),
         url: u
       };
-      return status;
+      return status2;
     });
   }
-  function isAvailable() {
-    return status.ok && status.url === baseUrl();
+  function isAvailable2() {
+    return status2.ok && status2.url === baseUrl();
   }
   function lastStatus() {
-    return status;
+    return status2;
   }
   function scan(onProgress) {
     return getTvIp().then(function (ip) {
@@ -6986,7 +7083,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return torrentUrl(base, infoHash, hasIdx ? fileIdx : r && r.guessedFileIdx, body.peerSearch ? body.peerSearch.sources : []);
     });
   }
-  function proxyUrl(base, streamUrl, reqHeaders, resHeaders) {
+  function proxyUrl2(base, streamUrl, reqHeaders, resHeaders) {
     var m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
     if (!m) return streamUrl;
     var parts = ["d=" + encodeURIComponent(m[1])];
@@ -6999,7 +7096,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return base + "proxy/" + parts.join("&") + (m[2] || "/") + (m[3] || "");
   }
   function corsProxyUrl(url2) {
-    var base = isAvailable() ? baseUrl() : "";
+    var base = isAvailable2() ? baseUrl() : "";
     var m = url2.match(/^(https?:\/\/[^/?#]+)(.*)$/);
     if (!base || !m) return null;
     return base + "proxy/d=" + encodeURIComponent(m[1]) + "&r=" + encodeURIComponent("Access-Control-Allow-Origin:*") + (m[2] || "/");
@@ -7052,10 +7149,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       var ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
-      if (ph && base && needsHeaders(stream)) {
-        return Promise.resolve({
-          url: proxyUrl(base, stream.url, ph.request, ph.response),
-          viaServer: true
+      if (ph && needsHeaders(stream)) {
+        if (isAvailable2()) {
+          return Promise.resolve({
+            url: proxyUrl2(base, stream.url, ph.request, ph.response),
+            viaServer: true
+          });
+        }
+        return ensure().then(function (ok) {
+          var tvUrl = ok ? proxyUrl(stream.url, ph.request, ph.response) : null;
+          if (tvUrl) return {
+            url: tvUrl,
+            viaServer: false,
+            viaTvProxy: true
+          };
+          return {
+            url: stream.url,
+            viaServer: false
+          };
         });
       }
       return Promise.resolve({
@@ -8607,12 +8718,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/phone.js
   var import_qrcode_generator = __toESM(require_qrcode(), 1);
-  var PORT = 8095;
-  var BASE = "http://127.0.0.1:" + PORT;
+  var PORT2 = 8095;
+  var BASE2 = "http://127.0.0.1:" + PORT2;
   var ENTER = 13;
   var last = 0;
   var started = false;
-  function request2(url2, timeout) {
+  function request3(url2, timeout) {
     return new Promise(function (resolve, reject) {
       var x = new XMLHttpRequest();
       x.open("GET", url2);
@@ -8651,13 +8762,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function nowPlaying(state) {
     var x = new XMLHttpRequest();
-    x.open("POST", BASE + "/api/state");
+    x.open("POST", BASE2 + "/api/state");
     x.onerror = function () {};
     x.send(JSON.stringify(state || null));
   }
   function browse(data) {
     var x = new XMLHttpRequest();
-    x.open("POST", BASE + "/api/browse");
+    x.open("POST", BASE2 + "/api/browse");
     x.onerror = function () {};
     x.send(JSON.stringify(data));
   }
@@ -8678,7 +8789,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function poll(wait) {
     setTimeout(function () {
-      request2(BASE + "/api/events?since=" + last, 35e3).then(function (r) {
+      request3(BASE2 + "/api/events?since=" + last, 35e3).then(function (r) {
         if (r) {
           (r.events || []).forEach(handle);
           last = r.last || last;
@@ -8715,11 +8826,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function start() {
     if (started) return;
     started = true;
-    request2(BASE + "/api/info", 3e3).then(function (r) {
+    request3(BASE2 + "/api/info", 3e3).then(function (r) {
       if (r) last = r.last || 0;
     }).catch(function () {
       setTimeout(function () {
-        return request2(BASE + "/api/info", 4e3).catch(function () {
+        return request3(BASE2 + "/api/info", 4e3).catch(function () {
           return startService();
         });
       }, 15e3);
@@ -8729,7 +8840,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function info() {
     var get2 = function get2() {
-      return request2(BASE + "/api/info", 4e3).then(function (r) {
+      return request3(BASE2 + "/api/info", 4e3).then(function (r) {
         return r && r.ip ? {
           ip: r.ip,
           port: r.port,
@@ -8971,7 +9082,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     var tracksPromise = null;
     function loadEmbeddedTracks() {
-      if (!isAvailable()) return Promise.resolve(null);
+      if (!isAvailable2()) return Promise.resolve(null);
       if (!tracksPromise) {
         var forUrl = mediaUrl;
         tracksPromise = tracks(mediaUrl).then(function (tracks2) {
@@ -9038,7 +9149,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     }
     function scheduleAudioPick() {
-      if (!(settings2.audioLangs || []).length || !isAvailable()) return;
+      if (!(settings2.audioLangs || []).length || !isAvailable2()) return;
       setTimeout(function () {
         if (alive && hasPlayed) loadEmbeddedTracks().then(function () {
           return autoPick();
@@ -9208,7 +9319,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         start3();
         return;
       }
-      if (!triedTranscode && isAvailable()) {
+      if (!triedTranscode && isAvailable2()) {
         fail(t("A TV não conseguiu tocar este arquivo diretamente."), true);
       } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."));
     });
@@ -9692,7 +9803,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function withTracks(open) {
-      if (embedded || !isAvailable()) return open();
+      if (embedded || !isAvailable2()) return open();
       toast(t("Lendo as faixas do arquivo..."), 2500);
       loadEmbeddedTracks().then(function () {
         return alive && open();
@@ -9725,7 +9836,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       menu(t("Áudio"), list2, {
-        empty: isAvailable() ? t("Só uma faixa de áudio.") : t("Para listar as faixas, conecte o servidor do PC em Ajustes."),
+        empty: isAvailable2() ? t("Só uma faixa de áudio.") : t("Para listar as faixas, conecte o servidor do PC em Ajustes."),
         onPick: function onPick(i) {
           return selectEmbeddedAudio(i);
         }
@@ -9852,7 +9963,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onPick: function onPick(i) {
           var s = opts.streams[i];
           if (!s || s === stream) return;
-          if (isTorrent(s) && !isAvailable()) return toast(t("Essa fonte precisa do servidor do PC."));
+          if (isTorrent(s) && !isAvailable2()) return toast(t("Essa fonte precisa do servidor do PC."));
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
@@ -9877,7 +9988,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var match = group ? list2.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group;
         }) : null;
-        if (match && (!isTorrent(match) || isAvailable())) {
+        if (match && (!isTorrent(match) || isAvailable2())) {
           video = nv;
           stream = match;
           opts.streams = list2;
@@ -10676,7 +10787,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var pendingCount = srcs.length;
       var all2 = [];
       var autoFocused = null;
-      var serverOk = isAvailable();
+      var serverOk = isAvailable2();
+      var tvOk = isAvailable();
       var smartActive = !!smart;
       var smartTimer = smartActive ? setTimeout(function () {
         return decideSmart(true);
@@ -10691,7 +10803,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           (g.streams || []).forEach(function (s, si) {
             if (!isPlayableType(s)) return;
             if (isTorrent(s) && !serverOk) return;
-            var needs = needsServer(s);
+            var needs = isTorrent(s) || needsHeaders(s) && !(serverOk || tvOk);
             var badges = streamBadges(s);
             var warn = badges.some(function (b) {
               return b.warn;
@@ -10721,7 +10833,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return addonRank(g.addon) === 0 && !g.done;
         });
         var best = list3[0];
-        var clean = best && !needsServer(best) && !streamBadges(best).some(function (b) {
+        var needsProxy = best && (isTorrent(best) || needsHeaders(best) && !(serverOk || tvOk));
+        var clean = best && !needsProxy && !streamBadges(best).some(function (b) {
           return b.warn;
         });
         if (!best) {
@@ -10735,13 +10848,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         stopSmart();
         play(video, best, all2, list3.slice(1, 1 + SMART_FALLBACKS));
       }
-      function status2() {
+      function status3() {
         if (smartActive) {
           sub.textContent = t("Escolha inteligente: procurando a melhor fonte...") + "  ·  " + t("aperte uma seta para escolher você");
           barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
           return;
         }
-        var srv = serverOk ? t("Servidor do PC conectado") : t("Servidor do PC não conectado: só links diretos");
+        var srv = serverOk ? t("Servidor do PC conectado") : tvOk ? t("Sem servidor do PC: links diretos e proxy da TV") : t("Servidor do PC não conectado: só links diretos");
         sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
         }) : "  ·  " + t("{n} fontes", {
@@ -10763,7 +10876,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return g.el.style.display = filter === "all" || filter === g.addon.transportUrl ? "" : "none";
         });
         list2.scrollTop = 0;
-        status2();
+        status3();
         var first = firstVisibleItem();
         if (first) focus(first);
       }
@@ -10792,11 +10905,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       }
-      status2();
-      (serverOk ? Promise.resolve() : check().then(function (r) {
+      status3();
+      Promise.all([serverOk ? Promise.resolve() : check2().then(function (r) {
         return serverOk = r.ok;
-      })).then(function () {
-        status2();
+      }), tvOk ? Promise.resolve() : check().then(function (r) {
+        return tvOk = r.ok;
+      })]).then(function () {
+        status3();
         return fetchStreams(meta.type, video.id, function (addon, streams) {
           if (!alive || streamsVideo !== video) return;
           pendingCount--;
@@ -10813,7 +10928,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             g.streams = shown;
             shown.forEach(function (s) {
               all2.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all2));
+              g.el.appendChild(streamItem(s, video, serverOk, tvOk, all2));
             });
             if (hidden) g.el.appendChild(h("div.loading-line", {
               text: t("{name}: {n} fontes ocultas (precisam do servidor do PC)", {
@@ -10835,12 +10950,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               text: t("Nenhuma fonte encontrada.")
             }));
           }
-          status2();
+          status3();
           decideSmart(false);
         });
       }).catch(function () {});
     }
-    function streamItem(s, video, serverOk, all2) {
+    function streamItem(s, video, serverOk, tvOk, all2) {
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var torrent = isTorrent(s);
@@ -10849,9 +10964,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
       }));else if (needs) {
-        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : "Direto · pode falhar";
+        var label = torrent ? serverOk ? "Torrent · via PC" : "Torrent · precisa do PC" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
         tags.push(h("span.s-tag", {
-          cls: serverOk ? "" : "warn",
+          cls: torrent ? serverOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
           text: t(label)
         }));
       } else tags.push(h("span.s-tag.ok", {
@@ -11076,12 +11191,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": ""
     });
     var grid = h("div.grid");
-    var status2 = h("div.grid-status");
+    var status3 = h("div.grid-status");
     scroller.appendChild(h("div.row-title.catalog-title", {
       text: catalogTitle(entry)
     }));
     scroller.appendChild(grid);
-    scroller.appendChild(status2);
+    scroller.appendChild(status3);
     el.appendChild(scroller);
     var paging = canPage(entry);
     var seen = {};
@@ -11107,8 +11222,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function more() {
       if (loading || done) return;
       loading = true;
-      clear(status2);
-      status2.appendChild(spinnerLine(t("Carregando...")));
+      clear(status3);
+      status3.appendChild(spinnerLine(t("Carregando...")));
       var before = count;
       fetchCatalog(entry, count ? {
         skip: count
@@ -11119,8 +11234,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         done = true;
       }).then(function () {
         loading = false;
-        clear(status2);
-        if (!count) status2.appendChild(h("div.hint", {
+        clear(status3);
+        if (!count) status3.appendChild(h("div.hint", {
           text: t("Nada por aqui.")
         }));
       });
@@ -11888,10 +12003,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     });
     var grid = h("div.grid");
-    var status2 = h("div.hint");
+    var status3 = h("div.hint");
     scroller.appendChild(bar);
     scroller.appendChild(filters);
-    scroller.appendChild(status2);
+    scroller.appendChild(status3);
     scroller.appendChild(grid);
     el.appendChild(scroller);
     var filter = "all";
@@ -11970,11 +12085,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function renderStatus() {
-      status2.textContent = fetching ? t("Carregando detalhes {done}/{total}...", {
+      status3.textContent = fetching ? t("Carregando detalhes {done}/{total}...", {
         done: fetching.done,
         total: fetching.total
       }) : "";
-      status2.style.display = fetching ? "" : "none";
+      status3.style.display = fetching ? "" : "none";
     }
     function renderFilters() {
       clear(filters);
@@ -12047,7 +12162,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T09:52:42.757Z";
+  var BUILD = "2026-11-05T10:19:27.461Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
@@ -12072,7 +12187,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
     });
   }
-  function check2() {
+  function check3() {
     return latest().then(function (info2) {
       saveSettings({
         lastUpdateCheck: Date.now()
@@ -12252,13 +12367,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     light: "#4fc27a",
     pale: "#b6e8c8"
   }];
-  var BASE2 = THEMES[0];
+  var BASE3 = THEMES[0];
   function rgb(hex) {
     var n = parseInt(hex.slice(1), 16);
     return [n >> 16 & 255, n >> 8 & 255, n & 255].join(",");
   }
   function recolor(css, th) {
-    var swap = [[BASE2.main, th.main], [BASE2.light, th.light], [BASE2.pale, th.pale], ["rgba(" + rgb(BASE2.main) + ",", "rgba(" + rgb(th.main) + ","], ["rgba(" + rgb(BASE2.light) + ",", "rgba(" + rgb(th.light) + ","], ["#b9a8ff", th.pale]];
+    var swap = [[BASE3.main, th.main], [BASE3.light, th.light], [BASE3.pale, th.pale], ["rgba(" + rgb(BASE3.main) + ",", "rgba(" + rgb(th.main) + ","], ["rgba(" + rgb(BASE3.light) + ",", "rgba(" + rgb(th.light) + ","], ["#b9a8ff", th.pale]];
     swap.forEach(function (p) {
       css = css.split(p[0]).join(p[1]).split(p[0].toUpperCase()).join(p[1]);
     });
@@ -12270,7 +12385,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var th = THEMES.find(function (x2) {
       return x2.id === id;
     });
-    if (!th || th === BASE2) return;
+    if (!th || th === BASE3) return;
     var x = new XMLHttpRequest();
     x.open("GET", (window.__KAI_BASE__ || "") + "app.css");
     x.onload = function () {
@@ -12441,7 +12556,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function checkForUpdate() {
       toast(t("Procurando atualização..."));
-      check2().then(function (info2) {
+      check3().then(function (info2) {
         if (!info2) return toast(t("Você já tem a versão mais nova."));
         confirmDialog(t("Atualização disponível ({date}): {msg}", {
           date: shortDate(info2.date),
@@ -12695,7 +12810,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         saveSettings({
           serverUrl: v.trim()
         });
-        check().then(function (r) {
+        check2().then(function (r) {
           toast(r.ok ? t("Servidor conectado") : t("Servidor não respondeu em {url}", {
             url: baseUrl()
           }));
@@ -12719,7 +12834,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           saveSettings({
             serverUrl: ip
           });
-          return check().then(function () {
+          return check2().then(function () {
             toast(t("Servidor encontrado em {ip}", {
               ip: ip
             }));
@@ -12732,7 +12847,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }));
       body.appendChild(row(t("Testar conexão"), "", "", function () {
-        return check().then(function (r) {
+        return check2().then(function (r) {
           toast(r.ok ? t("Servidor OK") + (r.version ? " (v" + r.version + ")" : "") : t("Sem resposta de {url}", {
             url: baseUrl() || "-"
           }));
@@ -13063,7 +13178,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return {
       el: el,
       onShow: function onShow() {
-        check().then(function () {
+        check2().then(function () {
           return render();
         });
       },
@@ -13492,36 +13607,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       card2.appendChild(h("h1", {
         text: t("Servidor de torrents no PC")
       }));
-      var status2 = h("p", {
-        text: isAvailable() ? t("Servidor conectado em {url}. Torrents liberados.", {
+      var status3 = h("p", {
+        text: isAvailable2() ? t("Servidor conectado em {url}. Torrents liberados.", {
           url: baseUrl()
         }) : t("Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.")
       });
-      card2.appendChild(status2);
+      card2.appendChild(status3);
       card2.appendChild(h("div.actions", {
         "data-group": ""
       }, [btn(t("Procurar na rede"), true, function () {
-        status2.textContent = t("Procurando o servidor na rede...");
+        status3.textContent = t("Procurando o servidor na rede...");
         scan(function (done, total) {
-          return status2.textContent = t("Procurando o servidor na rede...") + " " + Math.round(done / total * 100) + "%";
+          return status3.textContent = t("Procurando o servidor na rede...") + " " + Math.round(done / total * 100) + "%";
         }).then(function (ip) {
           if (!ip) {
-            status2.textContent = t("Nenhum servidor encontrado. Você pode configurar depois em Ajustes.");
+            status3.textContent = t("Nenhum servidor encontrado. Você pode configurar depois em Ajustes.");
             return;
           }
           saveSettings({
             serverUrl: ip
           });
-          return check().then(function () {
-            status2.textContent = t("Servidor encontrado em {ip}", {
+          return check2().then(function () {
+            status3.textContent = t("Servidor encontrado em {ip}", {
               ip: ip
             }) + "!";
             toast(t("Servidor do PC conectado"));
           });
         }).catch(function () {
-          return status2.textContent = t("Não foi possível procurar. Configure depois em Ajustes.");
+          return status3.textContent = t("Não foi possível procurar. Configure depois em Ajustes.");
         });
-      }), btn(isAvailable() ? t("Continuar") : t("Pular"), false, next)]));
+      }), btn(isAvailable2() ? t("Continuar") : t("Pular"), false, next)]));
     }
     function stepSubs() {
       card2.appendChild(h("h1", {
@@ -13617,11 +13732,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     } else start2();
     document.addEventListener("webOSRelaunch", function () {
+      check2();
       check();
       devLaunch();
     });
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) check();
+      if (!document.hidden) {
+        check2();
+        check();
+      }
     });
   }
   function start2() {
@@ -13638,7 +13757,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (home && home.refreshContinue) home.refreshContinue();
       }).catch(function () {});
     }
-    Promise.all([check(), load().catch(function () {
+    Promise.all([check2(), check(), load().catch(function () {
       return null;
     })]).then(function () {
       var bootEl = document.getElementById("boot");
@@ -13656,7 +13775,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       devLaunch();
       if (shouldAutoCheck()) {
         setTimeout(function () {
-          check2().then(function (info2) {
+          check3().then(function (info2) {
             return info2 && toast(t("Atualização disponível: Ajustes → Procurar atualização"), 7e3);
           }).catch(function () {});
         }, 8e3);

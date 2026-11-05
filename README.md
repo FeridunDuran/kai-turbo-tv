@@ -46,10 +46,13 @@ Without this, rows follow the order of the add-ons on your account (the newest a
 which you can also change at web.stremio.com → Add-ons.
 
 ### Only sources the TV can play
-Without a PC server, sources the TV can't open by itself (torrents, and links that need extra
-request headers, which the TV's video player can't send) are hidden from the source list, with a
-line per add-on saying how many were hidden. With a PC server they show as before, tagged
-**Via PC**.
+Torrents still need a PC server (stremio-service) and are hidden without one, with a line per
+add-on saying how many were hidden.
+
+Links that need extra request headers (Referer, User-Agent, Cookie...) work without a PC: the
+app's small TizenBrew service on the TV fetches them and adds the headers, so the player gets a
+normal local URL. They are tagged **Via TV**. If the TV service is not running they show as
+**Direct · may fail**, the player tries them directly, and Smart Choice puts them last.
 
 ### Other changes
 - The loader and in-app updater point to this repository, so the TV runs this fork's code.
@@ -192,6 +195,8 @@ Purple, gold, teal, red, blue or green: **Settings → Colour theme** recolours 
     on the TV, no PC needed;
   - [stremio-service](https://github.com/Stremio/stremio-service/releases) running on a PC on
     the same network, for torrent streams. Tizen TVs can't run the torrent engine themselves.
+- Links that only need request headers (Referer/User-Agent/Cookie) need neither: the app's
+  TizenBrew service fetches them on the TV itself.
 
 ## Installing on a Samsung TV
 
@@ -292,9 +297,10 @@ installed and newest version and can update from there too.
 - **The installer can't find the TV:** make sure the Host PC IP in step 1 is the PC's current IP,
   the TV was restarted afterwards, and both are on the same network (not a guest network).
 - **A video won't play:** try a debrid (direct) source, or check that stremio-service is
-  running on the PC for torrent sources.
-- **Few or no sources:** without a PC server, sources the TV can't open on its own are hidden;
-  each add-on shows how many were hidden.
+  running on the PC for torrent sources. Header links should be tagged **Via TV**; if they say
+  **Direct · may fail**, restart TizenBrew so the updated TV service starts.
+- **Few or no sources:** torrents are hidden when there is no PC server; each add-on shows how
+  many were hidden. Header links are no longer hidden.
 - **The Library tab or a new feature doesn't appear:** the TV is still running the old version;
   restart it fully (see Updating).
 

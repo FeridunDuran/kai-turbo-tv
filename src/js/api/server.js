@@ -1,9 +1,11 @@
 // Servidor de streaming do Stremio (stremio-service) rodando num PC da rede, porta 11470.
 // Ele baixa torrents e entrega à TV por HTTP; também expõe /tracks para as faixas embutidas.
+// Links que só precisam de cabeçalhos usam o proxy local da TV (tvproxy.js) quando o PC não está.
 import { getJSON, postJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getTvIp } from '../lib/luna.js';
 import { t } from '../lib/i18n.js';
+import * as tvproxy from './tvproxy.js';
 
 let status = { ok: false, checkedAt: 0, url: '' };
 
@@ -191,8 +193,17 @@ export function toPlayable(stream, seriesInfo) {
       return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then((u) => ({ url: u, viaServer: true }));
     }
     const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
-    if (ph && base && needsHeaders(stream)) {
-      return Promise.resolve({ url: proxyUrl(base, stream.url, ph.request, ph.response), viaServer: true });
+    if (ph && needsHeaders(stream)) {
+      // PC server first (it also handles torrents and embedded tracks). Offline or absent:
+      // use the header proxy that runs in the TV service, no PC required.
+      if (isAvailable()) {
+        return Promise.resolve({ url: proxyUrl(base, stream.url, ph.request, ph.response), viaServer: true });
+      }
+      return tvproxy.ensure().then((ok) => {
+        const tvUrl = ok ? tvproxy.proxyUrl(stream.url, ph.request, ph.response) : null;
+        if (tvUrl) return { url: tvUrl, viaServer: false, viaTvProxy: true };
+        return { url: stream.url, viaServer: false };
+      });
     }
     return Promise.resolve({ url: stream.url, viaServer: false });
   }

@@ -7,6 +7,7 @@ import { loadVisibleImages } from './lib/dom.js';
 import * as store from './lib/store.js';
 import * as stremio from './api/stremio.js';
 import * as server from './api/server.js';
+import * as tvproxy from './api/tvproxy.js';
 import * as addons from './api/addons.js';
 import * as router from './router.js';
 import { openDetails } from './views/details.js';
@@ -75,10 +76,14 @@ function boot() {
   // Ao voltar do segundo plano, revalida o servidor do PC.
   document.addEventListener('webOSRelaunch', () => {
     server.check();
+    tvproxy.check();
     devLaunch();
   });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) server.check();
+    if (!document.hidden) {
+      server.check();
+      tvproxy.check();
+    }
   });
 }
 
@@ -103,7 +108,7 @@ function start() {
       .catch(() => {});
   }
 
-  Promise.all([server.check(), addons.load().catch(() => null)]).then(() => {
+  Promise.all([server.check(), tvproxy.check(), addons.load().catch(() => null)]).then(() => {
     const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.parentNode.removeChild(bootEl);
     router.goTab('home');

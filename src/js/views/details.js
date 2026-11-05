@@ -5,6 +5,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as store from '../lib/store.js';
 import * as server from '../api/server.js';
+import * as tvproxy from '../api/tvproxy.js';
 import * as hero from '../api/hero.js';
 import { toast, spinnerLine, menu, fmtTime } from '../ui.js';
 import * as router from '../router.js';
@@ -372,6 +373,7 @@ function DetailsView(type, id, opts) {
     const all = [];
     let autoFocused = null;
     let serverOk = server.isAvailable();
+    let tvOk = tvproxy.isAvailable();
     // Smart Choice: picks a source once the debrid add-ons answer (or after SMART_WAIT_MS),
     // unless the user moves the focus first.
     let smartActive = !!smart;
@@ -392,8 +394,9 @@ function DetailsView(type, id, opts) {
         (g.streams || []).forEach((s, si) => {
           if (!server.isPlayableType(s)) return;
           if (server.isTorrent(s) && !serverOk) return;
-          // Sem servidor, links com cabeçalhos vão por último (podem falhar direto).
-          const needs = server.needsServer(s);
+          // Torrents keep the PC penalty. Header links only go last when neither the PC
+          // nor the TV proxy can add the headers.
+          const needs = server.isTorrent(s) || (server.needsHeaders(s) && !(serverOk || tvOk));
           const badges = streamBadges(s);
           const warn = badges.some((b) => b.warn);
           const heavy = badges.some((b) => b.t === '4K' || b.t === 'HDR');
@@ -413,7 +416,8 @@ function DetailsView(type, id, opts) {
       const list = smartCandidates();
       const debridPending = groups.some((g) => addonRank(g.addon) === 0 && !g.done);
       const best = list[0];
-      const clean = best && !server.needsServer(best) && !streamBadges(best).some((b) => b.warn);
+      const needsProxy = best && (server.isTorrent(best) || (server.needsHeaders(best) && !(serverOk || tvOk)));
+      const clean = best && !needsProxy && !streamBadges(best).some((b) => b.warn);
       if (!best) {
         if (pendingCount <= 0 || timedOut) {
           stopSmart();
@@ -432,7 +436,11 @@ function DetailsView(type, id, opts) {
         barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
         return;
       }
-      const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
+      const srv = serverOk
+        ? t('Servidor do PC conectado')
+        : tvOk
+          ? t('Sem servidor do PC: links diretos e proxy da TV')
+          : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
       const g = groups.find((x) => x.addon.transportUrl === filter);
@@ -471,7 +479,10 @@ function DetailsView(type, id, opts) {
     }
 
     status();
-    (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
+    Promise.all([
+      serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)),
+      tvOk ? Promise.resolve() : tvproxy.check().then((r) => (tvOk = r.ok)),
+    ])
       .then(() => {
         status();
         return addons.fetchStreams(meta.type, video.id, (addon, streams) => {
@@ -488,7 +499,7 @@ function DetailsView(type, id, opts) {
             g.streams = shown;
             shown.forEach((s) => {
               all.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all));
+              g.el.appendChild(streamItem(s, video, serverOk, tvOk, all));
             });
             if (hidden) g.el.appendChild(h('div.loading-line', { text: t('{name}: {n} fontes ocultas (precisam do servidor do PC)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
           }
@@ -511,7 +522,7 @@ function DetailsView(type, id, opts) {
       .catch(() => {});
   }
 
-  function streamItem(s, video, serverOk, all) {
+  function streamItem(s, video, serverOk, tvOk, all) {
     const playableType = server.isPlayableType(s);
     const needs = server.needsServer(s);
     const torrent = server.isTorrent(s);
@@ -519,8 +530,10 @@ function DetailsView(type, id, opts) {
     const tags = [];
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
     else if (needs) {
-      const label = torrent ? (serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC') : serverOk ? 'Via PC' : 'Direto · pode falhar';
-      tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: t(label) }));
+      const label = torrent
+        ? serverOk ? 'Torrent · via PC' : 'Torrent · precisa do PC'
+        : serverOk ? 'Via PC' : tvOk ? 'Via TV' : 'Direto · pode falhar';
+      tags.push(h('span.s-tag', { cls: torrent ? (serverOk ? '' : 'warn') : serverOk || tvOk ? '' : 'warn', text: t(label) }));
     }
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
     streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));

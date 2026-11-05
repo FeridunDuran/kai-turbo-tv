@@ -1,11 +1,15 @@
-// Phone remote: a TizenBrew service (Node.js 4 on the TV, so plain ES5).
+// Phone remote + header proxy: a TizenBrew service (Node.js 4 on the TV, so plain ES5).
 // - Serves the remote page to phones on the same Wi-Fi at http://<TV IP>:8095
 // - Phones send key presses and text, guarded by a 4-digit PIN shown in the app's Settings.
 // - The app on the TV long-polls /api/events from 127.0.0.1 and replays them as remote keys.
+// - /proxy fetches a stream on the TV and adds request headers (Referer, User-Agent, Cookie...)
+//   that the <video> element cannot send. Local only, so it is not an open proxy on the LAN.
 'use strict';
 
 var http = require('http');
+var https = require('https');
 var os = require('os');
+var urlLib = require('url');
 
 var PORT = 8095;
 var HOLD_MS = 25000; // long-poll hold time
@@ -48,6 +52,229 @@ function send(res, status, body, type) {
     'Cache-Control': 'no-store'
   });
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+// ---- Header proxy for the TV player ----
+// The <video> element cannot set Referer/User-Agent/Cookie. This service runs on the TV and
+// fetches the stream with those headers, so header-requiring links work without a PC.
+
+var PROXY_MAX_REDIRECTS = 5;
+var PROXY_TIMEOUT_MS = 30000;
+var MAX_PLAYLIST_BYTES = 4 * 1024 * 1024;
+var DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+var HOP_HEADER = /^(host|connection|proxy-connection|content-length|transfer-encoding|upgrade|keep-alive|te|trailer)$/i;
+
+function hasHeader(headers, name) {
+  var lower = String(name).toLowerCase();
+  for (var key in headers) {
+    if (headers.hasOwnProperty(key) && String(key).toLowerCase() === lower) return true;
+  }
+  return false;
+}
+
+function jsonParam(value) {
+  if (Object.prototype.toString.call(value) === '[object Array]') value = value[0];
+  if (!value) return {};
+  try {
+    var parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// HLS playlists contain relative segment/variant URLs. They must be rewritten through the
+// proxy too, otherwise the player would request them from 127.0.0.1 without the headers.
+function isPlaylist(target, headers) {
+  var type = String((headers && headers['content-type']) || '').toLowerCase();
+  return type.indexOf('mpegurl') >= 0 || /\.m3u8(\?|#|$)/i.test(target);
+}
+
+function proxyLink(target, headers, extraResponseHeaders) {
+  var url = 'http://127.0.0.1:' + PORT + '/proxy?u=' + encodeURIComponent(target);
+  if (headers && Object.keys(headers).length) url += '&h=' + encodeURIComponent(JSON.stringify(headers));
+  if (extraResponseHeaders && Object.keys(extraResponseHeaders).length) {
+    url += '&r=' + encodeURIComponent(JSON.stringify(extraResponseHeaders));
+  }
+  return url;
+}
+
+function rewritePlaylist(text, playlistUrl, headers, extraResponseHeaders) {
+  var childHeaders = {};
+  for (var key in headers) {
+    if (!headers.hasOwnProperty(key)) continue;
+    if (/^(range|if-range|if-none-match|if-modified-since)$/i.test(key)) continue;
+    childHeaders[key] = headers[key];
+  }
+  function link(uri) {
+    if (!uri) return uri;
+    var absolute = urlLib.resolve(playlistUrl, uri);
+    if (!/^https?:\/\//i.test(absolute)) return uri;
+    return proxyLink(absolute, childHeaders, extraResponseHeaders);
+  }
+
+  var lines = String(text).split(/\r?\n/);
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var trimmed = line.replace(/^\s+|\s+$/g, '');
+    if (!trimmed) {
+      out.push(line);
+    } else if (trimmed.charAt(0) === '#') {
+      // Keys, init segments, audio tracks and preload hints keep their URI in an attribute.
+      out.push(line.replace(/URI="([^"]+)"/g, function (all, uri) { return 'URI="' + link(uri) + '"'; }));
+    } else {
+      out.push(link(trimmed));
+    }
+  }
+  return out.join('\n');
+}
+
+function proxy(req, res, q) {
+  var target = q.u || q.url;
+  if (Object.prototype.toString.call(target) === '[object Array]') target = target[0];
+  if (typeof target !== 'string' || !/^https?:\/\//i.test(target)) {
+    return send(res, 400, 'invalid url', 'text/plain; charset=utf-8');
+  }
+
+  var source = jsonParam(q.h);
+  var extraResponseHeaders = jsonParam(q.r);
+  var headers = {};
+  var key;
+  for (key in source) {
+    if (!source.hasOwnProperty(key)) continue;
+    // Playlists are rewritten as text; ask upstream for the uncompressed body.
+    if (/^accept-encoding$/i.test(key)) continue;
+    if (HOP_HEADER.test(key) || !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(key)) continue;
+    var value = source[key];
+    if (value === null || value === undefined) continue;
+    value = String(value);
+    if (!value || /[\r\n]/.test(value)) continue;
+    headers[key] = value;
+  }
+  if (!hasHeader(headers, 'user-agent')) headers['User-Agent'] = DEFAULT_UA;
+  if (!hasHeader(headers, 'accept')) headers['Accept'] = '*/*';
+
+  // Seeking and resume need the player's Range/conditional headers passed through.
+  ['range', 'if-range', 'if-none-match', 'if-modified-since'].forEach(function (name) {
+    if (req.headers[name] && !hasHeader(headers, name)) headers[name] = req.headers[name];
+  });
+
+  fetchStream(req, res, target, headers, extraResponseHeaders, 0);
+}
+
+function fetchStream(req, res, target, headers, extraResponseHeaders, redirects) {
+  var parsed = urlLib.parse(target);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return send(res, 400, 'invalid protocol', 'text/plain; charset=utf-8');
+  }
+
+  var transport = parsed.protocol === 'https:' ? https : http;
+  var options = {
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: parsed.path || '/',
+    method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+    headers: headers,
+    // Node 4 on the TV has an old CA store; media links are not a trust boundary here.
+    rejectUnauthorized: false
+  };
+
+  var upstream;
+  try {
+    upstream = transport.request(options, function (upstreamRes) {
+      var status = upstreamRes.statusCode || 502;
+      if (status >= 300 && status < 400 && upstreamRes.headers.location && redirects < PROXY_MAX_REDIRECTS) {
+        upstreamRes.resume();
+        return fetchStream(req, res, urlLib.resolve(target, upstreamRes.headers.location), headers, extraResponseHeaders, redirects + 1);
+      }
+
+      var out = {};
+      ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition',
+        'cache-control', 'expires', 'last-modified', 'etag', 'date', 'content-encoding', 'vary'].forEach(function (name) {
+        if (upstreamRes.headers[name] !== undefined) out[name] = upstreamRes.headers[name];
+      });
+
+      // proxyHeaders.response from the add-on: safe headers only, never framing/body headers.
+      for (var key in extraResponseHeaders) {
+        if (!extraResponseHeaders.hasOwnProperty(key)) continue;
+        if (HOP_HEADER.test(key) || /^content-(length|range)$/i.test(key) || /^set-cookie$/i.test(key)) continue;
+        if (!/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(key)) continue;
+        var extraValue = String(extraResponseHeaders[key]);
+        if (!extraValue || /[\r\n]/.test(extraValue)) continue;
+        out[key] = extraValue;
+      }
+      out['Access-Control-Allow-Origin'] = '*';
+      out['Access-Control-Expose-Headers'] = 'Content-Length, Content-Range, Accept-Ranges';
+
+      var playlist = isPlaylist(target, upstreamRes.headers) && req.method !== 'HEAD' && !req.headers.range;
+      if (playlist) {
+        var chunks = [];
+        var size = 0;
+        var tooBig = false;
+        upstreamRes.on('data', function (chunk) {
+          if (tooBig) return;
+          size += chunk.length;
+          if (size > MAX_PLAYLIST_BYTES) {
+            tooBig = true;
+            chunks = [];
+            return;
+          }
+          chunks.push(chunk);
+        });
+        upstreamRes.on('error', function () {
+          try { res.destroy(); } catch (e) { /* already closed */ }
+        });
+        upstreamRes.on('end', function () {
+          if (tooBig) {
+            if (!res.headersSent) send(res, 502, 'proxy: playlist too large', 'text/plain; charset=utf-8');
+            return;
+          }
+          var body = rewritePlaylist(Buffer.concat(chunks).toString('utf8'), target, headers, extraResponseHeaders);
+          delete out['content-length'];
+          delete out['content-range'];
+          delete out['content-encoding'];
+          out['Content-Type'] = 'application/vnd.apple.mpegurl';
+          out['Content-Length'] = Buffer.byteLength(body, 'utf8');
+          try {
+            res.writeHead(status, out);
+          } catch (e) {
+            try { res.destroy(); } catch (e2) { /* already closed */ }
+            return;
+          }
+          res.end(body);
+        });
+        return;
+      }
+
+      try {
+        res.writeHead(status, out);
+      } catch (e) {
+        upstreamRes.resume();
+        try { res.destroy(); } catch (e2) { /* already closed */ }
+        return;
+      }
+      if (req.method === 'HEAD') res.end();
+      else upstreamRes.pipe(res);
+      upstreamRes.on('error', function () {
+        try { res.destroy(); } catch (e) { /* already closed */ }
+      });
+    });
+  } catch (e) {
+    return send(res, 502, 'proxy: ' + (e && e.message ? e.message : 'invalid request'), 'text/plain; charset=utf-8');
+  }
+
+  upstream.on('error', function (err) {
+    if (!res.headersSent) {
+      send(res, 502, 'proxy: ' + (err && err.message ? err.message : 'upstream error'), 'text/plain; charset=utf-8');
+    } else {
+      try { res.destroy(); } catch (e) { /* already closed */ }
+    }
+  });
+  // Only the connect/response wait, not the whole download: slow streams keep streaming.
+  upstream.setTimeout(PROXY_TIMEOUT_MS, function () { upstream.abort(); });
+  res.on('close', function () { upstream.abort(); });
+  upstream.end();
 }
 
 function push(ev) {
@@ -139,7 +366,7 @@ var server = http.createServer(function (req, res) {
 });
 
 function handle(req, res) {
-  var url = require('url').parse(req.url, true);
+  var url = urlLib.parse(req.url, true);
   var q = url.query;
 
   if (req.method === 'OPTIONS') return send(res, 204, '');
@@ -147,7 +374,11 @@ function handle(req, res) {
   // ---- TV side (app on the same TV only) ----
   if (url.pathname === '/api/info') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
-    return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 1 });
+    return send(res, 200, { ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 2, proxy: 1 });
+  }
+  if (url.pathname === '/proxy') {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    return proxy(req, res, q);
   }
   if (url.pathname === '/api/events') {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
