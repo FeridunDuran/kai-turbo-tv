@@ -17611,7 +17611,7 @@ var TV_TORRENT = (function () {
   var CACHE_BYTES = 48 * 1024 * 1024;
   var AHEAD_BYTES = 32 * 1024 * 1024;
   var BEHIND_BYTES = 8 * 1024 * 1024;
-  var OPEN_TIMEOUT_MS = 120000;
+  var OPEN_TIMEOUT_MS = 20000;
   var IDLE_MS = 3 * 60 * 1000;
   var STALL_MS = 75000;
   var MAX_SESSIONS = 2;
@@ -18036,7 +18036,7 @@ var TV_TORRENT = (function () {
         : !handshakeCount ? 'Peers were found but no BitTorrent handshake completed; peers may be unreachable.'
         : !metadataPeerCount ? 'Handshakes completed, but no peer advertised the ut_metadata extension.'
         : 'Metadata transfer did not complete before the deadline.';
-      var detail = 'torrent metadata timeout after 120 seconds\n' + reason + '\n'
+      var detail = 'torrent metadata timeout after 20 seconds\n' + reason + '\n'
         + 'Peers discovered: ' + peerCount + ' · sockets opened: ' + wireCount + ' · handshakes: ' + handshakeCount + '\n'
         + 'Metadata hash failures: ' + metadataInvalidCount + '\n'
         + 'Metadata peers: ' + metadataPeerCount + ' · blocks received: ' + metadataPieceCount + '/' + (metadataExpectedPieces || '?');

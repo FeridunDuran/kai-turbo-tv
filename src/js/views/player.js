@@ -25,6 +25,7 @@ import { createVideo } from '../lib/tizenvideo.js';
 const HIDE_MS = 5000;
 const SAVE_MS = 15000;
 const STARTUP_MS = 120000;
+const TORRENT_STARTUP_MS = 30000;
 const LANG_NAMES = {
   por: 'Português', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
   spa: 'Espanhol', es: 'Espanhol', jpn: 'Japonês', ja: 'Japonês', fre: 'Francês', fra: 'Francês', fr: 'Francês',
@@ -115,15 +116,15 @@ function PlayerView(opts) {
   function clearStartup() { clearTimeout(startupTimer); startupTimer = null; }
   function armStartup() {
     clearStartup();
-    // Torrents can legitimately take longer; HTTP sources must not spin forever.
-    if (server.isTorrent(stream)) return;
+    const limit = server.isTorrent(stream) ? TORRENT_STARTUP_MS : STARTUP_MS;
     startupTimer = setTimeout(() => {
       if (!alive || hasPlayed) return;
       if (tryFallback()) return;
+      startGeneration++;
       stopMedia();
-      fail(t('A fonte não iniciou em {n}s.', { n: STARTUP_MS / 1000 }),
+      fail(t('A fonte não iniciou em {n}s.', { n: limit / 1000 }),
         t('Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados.'));
-    }, STARTUP_MS);
+    }, limit);
   }
   function stopMedia() {
     clearStartup();
@@ -192,7 +193,7 @@ function PlayerView(opts) {
     server
       .toPlayable(stream, seriesInfo())
       .then((res) => {
-        if (!alive || attempt !== startGeneration || (!startupTimer && !server.isTorrent(stream))) return;
+        if (!alive || attempt !== startGeneration || !startupTimer) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info('Tocando', mediaUrl);

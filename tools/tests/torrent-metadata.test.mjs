@@ -29,7 +29,7 @@ test('metadata discovery includes HTTP alternatives and preserves addon trackers
   assert.ok(trackers.some((url) => url.startsWith('udp://')));
   assert.ok(trackers.includes('https://tracker.example/announce'));
   assert.deepEqual(engine.peers, ['1.2.3.4:6881']);
-  assert.equal(timers[0].ms, 120000);
+  assert.equal(timers[0].ms, 20000);
 });
 
 test('metadata deadline distinguishes socket attempts from completed handshakes', () => {
@@ -53,7 +53,7 @@ test('metadata deadline distinguishes socket attempts from completed handshakes'
       else engines[0].emit(event);
     }
     timers[0].fn();
-    assert.match(error.message, /after 120 seconds/);
+    assert.match(error.message, /after 20 seconds/);
     assert.match(error.message, expected);
     assert.equal(engines[0].destroyed, true);
     engines[0].emit('error', new Error('late'));

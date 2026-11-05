@@ -55,7 +55,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/global-this.js
   var require_global_this = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/global-this.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_globalThisJs(exports, module) {
+    "node_modules/core-js/internals/global-this.js": function node_modules_coreJs_internals_globalThisJs(exports, module) {
       "use strict";
 
       var check4 = function check4(it) {
@@ -76,7 +76,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/fails.js
   var require_fails = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/fails.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_failsJs(exports, module) {
+    "node_modules/core-js/internals/fails.js": function node_modules_coreJs_internals_failsJs(exports, module) {
       "use strict";
 
       module.exports = function (exec) {
@@ -91,7 +91,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/descriptors.js
   var require_descriptors = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/descriptors.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_descriptorsJs(exports, module) {
+    "node_modules/core-js/internals/descriptors.js": function node_modules_coreJs_internals_descriptorsJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -7140,7 +7140,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return new Promise(function (resolve, reject) {
         var x = new XMLHttpRequest();
         x.open("POST", base + "/torrent/open", true);
-        x.timeout = 13e4;
+        x.timeout = 25e3;
         x.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
         x.onload = function () {
           var result;
@@ -7167,7 +7167,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return disconnected("TV torrent service unreachable");
         };
         x.ontimeout = function () {
-          return disconnected("TV torrent service did not respond within 130 seconds");
+          return disconnected("TV torrent service did not respond within 25 seconds");
         };
         x.send(JSON.stringify(args || {}));
       });
@@ -9861,6 +9861,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var HIDE_MS = 5e3;
   var SAVE_MS = 15e3;
   var STARTUP_MS = 12e4;
+  var TORRENT_STARTUP_MS = 3e4;
   var LANG_NAMES = {
     por: "Português",
     pob: "Português (BR)",
@@ -10020,15 +10021,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function armStartup() {
       clearStartup();
-      if (isTorrent(stream)) return;
+      var limit = isTorrent(stream) ? TORRENT_STARTUP_MS : STARTUP_MS;
       startupTimer = setTimeout(function () {
         if (!alive || hasPlayed) return;
         if (tryFallback()) return;
+        startGeneration++;
         stopMedia();
         fail(t("A fonte não iniciou em {n}s.", {
-          n: STARTUP_MS / 1e3
+          n: limit / 1e3
         }), t("Escolha outra fonte. O servidor pode estar lento ou exigir cabeçalhos que não foram enviados."));
-      }, STARTUP_MS);
+      }, limit);
     }
     function stopMedia() {
       clearStartup();
@@ -10099,7 +10101,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       nativeOffDone = false;
       hideSkip();
       toPlayable(stream, seriesInfo()).then(function (res) {
-        if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
+        if (!alive || attempt !== startGeneration || !startupTimer) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info("Tocando", mediaUrl);
@@ -13276,7 +13278,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T13:42:23.180Z";
+  var BUILD = "2026-11-05T15:21:15.634Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

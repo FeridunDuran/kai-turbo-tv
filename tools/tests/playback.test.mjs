@@ -97,7 +97,7 @@ test('outside Samsung the native HTML player is preserved', () => {
   assert.equal(createVideo(fakeDocument()).tagName, 'video');
 });
 
-function playerFixture(fallbacks = []) {
+function playerFixture(fallbacks = [], torrent = false) {
   const pending = [], rejected = [], menus = [], timers = new Map();
   let pauseCalls = 0;
   let timerId = 0, view;
@@ -111,7 +111,7 @@ function playerFixture(fallbacks = []) {
     luna: { closeHeavyBackgroundApps: () => Promise.resolve([]) },
     subs: { Renderer: () => ({ clear() {} }) }, substyle: { apply() {} },
     store: { settings: () => settings }, log: { log: { info() {}, warn() {} } }, http: {}, mediaerror: {},
-    server: { isTorrent: () => false, toPlayable: () => new Promise((resolve, reject) => { pending.push(resolve); rejected.push(reject); }) },
+    server: { isTorrent: () => torrent, toPlayable: () => new Promise((resolve, reject) => { pending.push(resolve); rejected.push(reject); }) },
     addons: { fetchSubtitles: () => Promise.resolve() }, stremio: {}, skip: {},
     ui: { menu: (...args) => menus.push(args), toast() {}, fmtTime: () => '0:00', timeHM: () => '0:00' },
     router: { push(v) { view = v; v.onShow(); }, tabView() {} }, details: {},
@@ -128,7 +128,7 @@ function playerFixture(fallbacks = []) {
   vm.runInNewContext(source, context);
   context.openPlayer({ meta: { name: 'Test' }, video: { id: 'test' }, stream: { url: 'old' }, fallbacks });
   return { video, pending, rejected, menus, timers, view, get pauseCalls() { return pauseCalls; }, expire() {
-    const entry = [...timers.entries()].find(([, timer]) => timer.ms === 120000);
+    const entry = [...timers.entries()].find(([, timer]) => timer.ms === (torrent ? 30000 : 120000));
     assert.ok(entry, 'HTTP startup deadline is armed');
     timers.delete(entry[0]); entry[1].fn();
   } };
@@ -267,3 +267,5 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
     await Promise.all([new Promise((r) => proxy.close(r)), new Promise((r) => upstream.close(r))]);
   }
 });
+
+test("torrent thirty second deadline ignores late metadata",async()=>{const f=playerFixture([],true);f.expire();f.pending[0]({url:"http://127.0.0.1:8097/torrent/late"});await new Promise(setImmediate);assert.equal(f.video.src,"");assert.equal(f.pauseCalls,1);f.view.destroy();});
