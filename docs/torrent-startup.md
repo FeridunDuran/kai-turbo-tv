@@ -210,3 +210,15 @@ assigned, with no bytes delivered, while the engine kept downloading; the piece 
 later. An earlier HIMYM trace showed the same 30 s pattern. The player now reopens the same URL
 when the engine has received more data since the previous attempt (at most three times).
 
+## Fourth trace: same episode after these changes (resume at 472 s)
+
+Peers were found in 0.2 s, the first payload block arrived at 2.3 s. Piece 209 took 9.7 s,
+piece 250 (8.5 KB needed) 8.5 s, the resume piece 224 12.8 s, at about 2 MB/s. The re-read of the
+start (14 MB) was served from RAM. Playback at the resume position began about 34 s after the
+local URL with 51.6 MB received, against 50 s and about 80 MB for the same episode before. One
+run each on a live swarm, so this is an observation, not a controlled comparison.
+
+Still avoidable: after reading the header the browser continued into piece 210 before issuing the
+resume seek, so a few MB went to a piece playback did not use. The remote log also lost a 14 s
+batch; failed batches are now kept and retried in order instead of being dropped.
+

@@ -2,6 +2,7 @@
 let remoteUrl = '';
 const buffer = [];
 let flushing = false;
+let failures = 0;
 
 // Esconde chaves de debrid/API que aparecem nas URLs dos addons (ex.: Torrentio).
 function redact(text) {
@@ -47,9 +48,25 @@ function flush() {
   xhr.timeout = 5000;
   xhr.onloadend = () => {
     flushing = false;
+    // A failed or timed-out batch used to be dropped (a TV trace lost 14 s of lines).
+    // Put it back in front of newer lines and retry later; the 200-line cap still applies.
+    const ok = xhr.status >= 200 && xhr.status < 300;
+    if (!ok) {
+      Array.prototype.unshift.apply(buffer, batch);
+      if (buffer.length > 200) buffer.splice(0, buffer.length - 200);
+      failures++;
+      setTimeout(flush, Math.min(10000, 1000 * failures));
+      return;
+    }
+    failures = 0;
     if (buffer.length) setTimeout(flush, 200);
   };
-  xhr.send(JSON.stringify(batch));
+  try {
+    xhr.send(JSON.stringify(batch));
+  } catch (e) {
+    flushing = false;
+    Array.prototype.unshift.apply(buffer, batch);
+  }
 }
 
 export const log = {

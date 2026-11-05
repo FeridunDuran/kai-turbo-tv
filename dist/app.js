@@ -4708,6 +4708,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var remoteUrl = "";
   var buffer = [];
   var flushing = false;
+  var failures = 0;
   function redact(text) {
     return text.replace(/((?:realdebrid|alldebrid|premiumize|debridlink|easydebrid|offcloud|torbox|putio|apikey|api_key|token|authKey)(?:=|%3D|:))[A-Za-z0-9._-]{8,}/gi, "$1***");
   }
@@ -4746,9 +4747,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     xhr.timeout = 5e3;
     xhr.onloadend = function () {
       flushing = false;
+      var ok = xhr.status >= 200 && xhr.status < 300;
+      if (!ok) {
+        Array.prototype.unshift.apply(buffer, batch2);
+        if (buffer.length > 200) buffer.splice(0, buffer.length - 200);
+        failures++;
+        setTimeout(flush, Math.min(1e4, 1e3 * failures));
+        return;
+      }
+      failures = 0;
       if (buffer.length) setTimeout(flush, 200);
     };
-    xhr.send(JSON.stringify(batch2));
+    try {
+      xhr.send(JSON.stringify(batch2));
+    } catch (e) {
+      flushing = false;
+      Array.prototype.unshift.apply(buffer, batch2);
+    }
   }
   var log = {
     info: function info() {
@@ -14082,7 +14097,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:11:52.190Z";
+  var BUILD = "2026-11-05T18:21:14.206Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
