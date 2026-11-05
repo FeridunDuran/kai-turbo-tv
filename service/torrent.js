@@ -190,6 +190,7 @@ var TV_TORRENT = (function () {
     this.waiters = {};
     this.reader = null;
     this.lastUsed = Date.now();
+    this.lastDataAt = this.lastUsed;
 
     this._onpiece = function (index) {
       process.nextTick(function () { self._pieceDone(index); });
@@ -198,6 +199,7 @@ var TV_TORRENT = (function () {
   }
 
   Session.prototype._pieceDone = function (index) {
+    if (this.detached) return;
     // A piece that finished after the window moved on is dropped instead of leaking RAM.
     if (index < this.windowFrom || index > this.windowTo) {
       if (this.store.remove(index)) this.engine.release(index);
@@ -305,13 +307,18 @@ var TV_TORRENT = (function () {
     return reader;
   };
 
-  Session.prototype.destroy = function (cb) {
+  Session.prototype.detach = function () {
+    this.detached = true;
     this._deselect();
     this.waiters = {};
     if (this.reader) this.reader.destroy();
     try {
       this.engine.removeListener('download', this._onpiece);
     } catch (e) { /* old events module */ }
+  };
+
+  Session.prototype.destroy = function (cb) {
+    this.detach();
     this.engine.destroy(function () { if (cb) cb(); });
   };
 
@@ -334,14 +341,16 @@ var TV_TORRENT = (function () {
 
   Reader.prototype.start = function () {
     var self = this;
-    this.onProgress = function () {
+    if (typeof this.session.lastDataAt !== 'number') this.session.lastDataAt = Date.now();
+    this.onProgress = function (bytes) {
       if (self.destroyed) return;
-      if (self.diag) self.diag.lastDataAt = Date.now();
+      if (bytes > 0) self.session.lastDataAt = Date.now();
+      if (self.diag) self.diag.lastDataAt = self.session.lastDataAt;
       clearTimeout(self.stall);
       self.stall = setTimeout(function () {
         self.destroy();
         try { self.res.destroy(); } catch (e) { /* already gone */ }
-      }, STALL_MS);
+      }, Math.max(0, STALL_MS - (Date.now() - self.session.lastDataAt)));
     };
     this.session.engine.swarm.on('download', this.onProgress);
     this.onProgress();
@@ -386,6 +395,7 @@ var TV_TORRENT = (function () {
       var want = Math.min(buf.length - within, self.end - self.pos + 1);
       var slice = buf.slice(within, within + want);
       self.pos += slice.length;
+      self.session.lastDataAt = Date.now();
       if (self.diag) self.diag.sent += slice.length;
       if (self.res.write(slice)) return self._next();
       self.res.once('drain', function () { self._next(); });
@@ -394,17 +404,29 @@ var TV_TORRENT = (function () {
 
   // ---- Public API used by remote-service.js ----
 
-  function destroySession(id) {
+  function destroySession(id, keepEngine) {
     var s = sessions[id];
     if (!s) return;
     delete sessions[id];
     var at = order.indexOf(id);
     if (at >= 0) order.splice(at, 1);
-    s.destroy(noop);
+    if (keepEngine === true) s.detach();
+    else s.destroy(noop);
   }
 
   function destroyAll() {
     order.slice().forEach(destroySession);
+  }
+
+  function activateSession(engine, file, fileIdx, cb, reused) {
+    var session = new Session(engine, file, fileIdx);
+    session.engineReused = !!reused;
+    sessions[session.id] = session;
+    order.push(session.id);
+    if (order.length > MAX_SESSIONS) destroySession(order[0]);
+    cb(null, { id: session.id,
+      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8097' : '8095') + '/torrent/' + session.id,
+      name: file.name, length: file.length, fileIdx: fileIdx });
   }
 
   function create(body, cb) {
@@ -414,6 +436,17 @@ var TV_TORRENT = (function () {
       return cb(new Error('invalid info hash'));
     }
 
+    for (var reuseAt = 0; reuseAt < order.length; reuseAt++) {
+      var previous = sessions[order[reuseAt]];
+      if (!previous || previous.engine.infoHash !== infoHash || !previous.engine.torrent) continue;
+      var nextIndex = pickFile(previous.engine.files, body.fileIdx, body.season, body.episode);
+      var nextFile = previous.engine.files[nextIndex];
+      if (!nextFile) return cb(new Error('torrent has no playable file'));
+      var warmEngine = previous.engine;
+      destroySession(previous.id, true);
+      destroyAll();
+      return activateSession(warmEngine, nextFile, nextIndex, cb, true);
+    }
     destroyAll();
 
     var engine;
@@ -489,17 +522,7 @@ var TV_TORRENT = (function () {
         try { engine.destroy(noop); } catch (e) { /* already dead */ }
         return cb(err);
       }
-      var session = new Session(engine, file, fileIdx);
-      sessions[session.id] = session;
-      order.push(session.id);
-      if (order.length > MAX_SESSIONS) destroySession(order[0]);
-      cb(null, {
-        id: session.id,
-      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8097' : '8095') + '/torrent/' + session.id,
-        name: file.name,
-        length: file.length,
-        fileIdx: fileIdx
-      });
+      activateSession(engine, file, fileIdx, cb);
     }
 
     engine.on('error', function (err) {
@@ -589,7 +612,7 @@ var TV_TORRENT = (function () {
     stats: function (id) {
       var s = sessions[id];
       if (!s) return null;
-      return { length: s.file.length, pieceLength: s.pieceLength,
+      return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
         ranges: s.requests || [] };

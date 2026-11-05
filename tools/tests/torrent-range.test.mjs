@@ -40,3 +40,11 @@ test('tail seek retains the back cache without downloading pieces before the req
  session.ensureWindow(408);session.ensureWindow(449);
  assert.equal(session.windowFrom,447);assert.equal(session.selFrom,449);assert.deepEqual(selected.at(-1),[449,449]);
 });
+
+test('browser Range retries do not restart the no-data deadline',()=>{
+ let now=0,token=0,closed=0;const timers=new Map(),swarm=new EventEmitter(),session={engine:{swarm}};
+ const context={Date:{now:()=>now},require:()=>({}),setInterval(){},setTimeout(fn,ms){timers.set(++token,{fn,at:now+ms});return token;},clearTimeout(id){timers.delete(id);}};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Reader: Reader,supported: supported,'),context);
+ const make=()=>{const r=new context.TV_TORRENT.Reader(session,0,100,{destroy(){closed++;}});r._next=()=>{};r.start();return r;};
+ const first=make();now=10000;first.destroy();make();const deadline=[...timers.values()][0];assert.equal(deadline.at,20000);now=20000;deadline.fn();assert.equal(closed,1);
+});
