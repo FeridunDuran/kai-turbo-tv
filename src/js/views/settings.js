@@ -409,6 +409,13 @@ export function SettingsView() {
       }, toggle(s.smartChoice !== false))
     );
     body.appendChild(
+      row(t('Pôsteres sem barra de notas'), t('Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta'), '', () => {
+        store.saveSettings({ plainPosters: store.settings().plainPosters === false });
+        router.dropTab('home');
+        render();
+      }, toggle(s.plainPosters !== false))
+    );
+    body.appendChild(
       row(t('Modo desempenho'), t('Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano'), '', () => {
         const on = store.settings().perfMode === false;
         store.saveSettings({ perfMode: on });

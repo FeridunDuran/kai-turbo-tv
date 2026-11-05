@@ -124,6 +124,7 @@ const DEFAULT_SETTINGS = {
   smoothScroll: false, // rolagem animada (mais bonita, mais pesada na TV)
   perfMode: true, // Performance mode: no animations, no New episodes row, no background sync
   smartChoice: true, // Watch picks the best source and plays it
+  plainPosters: true, // rating posters (score bar in the image) shown as Cinemeta's plain poster
   theme: 'purple', // see lib/theme.js
   devlogUrl: typeof __KAI_DEVLOG__ !== 'undefined' ? __KAI_DEVLOG__ : '',
   language: 'auto', // 'auto' (TV language: Arabic or English) | 'en' | 'ar'

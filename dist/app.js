@@ -4954,6 +4954,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Via TV": "Via TV",
     "Precisa do PC": "Needs the PC",
     "Direto · pode falhar": "Direct · may fail",
+    "Pôsteres sem barra de notas": "Posters without the rating bar",
+    "Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta": "Shows Cinemeta's clean poster instead of posters with ratings drawn on (RPDB)",
     "Ordenar": "Sort",
     "Ordenar: {name}": "Sort: {name}",
     "Último assistido": "Last watched",
@@ -5803,9 +5805,181 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return p;
   }
 
+  // src/js/lib/store.js
+  var PREFIX = "kai.";
+  function rawGet(key, fallback) {
+    try {
+      var raw = window.localStorage.getItem(PREFIX + key);
+      return raw === null ? fallback : JSON.parse(raw);
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function rawSet(key, value) {
+    try {
+      if (value === void 0 || value === null) window.localStorage.removeItem(PREFIX + key);else window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    } catch (e) {}
+  }
+  var COLORS = ["#7b5bf5", "#e5508c", "#2bb6a3", "#f0a030", "#3d8bfd", "#e55353", "#8bc34a", "#9e9e9e"];
+  function profileKey(id, key) {
+    return "p." + id + "." + key;
+  }
+  function ensureProfiles() {
+    var list2 = rawGet("profiles", null);
+    if (list2 && list2.length) return list2;
+    var id = "p" + Date.now().toString(36);
+    var oldAuth = rawGet("auth", null);
+    var email = oldAuth && oldAuth.user && oldAuth.user.email;
+    list2 = [email ? {
+      id: id,
+      name: email.split("@")[0],
+      color: COLORS[0]
+    } : {
+      id: id,
+      name: "Perfil 1",
+      color: COLORS[0],
+      unnamed: true
+    }];
+    ["auth", "addons", "library"].forEach(function (k) {
+      var v = rawGet(k, null);
+      if (v !== null) rawSet(profileKey(id, k), v);
+      rawSet(k, null);
+    });
+    var oldSettings = rawGet("settings", null);
+    if (oldSettings) {
+      var dev = {};
+      var prof = {};
+      Object.keys(oldSettings).forEach(function (k) {
+        if (k === "devlogUrl" || oldSettings[k] === "") return;
+        (DEVICE_KEYS.indexOf(k) >= 0 ? dev : prof)[k] = oldSettings[k];
+      });
+      rawSet("device", dev);
+      rawSet(profileKey(id, "settings"), prof);
+      rawSet("settings", null);
+    }
+    rawSet("profiles", list2);
+    rawSet("activeProfile", id);
+    return list2;
+  }
+  function profiles() {
+    return ensureProfiles();
+  }
+  function activeProfile() {
+    var list2 = ensureProfiles();
+    var id = rawGet("activeProfile", null);
+    return list2.find(function (p) {
+      return p.id === id;
+    }) || list2[0];
+  }
+  function setActiveProfile(id) {
+    rawSet("activeProfile", id);
+  }
+  function addProfile(name, color) {
+    var list2 = ensureProfiles();
+    var p = {
+      id: "p" + Date.now().toString(36),
+      name: name || "Perfil " + (list2.length + 1),
+      color: color || COLORS[list2.length % COLORS.length]
+    };
+    list2.push(p);
+    rawSet("profiles", list2);
+    return p;
+  }
+  function updateProfile(id, patch) {
+    var list2 = ensureProfiles().map(function (p) {
+      return p.id === id ? Object.assign({}, p, patch) : p;
+    });
+    rawSet("profiles", list2);
+  }
+  function removeProfile(id) {
+    var list2 = ensureProfiles().filter(function (p) {
+      return p.id !== id;
+    });
+    if (!list2.length) return false;
+    ["auth", "addons", "library", "settings"].forEach(function (k) {
+      return rawSet(profileKey(id, k), null);
+    });
+    rawSet("profiles", list2);
+    if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list2[0].id);
+    return true;
+  }
+  function get(key, fallback) {
+    return rawGet(profileKey(activeProfile().id, key), fallback);
+  }
+  function set(key, value) {
+    rawSet(profileKey(activeProfile().id, key), value);
+  }
+  var DEVICE_KEYS = ["serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "perfMode", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
+  var DEFAULT_SETTINGS = {
+    // TV
+    serverUrl: "",
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : "",
+    smoothScroll: false,
+    // rolagem animada (mais bonita, mais pesada na TV)
+    perfMode: true,
+    // Performance mode: no animations, no New episodes row, no background sync
+    smartChoice: true,
+    // Watch picks the best source and plays it
+    plainPosters: true,
+    // rating posters (score bar in the image) shown as Cinemeta's plain poster
+    theme: "purple",
+    // see lib/theme.js
+    devlogUrl: true ? "" : "",
+    language: "auto",
+    // 'auto' (TV language: Arabic or English) | 'en' | 'ar'
+    askProfile: true,
+    // "Quem está assistindo?" ao abrir, se houver mais de um perfil
+    wizardDone: false,
+    // Perfil
+    heroSource: "cinemeta",
+    oled: false,
+    subtitleLangs: ["eng", "en"],
+    audioLangs: [],
+    // vazio = mantém o áudio padrão do arquivo (geralmente o original)
+    subtitleSize: 100,
+    subtitleFont: "nata",
+    subtitleStyle: "kai",
+    subtitleColor: "#ffffff",
+    subtitleBold: true,
+    subtitlePosition: "low",
+    skipMode: "auto",
+    // auto (default) | prompt | off
+    subtitlesAuto: true,
+    localAddons: []
+  };
+  function settings() {
+    var subs = {
+      en: ["eng", "en"],
+      ar: ["ara", "ar"]
+    }[current()];
+    var base = Object.assign({}, DEFAULT_SETTINGS, subs ? {
+      subtitleLangs: subs
+    } : null);
+    return Object.assign(base, rawGet("device", {}), get("settings", {}));
+  }
+  function saveSettings(patch) {
+    var dev = rawGet("device", {});
+    var prof = get("settings", {});
+    Object.keys(patch).forEach(function (k) {
+      return (DEVICE_KEYS.indexOf(k) >= 0 ? dev : prof)[k] = patch[k];
+    });
+    rawSet("device", dev);
+    set("settings", prof);
+    return settings();
+  }
+
   // src/js/lib/img.js
+  var RATING_POSTER_RE = /^https?:\/\/(?:covers\.debrid\.in\/rpdb|api\.ratingposterdb\.com\/[^/]+\/imdb\/[^/]+)\/(tt\d+)\.(?:jpg|jpeg|png|webp)(?:\?.*)?$/;
+  function plainPoster(url2) {
+    var m = String(url2 || "").match(RATING_POSTER_RE);
+    if (!m || settings().plainPosters === false) return null;
+    return "https://images.metahub.space/poster/small/" + m[1] + "/img";
+  }
   function smallPoster(url2) {
     if (!url2) return url2;
+    var plain = plainPoster(url2);
+    if (plain) return plain;
     return String(url2).replace(/(images\.metahub\.space\/poster\/)(medium|large)\//, "$1small/").replace(/(image\.tmdb\.org\/t\/p\/)[^/]+\//, "$1w185/").replace(/(artworks\.thetvdb\.com\/banners\/(?:[^?]*\/)?posters\/[^/?]+?)(?:_t)?\.(jpg|png)/, "$1_t.$2").replace(/(static\.tvmaze\.com\/uploads\/images\/)(original_untouched|large_landscape|medium_landscape)\//, "$1medium_portrait/").replace(/(kitsu\.app\/anime\/poster_images\/\d+\/)(original|large|medium)\.(jpg|jpeg|png)/, "$1small.jpg");
   }
   function smallBackground(url2) {
@@ -6296,168 +6470,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     document.addEventListener("mouseover", onMouseOver);
     document.addEventListener("click", onClick);
     document.addEventListener("mousewheel", onWheel);
-  }
-
-  // src/js/lib/store.js
-  var PREFIX = "kai.";
-  function rawGet(key, fallback) {
-    try {
-      var raw = window.localStorage.getItem(PREFIX + key);
-      return raw === null ? fallback : JSON.parse(raw);
-    } catch (e) {
-      return fallback;
-    }
-  }
-  function rawSet(key, value) {
-    try {
-      if (value === void 0 || value === null) window.localStorage.removeItem(PREFIX + key);else window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
-    } catch (e) {}
-  }
-  var COLORS = ["#7b5bf5", "#e5508c", "#2bb6a3", "#f0a030", "#3d8bfd", "#e55353", "#8bc34a", "#9e9e9e"];
-  function profileKey(id, key) {
-    return "p." + id + "." + key;
-  }
-  function ensureProfiles() {
-    var list2 = rawGet("profiles", null);
-    if (list2 && list2.length) return list2;
-    var id = "p" + Date.now().toString(36);
-    var oldAuth = rawGet("auth", null);
-    var email = oldAuth && oldAuth.user && oldAuth.user.email;
-    list2 = [email ? {
-      id: id,
-      name: email.split("@")[0],
-      color: COLORS[0]
-    } : {
-      id: id,
-      name: "Perfil 1",
-      color: COLORS[0],
-      unnamed: true
-    }];
-    ["auth", "addons", "library"].forEach(function (k) {
-      var v = rawGet(k, null);
-      if (v !== null) rawSet(profileKey(id, k), v);
-      rawSet(k, null);
-    });
-    var oldSettings = rawGet("settings", null);
-    if (oldSettings) {
-      var dev = {};
-      var prof = {};
-      Object.keys(oldSettings).forEach(function (k) {
-        if (k === "devlogUrl" || oldSettings[k] === "") return;
-        (DEVICE_KEYS.indexOf(k) >= 0 ? dev : prof)[k] = oldSettings[k];
-      });
-      rawSet("device", dev);
-      rawSet(profileKey(id, "settings"), prof);
-      rawSet("settings", null);
-    }
-    rawSet("profiles", list2);
-    rawSet("activeProfile", id);
-    return list2;
-  }
-  function profiles() {
-    return ensureProfiles();
-  }
-  function activeProfile() {
-    var list2 = ensureProfiles();
-    var id = rawGet("activeProfile", null);
-    return list2.find(function (p) {
-      return p.id === id;
-    }) || list2[0];
-  }
-  function setActiveProfile(id) {
-    rawSet("activeProfile", id);
-  }
-  function addProfile(name, color) {
-    var list2 = ensureProfiles();
-    var p = {
-      id: "p" + Date.now().toString(36),
-      name: name || "Perfil " + (list2.length + 1),
-      color: color || COLORS[list2.length % COLORS.length]
-    };
-    list2.push(p);
-    rawSet("profiles", list2);
-    return p;
-  }
-  function updateProfile(id, patch) {
-    var list2 = ensureProfiles().map(function (p) {
-      return p.id === id ? Object.assign({}, p, patch) : p;
-    });
-    rawSet("profiles", list2);
-  }
-  function removeProfile(id) {
-    var list2 = ensureProfiles().filter(function (p) {
-      return p.id !== id;
-    });
-    if (!list2.length) return false;
-    ["auth", "addons", "library", "settings"].forEach(function (k) {
-      return rawSet(profileKey(id, k), null);
-    });
-    rawSet("profiles", list2);
-    if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list2[0].id);
-    return true;
-  }
-  function get(key, fallback) {
-    return rawGet(profileKey(activeProfile().id, key), fallback);
-  }
-  function set(key, value) {
-    rawSet(profileKey(activeProfile().id, key), value);
-  }
-  var DEVICE_KEYS = ["serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "perfMode", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
-  var DEFAULT_SETTINGS = {
-    // TV
-    serverUrl: "",
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : "",
-    smoothScroll: false,
-    // rolagem animada (mais bonita, mais pesada na TV)
-    perfMode: true,
-    // Performance mode: no animations, no New episodes row, no background sync
-    smartChoice: true,
-    // Watch picks the best source and plays it
-    theme: "purple",
-    // see lib/theme.js
-    devlogUrl: true ? "" : "",
-    language: "auto",
-    // 'auto' (TV language: Arabic or English) | 'en' | 'ar'
-    askProfile: true,
-    // "Quem está assistindo?" ao abrir, se houver mais de um perfil
-    wizardDone: false,
-    // Perfil
-    heroSource: "cinemeta",
-    oled: false,
-    subtitleLangs: ["eng", "en"],
-    audioLangs: [],
-    // vazio = mantém o áudio padrão do arquivo (geralmente o original)
-    subtitleSize: 100,
-    subtitleFont: "nata",
-    subtitleStyle: "kai",
-    subtitleColor: "#ffffff",
-    subtitleBold: true,
-    subtitlePosition: "low",
-    skipMode: "auto",
-    // auto (default) | prompt | off
-    subtitlesAuto: true,
-    localAddons: []
-  };
-  function settings() {
-    var subs = {
-      en: ["eng", "en"],
-      ar: ["ara", "ar"]
-    }[current()];
-    var base = Object.assign({}, DEFAULT_SETTINGS, subs ? {
-      subtitleLangs: subs
-    } : null);
-    return Object.assign(base, rawGet("device", {}), get("settings", {}));
-  }
-  function saveSettings(patch) {
-    var dev = rawGet("device", {});
-    var prof = get("settings", {});
-    Object.keys(patch).forEach(function (k) {
-      return (DEVICE_KEYS.indexOf(k) >= 0 ? dev : prof)[k] = patch[k];
-    });
-    rawSet("device", dev);
-    set("settings", prof);
-    return settings();
   }
 
   // src/js/api/stremio.js
@@ -7825,6 +7837,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       im.setAttribute("data-lazy", src);
       im.onerror = function () {
+        if (!o.wide && item.poster && src !== item.poster && im.getAttribute("src") !== item.poster) {
+          im.setAttribute("data-lazy", item.poster);
+          im.setAttribute("src", item.poster);
+          return;
+        }
         im.style.display = "none";
         wrap.appendChild(h("div.ph", {
           text: item.name || ""
@@ -12162,7 +12179,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T10:19:27.461Z";
+  var BUILD = "2026-11-05T10:32:52.387Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
@@ -12911,6 +12928,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         render();
       }, toggle(s.smartChoice !== false)));
+      body.appendChild(row(t("Pôsteres sem barra de notas"), t("Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta"), "", function () {
+        saveSettings({
+          plainPosters: settings().plainPosters === false
+        });
+        dropTab("home");
+        render();
+      }, toggle(s.plainPosters !== false)));
       body.appendChild(row(t("Modo desempenho"), t("Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano"), "", function () {
         var on = settings().perfMode === false;
         saveSettings({

@@ -162,6 +162,12 @@ export function card(item, opts) {
     const im = h('img', { alt: '' });
     im.setAttribute('data-lazy', src);
     im.onerror = () => {
+      // Plain poster missing (very new title): fall back to the add-on's own image once.
+      if (!o.wide && item.poster && src !== item.poster && im.getAttribute('src') !== item.poster) {
+        im.setAttribute('data-lazy', item.poster);
+        im.setAttribute('src', item.poster);
+        return;
+      }
       im.style.display = 'none';
       wrap.appendChild(h('div.ph', { text: item.name || '' }));
     };

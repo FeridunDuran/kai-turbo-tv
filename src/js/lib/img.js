@@ -1,9 +1,22 @@
 // Versões menores das imagens. A TV tem ~180 MB livres e o que pesa é a imagem DECODIFICADA:
 // pôster 500x750 ≈ 1,5 MB; original do Kitsu 2715x3840 ≈ 41 MB (!). O cartão tem só 210x315.
 import { getJSON } from './http.js';
+import * as store from './store.js';
+
+// Rating posters (score bar drawn into the image, 580x870) -> Cinemeta's plain 300x450 poster.
+// The TV scales the big image down badly and each one decodes to ~2 MB; the plain one is sharper.
+const RATING_POSTER_RE = /^https?:\/\/(?:covers\.debrid\.in\/rpdb|api\.ratingposterdb\.com\/[^/]+\/imdb\/[^/]+)\/(tt\d+)\.(?:jpg|jpeg|png|webp)(?:\?.*)?$/;
+
+export function plainPoster(url) {
+  const m = String(url || '').match(RATING_POSTER_RE);
+  if (!m || store.settings().plainPosters === false) return null;
+  return 'https://images.metahub.space/poster/small/' + m[1] + '/img';
+}
 
 export function smallPoster(url) {
   if (!url) return url;
+  const plain = plainPoster(url);
+  if (plain) return plain;
   return String(url)
     .replace(/(images\.metahub\.space\/poster\/)(medium|large)\//, '$1small/') // 300x450
     .replace(/(image\.tmdb\.org\/t\/p\/)[^/]+\//, '$1w185/') // 185x278

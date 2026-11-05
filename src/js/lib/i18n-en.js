@@ -187,6 +187,8 @@ export const EN = {
   'Via TV': 'Via TV',
   'Precisa do PC': 'Needs the PC',
   'Direto · pode falhar': 'Direct · may fail',
+  'Pôsteres sem barra de notas': 'Posters without the rating bar',
+  'Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta': "Shows Cinemeta's clean poster instead of posters with ratings drawn on (RPDB)",
   'Ordenar': 'Sort',
   'Ordenar: {name}': 'Sort: {name}',
   'Último assistido': 'Last watched',
