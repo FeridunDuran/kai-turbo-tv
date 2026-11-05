@@ -50,6 +50,16 @@ function PlayerView(opts) {
 
   const videoEl = createVideo(document);
   videoEl.preload = 'auto';
+  try {
+    const support = (type) => videoEl.canPlayType ? videoEl.canPlayType(type) || 'unsupported' : 'unavailable';
+    log.info('Player codec capabilities', {
+      engine: videoEl.playbackEngine || 'html',
+      hev1: support('video/mp4; codecs="hev1.1.6.L120.B0"'),
+      hvc1: support('video/mp4; codecs="hvc1.1.6.L120.B0"'),
+      h264: support('video/mp4; codecs="avc1.640028"'),
+      avplayAvailable: typeof window !== 'undefined' && !!(window.webapis && window.webapis.avplay),
+    });
+  } catch (e) { log.warn('Player capability check failed', e.message); }
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
@@ -443,7 +453,12 @@ function PlayerView(opts) {
   }
   videoEl.addEventListener('error', () => {
     const err = videoEl.error;
-    log.warn('Erro de vídeo', err && err.code, mediaUrl);
+    log.warn('Video playback error', {
+      code: err && err.code, message: err && err.message,
+      engine: videoEl.playbackEngine || 'html', readyState: videoEl.readyState,
+      networkState: videoEl.networkState, currentTime: videoEl.currentTime,
+      torrent: server.isTorrent(stream),
+    });
     if (!alive) return;
     clearStartup();
     // Smart Choice: before giving up, try its next-best source.

@@ -9904,6 +9904,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var settings2 = settings();
     var videoEl = createVideo(document);
     videoEl.preload = "auto";
+    try {
+      var support = function support(type) {
+        return videoEl.canPlayType ? videoEl.canPlayType(type) || "unsupported" : "unavailable";
+      };
+      log.info("Player codec capabilities", {
+        engine: videoEl.playbackEngine || "html",
+        hev1: support('video/mp4; codecs="hev1.1.6.L120.B0"'),
+        hvc1: support('video/mp4; codecs="hvc1.1.6.L120.B0"'),
+        h264: support('video/mp4; codecs="avc1.640028"'),
+        avplayAvailable: typeof window !== "undefined" && !!(window.webapis && window.webapis.avplay)
+      });
+    } catch (e) {
+      log.warn("Player capability check failed", e.message);
+    }
     var subsEl = h("div.subs");
     var titleEl = h("div.p-title");
     var clockEl = h("div.p-clock");
@@ -10355,7 +10369,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     videoEl.addEventListener("error", function () {
       var err = videoEl.error;
-      log.warn("Erro de vídeo", err && err.code, mediaUrl);
+      log.warn("Video playback error", {
+        code: err && err.code,
+        message: err && err.message,
+        engine: videoEl.playbackEngine || "html",
+        readyState: videoEl.readyState,
+        networkState: videoEl.networkState,
+        currentTime: videoEl.currentTime,
+        torrent: isTorrent(stream)
+      });
       if (!alive) return;
       clearStartup();
       if (tryFallback()) return;
@@ -13278,7 +13300,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T15:29:27.151Z";
+  var BUILD = "2026-11-05T15:34:31.934Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
