@@ -76,3 +76,22 @@ test('vendored swarm forgets a failed connection attempt so it can be tried agai
   assert.equal(swarm._peers['127.0.0.1:' + port], undefined, 'refused peer removed from the swarm');
   swarm.destroy();
 });
+
+
+test('timeout uTP probes are rate limited and never retry an established TCP connection',()=>{
+ const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/lib/peer-wire-swarm.cjs',import.meta.url),'utf8');
+ const begin=source.indexOf('var onend = function()'),end=source.indexOf("wire.on('end', onend)",begin);
+ let now=100000,repushed=0,removed=0;const self={_peers:{},utpFallback:true,emit(){},_remove(){removed++;}};
+ function attempt(opened=false){const peer={triedUtp:false},wire={};self._peers.fixture=peer;const c={ended:false,self,peer,wire,addr:'fixture',opened,tcpRefused:false,tcpTimedOut:true,viaUtp:false,Date:{now:()=>now},repush(){repushed++;},RECONNECT_WAIT:[],setTimeout(){}};vm.runInNewContext(source.slice(begin,end),c);c.onend();return peer;}
+ assert.equal(attempt().useUtp,true);assert.equal(repushed,1);now+=1000;assert.equal(attempt().useUtp,undefined);assert.equal(repushed,1);
+ now+=15000;assert.equal(attempt(true).useUtp,undefined);assert.equal(repushed,1);assert.equal(attempt().useUtp,true);assert.equal(repushed,2);assert.ok(removed>=2);
+});
+
+
+test('a recently productive choked peer is not discarded while alternatives wait',()=>{
+ const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/index.cjs',import.meta.url),'utf8');const begin=source.indexOf('var onchoketimeout = function'),end=source.indexOf("wire.on('close'",begin);
+ let closed=0,scheduled=0;const wire={amInterested:true,lastPieceAt:10000,destroy(){closed++;}};
+ const c={wire,swarm:{queued:100,size:55,wires:Array(55)},Date:{now:()=>20000},timeout:15000,setTimeout(){scheduled++;return 1;}};
+ vm.runInNewContext(source.slice(begin,end),c);c.onchoketimeout();assert.equal(closed,0);assert.equal(scheduled,1);
+ wire.lastPieceAt=0;c.onchoketimeout();assert.equal(closed,1);
+});

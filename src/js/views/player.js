@@ -796,7 +796,7 @@ function PlayerView(opts) {
   let recoveries = 0;
   let lastRecoveryAt = 0;
   function watchdog() {
-    if (!alive || gaveUp || !hasPlayed || !mediaUrl || videoEl.paused || seekTarget !== null || videoEl.ended) {
+    if (!alive || gaveUp || !hasPlayed || !mediaUrl || videoEl.paused || videoEl.seeking || seekTarget !== null || videoEl.ended) {
       stuckSince = 0;
       return;
     }
@@ -1089,7 +1089,7 @@ function PlayerView(opts) {
       aheadKB: typeof stats.aheadBytes === 'number' ? Math.round(stats.aheadBytes / 1024) : null,
       cachedKB: Math.round((stats.cachedBytes || 0) / 1024), window: [stats.windowFrom, stats.windowTo],
       pieceKB: Math.round((stats.pieceLength || 0) / 1024), resumePending: stats.resumePending,
-      scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
+      probeCache: stats.probeCache, scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
       lastRange: last ? { start: last.start, sentKB: Math.round(last.sent / 1024), closed: last.closed, closeReason: last.closeReason || null, readError: last.readError || null, ageMs: Date.now() - last.openedAt } : null,
       ranges: ranges.length,
       discovery: d.createdAt ? { firstPeerMs: d.firstPeerMs, firstWireMs: d.firstWireMs, firstUnchokeMs: d.firstUnchokeMs,
@@ -1097,7 +1097,7 @@ function PlayerView(opts) {
         wiresClosed: d.wiresClosed, timeouts: d.timeouts, chokes: d.chokes, unchokes: d.unchokes,
         hashFails: d.hashFails, hotswaps: d.hotswaps, peerRetries: d.peerRetries || 0,
         listenPort: d.listenPort || null, upnp: d.upnp || null, incoming: d.incoming || 0, utpWires: d.utpWires || 0,
-        utpTries: d.utpTries || 0, pexPeers: d.pexPeers || 0, snubs: d.snubs || 0 } : null,
+        utpTries: d.utpTries || 0, utpTimeoutProbes: d.utpTimeoutProbes || 0, pexPeers: d.pexPeers || 0, snubs: d.snubs || 0, idleRotations: d.idleRotations || 0 } : null,
       pieces: d.pieces ? d.pieces.slice(-4) : null, recentClosed: d.closed ? d.closed.slice(-4) : null,
     };
   }

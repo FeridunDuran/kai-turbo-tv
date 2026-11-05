@@ -59,6 +59,8 @@ function orderSources(streams) {
   streams.forEach((stream, index) => (server.isTorrent(stream) ? torrents : http).push({ stream, index }));
   http.sort((a, b) => sourceQuality(b.stream) - sourceQuality(a.stream) || a.index - b.index);
   torrents.sort((a, b) => {
+    const history = tvproxy.transferRank ? tvproxy.transferRank(b.stream) - tvproxy.transferRank(a.stream) : 0;
+    if (history) return history;
     const x = sourceSeeds(a.stream), y = sourceSeeds(b.stream);
     if (x === null || y === null) return x === y ? a.index - b.index : x === null ? 1 : -1;
     return y - x || a.index - b.index;
@@ -468,11 +470,11 @@ function DetailsView(type, id, opts) {
           const badges = streamBadges(s);
           const warn = badges.some((b) => b.warn);
           const heavy = badges.some((b) => b.t === '4K' || b.t === 'HDR');
-          out.push({ s: s, key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, gi, si] });
+          out.push({ s: s, key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, server.isTorrent(s) && tvproxy.transferRank ? -tvproxy.transferRank(s) : 0, gi, si] });
         });
       });
       out.sort((x, y) => {
-        for (let i = 0; i < 5; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
+        for (let i = 0; i < 6; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
         return 0;
       });
       return out.map((c) => c.s);

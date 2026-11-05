@@ -7306,10 +7306,81 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     dhtSavedAt = Date.now();
     set(DHT_KEY, valid);
   }
+  var TRANSFER_KEY = "torrentTransferHistory";
+  var transferSamples = {};
+  var transferHistory = null;
+  var transferReadAt = 0;
+  var loggedTransferRanks = {};
+  function transferRank(stream) {
+    var hash = String(stream && stream.infoHash || "").toLowerCase();
+    if (!transferHistory || Date.now() - transferReadAt > 1e3) {
+      transferHistory = get(TRANSFER_KEY, {}) || {};
+      transferReadAt = Date.now();
+    }
+    var entry = transferHistory[hash];
+    if (!entry || Date.now() - entry.at > 864e5) return 0;
+    var rank = entry.rate >= 262144 ? 1 : entry.rate < 131072 ? -1 : 0;
+    if (loggedTransferRanks[hash] !== rank) {
+      if (Object.keys(loggedTransferRanks).length >= 20) loggedTransferRanks = {};
+      loggedTransferRanks[hash] = rank;
+      if (log.debug) log.debug("Torrent measured preference", {
+        rank: rank,
+        rateKBs: Math.round(entry.rate / 1024),
+        ageMs: Date.now() - entry.at
+      });
+    }
+    return rank;
+  }
+  function rememberTransfer(url2, stats) {
+    var hash = hashByUrl[url2];
+    if (!hash || !stats || !stats.wires || !stats.wires.unchoked) return;
+    var now = Date.now(),
+      bytes = stats.downloaded || 0;
+    var old = transferSamples[url2];
+    if (!old) {
+      if (Object.keys(transferSamples).length >= 20) delete transferSamples[Object.keys(transferSamples)[0]];
+      transferSamples[url2] = {
+        at: now,
+        bytes: bytes
+      };
+      return;
+    }
+    if (now - old.at > 3e4 || bytes <= old.bytes) {
+      transferSamples[url2] = {
+        at: now,
+        bytes: bytes
+      };
+      return;
+    }
+    if (now - old.at < 2e4) return;
+    var rate = Math.round((bytes - old.bytes) * 1e3 / (now - old.at));
+    transferSamples[url2] = {
+      at: now,
+      bytes: bytes
+    };
+    var all2 = get(TRANSFER_KEY, {}) || {};
+    var previous = all2[hash];
+    all2[hash] = {
+      at: now,
+      rate: previous && now - previous.at < 864e5 ? Math.round((previous.rate + rate) / 2) : rate
+    };
+    var keys = Object.keys(all2).sort(function (a, b) {
+      return all2[a].at - all2[b].at;
+    });
+    while (keys.length > 20) delete all2[keys.shift()];
+    set(TRANSFER_KEY, all2);
+    transferHistory = all2;
+    transferReadAt = now;
+    if (log.debug) log.debug("Torrent transfer history updated", {
+      rateKBs: Math.round(all2[hash].rate / 1024),
+      samplesMs: now - old.at
+    });
+  }
   function torrentStats(url2) {
     var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
     if (!match) return Promise.resolve(null);
     return request2(match[1] + "/torrent-status/" + match[2], 2500).then(function (stats) {
+      rememberTransfer(url2, stats);
       if (stats && stats.goodPeers && hashByUrl[url2]) rememberPeers(hashByUrl[url2], stats.goodPeers);
       if (stats && stats.dhtNodes) rememberDhtNodes(stats.dhtNodes);
       return stats;
@@ -10947,7 +11018,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var recoveries = 0;
     var lastRecoveryAt = 0;
     function watchdog() {
-      if (!alive || gaveUp || !hasPlayed || !mediaUrl || videoEl.paused || seekTarget !== null || videoEl.ended) {
+      if (!alive || gaveUp || !hasPlayed || !mediaUrl || videoEl.paused || videoEl.seeking || seekTarget !== null || videoEl.ended) {
         stuckSince = 0;
         return;
       }
@@ -11238,6 +11309,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         window: [stats.windowFrom, stats.windowTo],
         pieceKB: Math.round((stats.pieceLength || 0) / 1024),
         resumePending: stats.resumePending,
+        probeCache: stats.probeCache,
         scheduler: stats.scheduler,
         headerPieces: stats.headerPieces,
         engineReused: stats.engineReused,
@@ -11270,8 +11342,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           incoming: d.incoming || 0,
           utpWires: d.utpWires || 0,
           utpTries: d.utpTries || 0,
+          utpTimeoutProbes: d.utpTimeoutProbes || 0,
           pexPeers: d.pexPeers || 0,
-          snubs: d.snubs || 0
+          snubs: d.snubs || 0,
+          idleRotations: d.idleRotations || 0
         } : null,
         pieces: d.pieces ? d.pieces.slice(-4) : null,
         recentClosed: d.closed ? d.closed.slice(-4) : null
@@ -12260,6 +12334,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return sourceQuality(b.stream) - sourceQuality(a.stream) || a.index - b.index;
     });
     torrents.sort(function (a, b) {
+      var history = transferRank ? transferRank(b.stream) - transferRank(a.stream) : 0;
+      if (history) return history;
       var x = sourceSeeds(a.stream),
         y = sourceSeeds(b.stream);
       if (x === null || y === null) return x === y ? a.index - b.index : x === null ? 1 : -1;
@@ -12788,12 +12864,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             });
             out.push({
               s: s,
-              key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, gi, si]
+              key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, isTorrent(s) && transferRank ? -transferRank(s) : 0, gi, si]
             });
           });
         });
         out.sort(function (x, y) {
-          for (var i = 0; i < 5; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
+          for (var i = 0; i < 6; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
           return 0;
         });
         return out.map(function (c) {
@@ -14254,7 +14330,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T21:06:41.734Z";
+  var BUILD = "2026-11-05T21:31:51.505Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

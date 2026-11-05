@@ -70,3 +70,14 @@ test('peers that delivered data are remembered per torrent and offered as hints 
   await api.openTorrent({ infoHash: hash.toUpperCase(), sources: ['tracker:udp://x'] });
   assert.deepEqual(posts[0].args.sources, ['tracker:udp://x', 'peer:1.2.3.4:6881']);
 });
+
+
+test('measured transfer preferences are bounded, expire and ignore idle sampling gaps',()=>{
+ let now=1000;const saved={};const context={Date:{now:()=>now},log:{},store:{get:(k,d)=>saved[k]||d,set:(k,v)=>saved[k]=v},window:{}};
+ let source=fs.readFileSync(new URL('../../src/js/api/tvproxy.js',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replace(/export /g,'');
+ source+=";hashByUrl.fixture='"+'a'.repeat(40)+"';";vm.runInNewContext(source,context);
+ const stats=bytes=>({downloaded:bytes,wires:{unchoked:2}});context.rememberTransfer('fixture',stats(0));now+=20000;context.rememberTransfer('fixture',stats(10000000));
+ assert.equal(context.transferRank({infoHash:'a'.repeat(40)}),1);
+ now+=600000;context.rememberTransfer('fixture',stats(10000001));assert.equal(saved.torrentTransferHistory['a'.repeat(40)].rate,500000,'idle gaps do not become slow measurements');
+ now+=86400001;assert.equal(context.transferRank({infoHash:'a'.repeat(40)}),0);assert.equal(context.transferRank({infoHash:'b'.repeat(40)}),0);
+});

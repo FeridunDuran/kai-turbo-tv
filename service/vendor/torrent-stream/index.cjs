@@ -86,7 +86,7 @@ var torrentStream = function (link, opts, cb) {
   // unreachable peers to a third (TV trace: 550 found, one or two connected).
   var swarm = pws(infoHash, opts.id, { size: (opts.connections || opts.size), speed: 10,
     connectTimeout: opts.connectTimeout || 5000, utpFallback: !!opts.utpFallback })
-  swarm.on('utp-fallback', function (addr) { engine.emit('utp-fallback', addr) })
+  swarm.on('utp-fallback', function (addr, reason) { engine.emit('utp-fallback', addr, reason) })
   var torrentPath = path.join(opts.tmp, opts.name, infoHash + '.torrent')
 
   if (cb) engine.on('ready', cb.bind(null, engine))
@@ -504,6 +504,7 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var onwire = function (wire) {
+      wire.kaiConnectedAt = Date.now();
       wire.setTimeout(opts.timeout || REQUEST_TIMEOUT, function () {
         engine.emit('timeout', wire)
         wire.destroy()
@@ -515,7 +516,8 @@ var torrentStream = function (link, opts, cb) {
       var id
 
       var onchoketimeout = function () {
-        if (swarm.queued > 2 * (swarm.size - swarm.wires.length) && wire.amInterested) return wire.destroy()
+        if (swarm.queued > 2 * (swarm.size - swarm.wires.length) && wire.amInterested &&
+            (!wire.lastPieceAt || Date.now() - wire.lastPieceAt > 60000)) return wire.destroy()
         id = setTimeout(onchoketimeout, timeout)
       }
 
@@ -645,8 +647,13 @@ var torrentStream = function (link, opts, cb) {
       }
 
       rechokeIntervalId = setInterval(onrechoke, RECHOKE_INTERVAL)
+      var lastRotation = 0;
       recoveryIntervalId = setInterval(function () {
         var snubAt = Date.now();
+        if (snubAt - lastRotation >= 15000) {
+          var idle = streamPolicy.rotationCandidate(wires, swarm.queued, swarm.size, snubAt);
+          if (idle) { lastRotation = snubAt; engine.emit('idle-peer-rotation'); idle.destroy(); }
+        }
         var snub = streamPolicy.snubCandidates(wires, snubAt);
         for (var s = 0; s < snub.length; s++) {
           var slow = snub[s];

@@ -243,3 +243,21 @@ test('16 MiB startup overlaps head and low-priority tail, then gives the tail sl
  assert.equal(s.aheadPieces,1);assert.deepEqual(Array.from(s.headerPieces),[0]);assert.ok(deselected.some(x=>x[0]===99&&x[2]===0));
  }
 });
+
+
+test('verified small probes survive full-piece eviction and warm reopening without aliasing buffers',()=>{
+ const engine=new EventEmitter(),store={bytes:16777216,present:[0],remove(i){this.present=this.present.filter(p=>p!==i);return true;}};
+ Object.assign(engine,{store:{store},torrent:{pieceLength:16777216},select(){},deselect(){},release(){}});
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
+ const file={name:'episode.mkv',offset:0,length:100*16777216};const s=new context.TV_TORRENT.Session(engine,file,0);
+ const payload=Buffer.alloc(26000,7);s.rememberProbe(file.length-26000,payload);s.rememberProbe(0,Buffer.alloc(2000000,3));payload.fill(0);
+ assert.equal(s.probeAt(file.length-26000,file.length-1)[0],7,'copied bytes, no large-piece backing allocation');
+ s.finishStartup();s.ensureWindow(50,true);const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);
+ assert.ok(retained.size*s.pieceLength+s.probes.bytes<=48*1024*1024);
+ store.present=[];store.bytes=0;const warm=new context.TV_TORRENT.Session(engine,file,0);
+ assert.equal(warm.probeAt(file.length-26000,file.length-1).length,26000);assert.equal(warm.probeAt(0,65535).length,65536);
+ assert.equal(warm.probeAt(2000000,3000000),null,'uncached payload still requires verified pieces');
+ const next=new context.TV_TORRENT.Session(engine,{...file,offset:file.length},1);assert.equal(next.probeAt(file.length-26000,file.length-1),null,'no cross-episode header reuse');
+ assert.ok(warm.probes.bytes<=2097152);
+});

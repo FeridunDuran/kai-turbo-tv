@@ -380,3 +380,37 @@ real tail Range can use the normal pipeline immediately. Head/read-ahead queues 
 Tests cover both caps and demand promotion;112 tests pass and the Node4 loopback fixture passes.
 The latest trace also confirms an unpaused14.2s rebuffer and premature ended at16/1302s;
 this patch does not claim to resolve that separate transport/player issue.
+
+## Reusable probe bytes and productive peer selection (2026-11-06)
+
+- Engine-local probe cache copies at most 1 MiB from a verified start read and small end reads
+  within the last 1 MiB; total 2 MiB/eight entries, keyed to the selected file offset/length.
+  A different file drops these entries. Copies do not retain whole-piece backing allocations.
+  Only matching byte ranges bypass piece retrieval; uncached payload still requires verified pieces.
+  Probe bytes are included in the 48 MiB budget. Once startup finishes, small copies replace whole
+  header pins and the rolling window is recalculated. Completion overflow drops probe copies.
+  This trades permanent whole-head retention for bounded head/tail snippets; large headers may miss.
+- Full-swarm rotation replaces at most one never-productive, choked, request-free peer per 15s,
+  after 90s and only with queued alternatives. Recently productive choked peers get 60s grace
+  from the pre-existing choke replacement path. The connection limit remains 55.
+- TCP connect timeouts can trigger one uTP fallback per peer, rate limited to one timeout probe
+  per swarm per15s. Established TCP connections are not retried by this path. Definite TCP
+  refusal/reset fallback remains. This does not guarantee connectivity through CGNAT.
+- Torrent source ordering and Smart Choice use 24h measured throughput hints ahead of seed counts
+  within their existing compatibility/quality constraints. Twenty hashes are retained. Measurements
+  need a20-30s data interval with unchoked peers; idle sampling gaps are discarded. This is observed
+  transfer history, not guaranteed future availability. Unknown sources remain selectable.
+- Diagnostics add probeCache bytes/hits/servedBytes/evictions, idleRotations, existing uTP counters,
+  and address-free measured-preference logs. The watchdog no longer reopens during an active seek.
+
+Unit regressions cover cache identity, independent copies, budget and warm reuse; peer rotation,
+productive-peer grace; timeout uTP rate bounds; and history expiry/idle gaps. The controlled
+TCP/HTTP startup fixture now evicts the full tail piece and asserts no re-download when serving
+its verified cached snippet. Public-swarm TV performance still needs a fresh same-source run.
+
+Final verification:119 tests pass;build and ES5 parse pass. Under Node4.4.3 the16MiB TCP/HTTP
+fixture passes with1024 head and1024 tail block requests, including a cached-tail read after
+full-tail eviction without additional requests. The network fixture passes fake-gateway
+UPnP/PEX/uTP-fallback/incoming checks. These are controlled local tests, not TV speed measurements.
+Timeout-only uTP probes have their own utpTimeoutProbes counter. Fresh TV trials must compare
+cold starts and warm reopenings separately. Premature-ended behavior remains an open investigation.

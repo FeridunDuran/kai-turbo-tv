@@ -96,3 +96,17 @@ exports.prefetchAllowed = function (active, selections, index, wire) {
   }
   return held < 2 && total < 16;
 };
+
+
+exports.rotationCandidate = function (wires, queued, size, now) {
+  if (!queued || wires.length < size - 2) return null;
+  var candidate = null;
+  for (var i = 0; i < wires.length; i++) {
+    var w = wires[i];
+    // Never evict a peer that has delivered payload, or interrupt pending requests.
+    if (w.lastPieceAt || !w.peerChoking || (w.requests || []).length || !w.kaiConnectedAt) continue;
+    if (now - w.kaiConnectedAt < 90000) continue;
+    if (!candidate || w.kaiConnectedAt < candidate.kaiConnectedAt) candidate = w;
+  }
+  return candidate;
+};

@@ -74,8 +74,9 @@ var TV_TORRENT = (function () {
     engine.on('invalid-piece', function () { d.hashFails++; });
     engine.on('hotswap', function () { d.hotswaps++; });
     engine.on('pex-peer', function () { d.pexPeers = (d.pexPeers || 0) + 1; });
+    engine.on('idle-peer-rotation', function () { d.idleRotations = (d.idleRotations || 0) + 1; });
     engine.on('snub', function () { d.snubs = (d.snubs || 0) + 1; });
-    engine.on('utp-fallback', function () { d.utpTries = (d.utpTries || 0) + 1; });
+    engine.on('utp-fallback', function (addr, reason) { d.utpTries = (d.utpTries || 0) + 1; if (reason === 'timeout') d.utpTimeoutProbes = (d.utpTimeoutProbes || 0) + 1; });
     engine.on('ready', function () { d.readyMs = at(); });
     engine.on('verify', function (index) {
       var requested = engine.pieceRequestedAt && engine.pieceRequestedAt[index];
@@ -347,9 +348,12 @@ var TV_TORRENT = (function () {
     this.fileIdx = fileIdx;
     this.store = engine.store.store;
     this.pieceLength = engine.torrent.pieceLength;
+    var probeKey = file.offset + ':' + file.length;
+    if (engine.kaiProbeKey !== probeKey) { engine.kaiProbeKey = probeKey; engine.kaiProbes = null; }
+    this.probes = engine.kaiProbes || (engine.kaiProbes = { entries: [], bytes: 0, hits: 0, savedBytes: 0, evictions: 0 });
     this.first = Math.floor(file.offset / this.pieceLength);
     this.last = Math.floor((file.offset + file.length - 1) / this.pieceLength);
-    var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength));
+    var slots = Math.max(1, Math.floor((CACHE_BYTES - this.probes.bytes) / this.pieceLength));
     this.headerPieces = [];
     this.startupComplete = this.store.present.indexOf(this.first) >= 0;
     if (slots >= 3 && /\.(mp4|m4v|mov|mkv|webm)$/i.test(file.name)) {
@@ -391,13 +395,55 @@ var TV_TORRENT = (function () {
     });
   }
 
+  // Only copy verified bytes actually used for header probes. Buffer.slice would retain
+  // the entire 16 MiB allocation. The engine-local cache is bounded and keyed by file range.
+  Session.prototype.rememberProbe = function (pos, buf) {
+    var head = pos === 0;
+    if (!head && pos < this.file.length - 1048576) return;
+    var length = Math.min(buf.length, 1048576);
+    if (!length || this.probes.entries.length >= 8 || this.probes.bytes + length > 2097152 || this.store.bytes + this.probes.bytes + length > CACHE_BYTES) return;
+    var key = this.file.offset + ':' + this.file.length;
+    for (var i = 0; i < this.probes.entries.length; i++) {
+      var e = this.probes.entries[i];
+      if (e.key === key && e.pos === pos) return;
+    }
+    var copy = new Buffer(length);
+    buf.copy(copy, 0, 0, length);
+    this.probes.entries.push({ key: key, pos: pos, data: copy });
+    this.probes.bytes += length;
+  };
+
+  Session.prototype.probeAt = function (pos, end) {
+    var key = this.file.offset + ':' + this.file.length;
+    for (var i = 0; i < this.probes.entries.length; i++) {
+      var e = this.probes.entries[i];
+      if (e.key !== key || pos < e.pos || pos >= e.pos + e.data.length) continue;
+      var result = e.data.slice(pos - e.pos, Math.min(e.data.length, end - e.pos + 1));
+      this.probes.hits++;
+      this.probes.savedBytes += result.length;
+      return result;
+    }
+    return null;
+  };
+
   Session.prototype.finishStartup = function () {
-    if (this.startupTail === null) return false;
+    if (this.startupTail === null && (!this.probes.bytes || this.probeBudgetApplied)) return false;
     var tail = this.startupTail;
-    this.engine.deselect(tail, tail, 0, this.headerNotify);
-    this.headerPieces.splice(this.headerPieces.indexOf(tail), 1);
+    if (tail !== null) {
+      this.engine.deselect(tail, tail, 0, this.headerNotify);
+      this.headerPieces.splice(this.headerPieces.indexOf(tail), 1);
+    }
+    if (this.probes.bytes) {
+      this.probeBudgetApplied = true;
+      // Small probe copies replace whole-piece pins; their bytes come out of the same budget.
+      var self = this;
+      this.headerPieces.forEach(function (index) { self.engine.deselect(index, index, 1, self.headerNotify); });
+      this.headerPieces = [];
+      this.returnSlot = 0;
+      this.returnPiece = null;
+    }
     this.startupTail = null;
-    var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength)) - this.headerPieces.length;
+    var slots = Math.max(1, Math.floor((CACHE_BYTES - this.probes.bytes) / this.pieceLength)) - this.headerPieces.length;
     this.behindPieces = Math.min(Math.ceil(BEHIND_BYTES / this.pieceLength), Math.max(0, slots - 2));
     this.aheadPieces = Math.min(Math.ceil(AHEAD_BYTES / this.pieceLength), Math.max(0, slots - this.behindPieces - 1));
     this.stepPieces = Math.max(1, Math.floor(this.aheadPieces / 4));
@@ -406,6 +452,10 @@ var TV_TORRENT = (function () {
 
   Session.prototype._pieceDone = function (index) {
     if (this.detached) return;
+    // In-flight pieces may finish after a seek; copied probes must share the 48 MiB budget.
+    if (this.store.bytes + this.probes.bytes > CACHE_BYTES) {
+      this.probes.entries = []; this.probes.bytes = 0; this.probes.evictions++;
+    }
     // A piece that finished after the window moved on is dropped instead of leaking RAM.
     if ((index < this.windowFrom || index > this.windowTo) && this.headerPieces.indexOf(index) < 0 && index !== this.returnPiece) {
       if (this.store.remove(index)) this.engine.release(index);
@@ -453,6 +503,7 @@ var TV_TORRENT = (function () {
       return;
     }
 
+    if (this.probes.bytes && this.startupTail === null && this.headerPieces.length) this.finishStartup();
     var from = Math.max(this.first, index - this.behindPieces);
     var to = Math.min(this.last, index + this.aheadPieces);
     if (from === this.selFrom && to === this.selTo) return;
@@ -614,6 +665,18 @@ var TV_TORRENT = (function () {
     var index = Math.floor(global / pl);
     var within = global - index * pl;
 
+    var probe = session.probeAt ? session.probeAt(this.pos, this.end) : null;
+    if (probe) {
+      this.reading = false;
+      this.pos += probe.length;
+      if (this.diag) this.diag.sent += probe.length;
+      session.delivered = (session.delivered || 0) + probe.length;
+      session.lastDataAt = Date.now();
+      session.lastUsed = Date.now();
+      if (this.res.write(probe)) return this._next();
+      this.res.once('drain', function () { self._next(); });
+      return;
+    }
     session.ensureWindow(index);
     session.engine.critical(index, 2);
     session.readPiece(index, function (err, buf) {
@@ -631,6 +694,7 @@ var TV_TORRENT = (function () {
 
       var want = Math.min(buf.length - within, self.end - self.pos + 1);
       var slice = buf.slice(within, within + want);
+      if (session.rememberProbe) session.rememberProbe(self.pos, slice);
       self.pos += slice.length;
       self.session.lastDataAt = Date.now();
       if (self.diag) self.diag.sent += slice.length;
@@ -928,6 +992,7 @@ var TV_TORRENT = (function () {
       s.headerPieces.forEach(function (index) { if (wanted.indexOf(index) < 0) wanted.push(index); });
       return { requestedPiece: requested, wantedPieces: s.engine.pieceStats ? s.engine.pieceStats(wanted) : null,
         length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
+        probeCache: { bytes: s.probes.bytes, hits: s.probes.hits, servedBytes: s.probes.savedBytes, evictions: s.probes.evictions || 0 },
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,

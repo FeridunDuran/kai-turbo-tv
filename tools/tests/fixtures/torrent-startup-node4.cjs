@@ -1,7 +1,7 @@
 // Controlled loopback seeder; no public torrent or media download. Run with Node 4.4.3.
 var fs=require('fs'),path=require('path'),vm=require('vm'),crypto=require('crypto'),net=require('net'),http=require('http');
 var bencode=require('bencode'),protocol=require('peer-wire-protocol');
-var root=path.resolve(__dirname,'../../..'),pieceLength=4*1024*1024,count=16,hashes=[],requests=[];
+var root=path.resolve(__dirname,'../../..'),pieceLength=Number(process.env.KAI_FIXTURE_PIECE_MB||4)*1024*1024,count=16,hashes=[],requests=[];
 for(var i=0;i<count;i++){var block=new Buffer(pieceLength);block.fill(i);hashes.push(crypto.createHash('sha1').update(block).digest());}
 var info=bencode.encode({name:new Buffer('fixture.mp4'),length:pieceLength*count,'piece length':pieceLength,pieces:Buffer.concat(hashes)});
 var hash=crypto.createHash('sha1').update(info).digest('hex'),torrent=Buffer.concat([new Buffer('d4:info'),info,new Buffer('e')]);
@@ -20,4 +20,13 @@ context.TV_TORRENT.create({infoHash:hash,fileIdx:0},function(err,result){if(err)
 if(requests.some(function(i){return i!==0&&i!==15;}))return finish(new Error('prefetch downloaded unrelated pieces'));
 server.on('request',function(req,res){context.TV_TORRENT.serve(req,res,result.id);});server.listen(0,'127.0.0.1',function(){
 function read(start,expected,cb){http.get({hostname:'127.0.0.1',port:server.address().port,path:'/',headers:{Range:'bytes='+start+'-'+(start+16383)}},function(res){var chunks=[];res.on('data',function(b){chunks.push(b);});res.on('end',function(){var data=Buffer.concat(chunks);if(res.statusCode!==206||data.length!==16384||data[0]!==expected)return finish(new Error('range payload mismatch'));cb();});}).on('error',finish);}
-read(0,0,function(){read(pieceLength*15,15,function(){read(0,0,function(){if(requests.filter(function(i){return i===0;}).length!==256)return finish(new Error('head was downloaded twice'));if(context.TV_TORRENT.stats(result.id).cachedBytes>48*1024*1024)return finish(new Error('cache budget exceeded'));finish();});});});});},10);});});
+read(0,0,function(){read(pieceLength*count-16384,15,function(){
+context.TV_TORRENT.resumed(result.id);
+engine.store.store.remove(15);engine.release(15);
+read(pieceLength*count-16384,15,function(){read(0,0,function(){
+if(requests.filter(function(i){return i===0;}).length!==pieceLength/16384)return finish(new Error('head was downloaded twice'));
+if(requests.filter(function(i){return i===15;}).length!==pieceLength/16384)return finish(new Error('cached tail was downloaded twice'));
+var stats=context.TV_TORRENT.stats(result.id);
+if(stats.cachedBytes+stats.probeCache.bytes>48*1024*1024)return finish(new Error('cache budget exceeded'));
+if(stats.probeCache.hits<2)return finish(new Error('probe cache was not used'));
+finish();});});});});});},10);});});

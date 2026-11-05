@@ -200,3 +200,12 @@ test('auto-open waits for higher-priority add-ons and stops once the user arrang
   assert.equal(groups[1].querySelector('.stream-group-head').getAttribute('aria-expanded'), 'true', 'first non-empty group opens');
   assert.equal(groups[2].querySelector('.stream-group-head').getAttribute('aria-expanded'), 'false');
 });
+
+
+test('torrent ordering prefers measured productive sources, then seed hints, while HTTP keeps quality order',()=>{
+ const source=read('src/js/views/details.js');const c={server:{isTorrent:s=>!!s.infoHash},tvproxy:{transferRank:s=>s.rank||0}};
+ vm.runInNewContext(source.slice(source.indexOf('function sourceQuality'),source.indexOf('// Smart Choice waits')),c);
+ const fast={infoHash:'fast',rank:1,seeds:1},unknown={infoHash:'unknown',seeds:100},slow={infoHash:'slow',rank:-1,seeds:1000};
+ const h720={url:'720',name:'720p'},h1080={url:'1080',name:'1080p'};
+ assert.deepEqual(Array.from(c.orderSources([slow,h720,unknown,h1080,fast])),[fast,h1080,unknown,h720,slow]);
+});

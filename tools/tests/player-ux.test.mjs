@@ -346,3 +346,10 @@ test('waiting while paused is not counted as rebuffering and pause ends an activ
  f.video.paused=false;f.video.emit('playing');f.video.emit('waiting');await flush();f.video.paused=true;f.video.emit('pause');
  assert.ok(f.logs.some(l=>l[0]==='Rebuffer end'&&l[1].reason==='pause'));f.close();
 });
+
+
+test('watchdog does not reopen a torrent while the browser is actively seeking',async()=>{
+ const f=await fixture();f.video.duration=1302;f.video.emit('loadedmetadata');f.video.paused=false;f.video.emit('playing');f.video.currentTime=159;f.video.seeking=true;
+ for(let i=0;i<12;i++){f.advance(2000);f.watchdog();}
+ assert.ok(!f.logs.some(l=>String(l[0]).includes('travado-recuperando')));assert.ok(!f.toasts.some(s=>/Reconectando/.test(s)));f.close();
+});

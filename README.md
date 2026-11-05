@@ -523,3 +523,9 @@ runtime Git revision, screen transitions, shared HTTP request durations/statuses
 JavaScript/Promise errors, playback timelines, pause state and bounded torrent piece diagnostics.
 URLs in logger output retain the origin while configuration paths and signed queries are
 redacted. Disable Remote log when finished to stop sending diagnostic records.
+
+Recent torrent improvements also keep bounded copies of verified media probe bytes for reopening
+the same file, rotate long-idle nonproductive peers only when the connection pool is full, and
+try a rate-limited uTP fallback after TCP connect timeouts. Recent measured transfer history
+helps rank torrent sources; it expires after24hours and does not guarantee future speed.
+Remote diagnostics expose probe-cache use and peer rotation counters for comparing TV trials.

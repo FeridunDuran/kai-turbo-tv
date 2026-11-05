@@ -25,7 +25,7 @@ test('actual engine request accounting caps outstanding blocks and releases canc
 test('engine recovery cancels the old request before reserving it on the alternative peer',()=>{
  const old=peer(4096),fast=peer(131072),request={wire:old,index:10,offset:0,size:16384,at:0},events=[],activeRequests=[request];
  old.cancel=()=>{events.push('cancel');activeRequests.length=0;};let tick;
- const context={engine:{selection:[{from:10,to:10,priority:2}],emit:()=>events.push('event')},streamPolicy:policy,activeRequests,wires:[old,fast],retriedBlocks:{},criticalRetries:0,Date:{now:()=>20000},setInterval(fn){tick=fn;return 1;},onrequest(wire,index){assert.equal(wire,fast);assert.equal(index,10);events.push('request');}};
+ const context={lastRotation:0,swarm:{queued:0,size:55},engine:{selection:[{from:10,to:10,priority:2}],emit:()=>events.push('event')},streamPolicy:policy,activeRequests,wires:[old,fast],retriedBlocks:{},criticalRetries:0,Date:{now:()=>20000},setInterval(fn){tick=fn;return 1;},onrequest(wire,index){assert.equal(wire,fast);assert.equal(index,10);events.push('request');}};
  const start=source.indexOf('recoveryIntervalId = setInterval('),end=source.indexOf('}, 1000)',start)+8;vm.runInNewContext('var '+source.slice(start,end),context);tick();assert.deepEqual(events,['cancel','request','event']);assert.equal(context.retriedBlocks['10:0'],true);
 });
 
@@ -79,4 +79,15 @@ test('speculative tail has at most two requests per peer and sixteen globally; d
  assert.equal(policy.prefetchAllowed(full,selections,1,wire),true);
  selections.unshift({from:99,to:99,priority:2});assert.equal(policy.prefetchAllowed(full,selections,99,wire),true);
  selections.shift();selections[1].priority=1;assert.equal(policy.prefetchAllowed(full,selections,99,wire),true);
+});
+
+
+test('connection rotation preserves data providers and only replaces old empty choked peers in a full swarm',()=>{
+ const idle={kaiConnectedAt:1000,peerChoking:true,requests:[]};
+ const peers=[idle,{kaiConnectedAt:500,lastPieceAt:10,peerChoking:true,requests:[]},{kaiConnectedAt:500,peerChoking:false,requests:[]}];
+ assert.equal(policy.rotationCandidate(peers,20,5,100000),idle);
+ assert.equal(policy.rotationCandidate(peers,0,5,100000),null);
+ assert.equal(policy.rotationCandidate(peers,20,55,100000),null);
+ assert.equal(policy.rotationCandidate(peers,20,5,50000),null);
+ idle.requests=[{}];assert.equal(policy.rotationCandidate(peers,20,5,100000),null);
 });

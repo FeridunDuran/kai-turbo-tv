@@ -200,10 +200,52 @@ function rememberDhtNodes(nodes) {
   store.set(DHT_KEY, valid);
 }
 
+const TRANSFER_KEY = 'torrentTransferHistory';
+const transferSamples = {};
+let transferHistory = null;
+let transferReadAt = 0;
+let loggedTransferRanks = {};
+export function transferRank(stream) {
+  const hash = String(stream && stream.infoHash || '').toLowerCase();
+  if (!transferHistory || Date.now() - transferReadAt > 1000) { transferHistory = store.get(TRANSFER_KEY, {}) || {}; transferReadAt = Date.now(); }
+  const entry = transferHistory[hash];
+  if (!entry || Date.now() - entry.at > 86400000) return 0;
+  const rank = entry.rate >= 262144 ? 1 : entry.rate < 131072 ? -1 : 0;
+  if (loggedTransferRanks[hash] !== rank) {
+    if (Object.keys(loggedTransferRanks).length >= 20) loggedTransferRanks = {};
+    loggedTransferRanks[hash] = rank;
+    if (log.debug) log.debug('Torrent measured preference', { rank: rank, rateKBs: Math.round(entry.rate / 1024), ageMs: Date.now() - entry.at });
+  }
+  return rank;
+}
+function rememberTransfer(url, stats) {
+  const hash = hashByUrl[url];
+  if (!hash || !stats || !stats.wires || !stats.wires.unchoked) return;
+  const now = Date.now(), bytes = stats.downloaded || 0;
+  const old = transferSamples[url];
+  if (!old) {
+    if (Object.keys(transferSamples).length >= 20) delete transferSamples[Object.keys(transferSamples)[0]];
+    transferSamples[url] = { at: now, bytes: bytes }; return;
+  }
+  if (now - old.at > 30000 || bytes <= old.bytes) { transferSamples[url] = { at: now, bytes: bytes }; return; }
+  if (now - old.at < 20000) return;
+  const rate = Math.round((bytes - old.bytes) * 1000 / (now - old.at));
+  transferSamples[url] = { at: now, bytes: bytes };
+  const all = store.get(TRANSFER_KEY, {}) || {};
+  const previous = all[hash];
+  all[hash] = { at: now, rate: previous && now - previous.at < 86400000 ? Math.round((previous.rate + rate) / 2) : rate };
+  const keys = Object.keys(all).sort((a,b) => all[a].at - all[b].at);
+  while (keys.length > 20) delete all[keys.shift()];
+  store.set(TRANSFER_KEY, all);
+  transferHistory = all; transferReadAt = now;
+  if (log.debug) log.debug('Torrent transfer history updated', { rateKBs: Math.round(all[hash].rate / 1024), samplesMs: now - old.at });
+}
+
 export function torrentStats(url) {
   const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
   if (!match) return Promise.resolve(null);
   return request(match[1] + '/torrent-status/' + match[2], 2500).then((stats) => {
+    rememberTransfer(url, stats);
     if (stats && stats.goodPeers && hashByUrl[url]) rememberPeers(hashByUrl[url], stats.goodPeers);
     if (stats && stats.dhtNodes) rememberDhtNodes(stats.dhtNodes);
     return stats;

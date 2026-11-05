@@ -324,6 +324,8 @@ Swarm.prototype._drain = function() {
 	// peer is plausible. Timeouts (unreachable hosts) are not, which keeps connection slots free.
 	var opened = false;
 	var tcpRefused = false;
+	var tcpTimedOut = false;
+	connection.on("timeout", function() { tcpTimedOut = true; });
 	connection.once('connect', function() { opened = true; });
 	connection.on('error', function(err) {
 		if (err && (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET')) tcpRefused = true;
@@ -347,10 +349,12 @@ Swarm.prototype._drain = function() {
 		ended = true;
 		if (peer.wire === wire) peer.wire = null;
 		if (self._peers[addr] !== peer) return;
-		if (!opened && tcpRefused && !viaUtp && self.utpFallback && !peer.triedUtp && !self._destroyed) {
+		var timeoutProbe = tcpTimedOut && (!self._lastUtpProbe || Date.now() - self._lastUtpProbe >= 15000);
+		if (!opened && (tcpRefused || timeoutProbe) && !viaUtp && self.utpFallback && !peer.triedUtp && !self._destroyed) {
+            if (timeoutProbe) self._lastUtpProbe = Date.now();
 			peer.triedUtp = true;
 			peer.useUtp = true;
-			self.emit('utp-fallback', addr);
+			self.emit('utp-fallback', addr, timeoutProbe ? 'timeout' : 'refused');
 			return repush();
 		}
 		if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
