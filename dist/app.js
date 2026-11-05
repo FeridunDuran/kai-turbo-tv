@@ -5233,7 +5233,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "HTTP {code} em {url}": "HTTP {code} at {url}",
     "Este link é torrent: configure o servidor do PC": "This link is a torrent: set up the PC server",
     "Magnet inválido": "Invalid magnet link",
-    "Tipo de link não suportado na TV": "Link type not supported on the TV"
+    "Tipo de link não suportado na TV": "Link type not supported on the TV",
+    "O servidor da fonte recusou o acesso (HTTP {code}).": "The source's server refused access (HTTP {code}).",
+    "O link pode ter expirado ou exigir dados que a TV não envia. Tente outra fonte ou atualize a lista de fontes.": "The link may have expired or need data the TV does not send. Try another source or reload the source list.",
+    "O arquivo não existe mais no servidor da fonte (HTTP {code}).": "The file is no longer on the source's server (HTTP {code}).",
+    "O link provavelmente expirou. Volte e abra a lista de fontes de novo para pegar um link novo.": "The link has probably expired. Go back and open the source list again to get a fresh link.",
+    "O servidor da fonte está limitando os pedidos (HTTP 429).": "The source's server is rate-limiting requests (HTTP 429).",
+    "Espere um pouco e tente de novo, ou escolha outra fonte.": "Wait a moment and try again, or pick another source.",
+    "O servidor da fonte está com problema (HTTP {code}).": "The source's server has a problem (HTTP {code}).",
+    "O problema é do lado da fonte, não da TV. Tente outra fonte ou mais tarde.": "The problem is on the source's side, not the TV. Try another source or try later.",
+    "A fonte devolveu uma página da web em vez do vídeo.": "The source returned a web page instead of the video.",
+    "O link não aponta direto para o arquivo (pode pedir login ou captcha). Tente outra fonte.": "The link does not point straight to the file (it may ask for a login or captcha). Try another source.",
+    "A TV não reconhece o formato deste arquivo{type}.": "The TV does not recognise this file's format{type}.",
+    "A reprodução foi interrompida antes de começar.": "Playback was stopped before it started.",
+    "Tente abrir a fonte de novo.": "Try opening the source again.",
+    "A conexão com a fonte caiu enquanto o vídeo carregava.": "The connection to the source dropped while the video was loading.",
+    "Confira a internet da TV. Se continuar, o servidor da fonte está lento ou o link expirou: tente outra fonte.": "Check the TV's internet. If it keeps happening, the source's server is slow or the link expired: try another source.",
+    "A TV não consegue decodificar o vídeo ou o áudio deste arquivo (codec não suportado ou arquivo danificado).": "The TV cannot decode this file's video or audio (unsupported codec or damaged file).",
+    "A TV não conseguiu abrir esta fonte.": "The TV could not open this source.",
+    "O servidor da fonte não respondeu a tempo. Tente outra fonte.": "The source's server did not answer in time. Try another source.",
+    "O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.": "The format may not be supported by the TV, or the server refused access. Try another source."
   };
 
   // src/js/lib/i18n-ar.js
@@ -5688,7 +5707,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "HTTP {code} em {url}": "HTTP {code} على {url}",
     "Este link é torrent: configure o servidor do PC": "هذا الرابط تورنت: أعدّ خادم الكمبيوتر",
     "Magnet inválido": "رابط magnet غير صالح",
-    "Tipo de link não suportado na TV": "نوع الرابط غير مدعوم على التلفاز"
+    "Tipo de link não suportado na TV": "نوع الرابط غير مدعوم على التلفاز",
+    "O servidor da fonte recusou o acesso (HTTP {code}).": "رفض خادم المصدر الوصول (HTTP {code}).",
+    "O link pode ter expirado ou exigir dados que a TV não envia. Tente outra fonte ou atualize a lista de fontes.": "ربما انتهت صلاحية الرابط أو يحتاج بيانات لا يرسلها التلفاز. جرّب مصدرًا آخر أو أعد تحميل قائمة المصادر.",
+    "O arquivo não existe mais no servidor da fonte (HTTP {code}).": "الملف لم يعد موجودًا على خادم المصدر (HTTP {code}).",
+    "O link provavelmente expirou. Volte e abra a lista de fontes de novo para pegar um link novo.": "على الأرجح انتهت صلاحية الرابط. ارجع وافتح قائمة المصادر مجددًا للحصول على رابط جديد.",
+    "O servidor da fonte está limitando os pedidos (HTTP 429).": "خادم المصدر يحدّ من عدد الطلبات (HTTP 429).",
+    "Espere um pouco e tente de novo, ou escolha outra fonte.": "انتظر قليلًا ثم حاول مجددًا، أو اختر مصدرًا آخر.",
+    "O servidor da fonte está com problema (HTTP {code}).": "خادم المصدر يواجه مشكلة (HTTP {code}).",
+    "O problema é do lado da fonte, não da TV. Tente outra fonte ou mais tarde.": "المشكلة من جهة المصدر وليست من التلفاز. جرّب مصدرًا آخر أو لاحقًا.",
+    "A fonte devolveu uma página da web em vez do vídeo.": "أعاد المصدر صفحة ويب بدلًا من الفيديو.",
+    "O link não aponta direto para o arquivo (pode pedir login ou captcha). Tente outra fonte.": "الرابط لا يشير مباشرة إلى الملف (قد يطلب تسجيل دخول أو captcha). جرّب مصدرًا آخر.",
+    "A TV não reconhece o formato deste arquivo{type}.": "التلفاز لا يتعرّف على صيغة هذا الملف{type}.",
+    "A reprodução foi interrompida antes de começar.": "توقّف التشغيل قبل أن يبدأ.",
+    "Tente abrir a fonte de novo.": "حاول فتح المصدر مجددًا.",
+    "A conexão com a fonte caiu enquanto o vídeo carregava.": "انقطع الاتصال بالمصدر أثناء تحميل الفيديو.",
+    "Confira a internet da TV. Se continuar, o servidor da fonte está lento ou o link expirou: tente outra fonte.": "تحقّق من اتصال التلفاز بالإنترنت. إن تكرر الأمر فخادم المصدر بطيء أو انتهت صلاحية الرابط: جرّب مصدرًا آخر.",
+    "A TV não consegue decodificar o vídeo ou o áudio deste arquivo (codec não suportado ou arquivo danificado).": "لا يستطيع التلفاز فك ترميز الفيديو أو الصوت في هذا الملف (ترميز غير مدعوم أو ملف تالف).",
+    "A TV não conseguiu abrir esta fonte.": "لم يتمكن التلفاز من فتح هذا المصدر.",
+    "O servidor da fonte não respondeu a tempo. Tente outra fonte.": "لم يستجب خادم المصدر في الوقت المناسب. جرّب مصدرًا آخر.",
+    "O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte.": "قد لا يدعم التلفاز هذه الصيغة، أو رفض الخادم الوصول. جرّب مصدرًا آخر.",
+    "Pôsteres sem barra de notas": "ملصقات بدون شريط التقييم",
+    "Troca pôsteres com notas desenhadas (RPDB) pelo pôster limpo do Cinemeta": "يعرض ملصق Cinemeta النظيف بدل الملصقات المرسوم عليها التقييم (RPDB)"
   };
 
   // src/js/lib/i18n.js
@@ -8580,6 +8620,132 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
+  // src/js/lib/mediaerror.js
+  var CODEC_HINT = "Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).";
+  function probe(url2, timeoutMs) {
+    return new Promise(function (resolve) {
+      if (!/^https?:\/\//.test(url2)) return resolve({
+        status: 0,
+        type: ""
+      });
+      var done = false;
+      var end = function end(r) {
+        if (done) return;
+        done = true;
+        resolve(r);
+      };
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open("HEAD", url2, true);
+        xhr.timeout = timeoutMs;
+        xhr.onload = function () {
+          return end({
+            status: xhr.status,
+            type: (xhr.getResponseHeader("Content-Type") || "").toLowerCase()
+          });
+        };
+        xhr.onerror = function () {
+          return end({
+            status: 0,
+            type: ""
+          });
+        };
+        xhr.ontimeout = function () {
+          return end({
+            status: 0,
+            type: "",
+            timeout: true
+          });
+        };
+        xhr.send(null);
+      } catch (e) {
+        end({
+          status: 0,
+          type: ""
+        });
+      }
+    });
+  }
+  function fromStatus(p) {
+    var s = p.status;
+    if (s === 401 || s === 403) {
+      return {
+        title: t("O servidor da fonte recusou o acesso (HTTP {code}).", {
+          code: s
+        }),
+        hint: t("O link pode ter expirado ou exigir dados que a TV não envia. Tente outra fonte ou atualize a lista de fontes.")
+      };
+    }
+    if (s === 404 || s === 410) {
+      return {
+        title: t("O arquivo não existe mais no servidor da fonte (HTTP {code}).", {
+          code: s
+        }),
+        hint: t("O link provavelmente expirou. Volte e abra a lista de fontes de novo para pegar um link novo.")
+      };
+    }
+    if (s === 429) {
+      return {
+        title: t("O servidor da fonte está limitando os pedidos (HTTP 429)."),
+        hint: t("Espere um pouco e tente de novo, ou escolha outra fonte.")
+      };
+    }
+    if (s >= 500) {
+      return {
+        title: t("O servidor da fonte está com problema (HTTP {code}).", {
+          code: s
+        }),
+        hint: t("O problema é do lado da fonte, não da TV. Tente outra fonte ou mais tarde.")
+      };
+    }
+    if (s >= 200 && s < 300 && /text\/html/.test(p.type)) {
+      return {
+        title: t("A fonte devolveu uma página da web em vez do vídeo."),
+        hint: t("O link não aponta direto para o arquivo (pode pedir login ou captcha). Tente outra fonte.")
+      };
+    }
+    if (s >= 200 && s < 300) {
+      return {
+        title: t("A TV não reconhece o formato deste arquivo{type}.", {
+          type: p.type ? " (" + p.type + ")" : ""
+        }),
+        hint: t(CODEC_HINT),
+        codec: true
+      };
+    }
+    return null;
+  }
+  function explainVideoError(code, url2) {
+    if (code === 1) {
+      return Promise.resolve({
+        title: t("A reprodução foi interrompida antes de começar."),
+        hint: t("Tente abrir a fonte de novo.")
+      });
+    }
+    if (code === 2) {
+      return Promise.resolve({
+        title: t("A conexão com a fonte caiu enquanto o vídeo carregava."),
+        hint: t("Confira a internet da TV. Se continuar, o servidor da fonte está lento ou o link expirou: tente outra fonte.")
+      });
+    }
+    if (code === 3) {
+      return Promise.resolve({
+        title: t("A TV não consegue decodificar o vídeo ou o áudio deste arquivo (codec não suportado ou arquivo danificado)."),
+        hint: t(CODEC_HINT),
+        codec: true
+      });
+    }
+    return probe(url2, 6e3).then(function (p) {
+      var known = fromStatus(p);
+      if (known) return known;
+      return {
+        title: t("A TV não conseguiu abrir esta fonte."),
+        hint: p.timeout ? t("O servidor da fonte não respondeu a tempo. Tente outra fonte.") : t("O formato pode não ser suportado pela TV, ou o servidor recusou o acesso. Tente outra fonte."),
+        codec: true
+      };
+    });
+  }
+
   // src/js/api/skip.js
   var INTRODB = "https://api.introdb.app/segments";
   var ANISKIP = "https://api.aniskip.com/v2/skip-times/";
@@ -9336,9 +9502,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         start3();
         return;
       }
-      if (!triedTranscode && isAvailable2()) {
-        fail(t("A TV não conseguiu tocar este arquivo diretamente."), true);
-      } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."));
+      var failedUrl = mediaUrl;
+      explainVideoError(err && err.code, failedUrl).then(function (why) {
+        if (!alive || mediaUrl !== failedUrl) return;
+        fail(why.title, why.codec && !triedTranscode && isAvailable2(), why.hint);
+      });
     });
     var segments = [];
     var segmentsLoaded = false;
@@ -9532,10 +9700,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       }, 300);
     }
-    function fail(text, offerTranscode) {
+    function fail(text, offerTranscode, hint) {
       showSpinner(false);
       var box = h("div", null, [text, h("small", {
-        text: t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
+        text: hint || t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
       })]);
       clear(msgEl);
       msgEl.appendChild(box);
@@ -12179,7 +12347,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T10:32:52.387Z";
+  var BUILD = "2026-11-05T10:43:16.675Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];

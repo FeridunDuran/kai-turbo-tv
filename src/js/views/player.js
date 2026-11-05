@@ -8,6 +8,7 @@ import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { getText } from '../lib/http.js';
+import { explainVideoError } from '../lib/mediaerror.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
@@ -400,9 +401,12 @@ function PlayerView(opts) {
       start();
       return;
     }
-    if (!triedTranscode && server.isAvailable()) {
-      fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true);
-    } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'));
+    // Say what actually failed (network, server refusal, expired link, codec...).
+    const failedUrl = mediaUrl;
+    explainVideoError(err && err.code, failedUrl).then((why) => {
+      if (!alive || mediaUrl !== failedUrl) return;
+      fail(why.title, why.codec && !triedTranscode && server.isAvailable(), why.hint);
+    });
   });
 
   // ---------- Pular abertura / recapitulação / encerramento ----------
@@ -619,9 +623,9 @@ function PlayerView(opts) {
     }, 300);
   }
 
-  function fail(text, offerTranscode) {
+  function fail(text, offerTranscode, hint) {
     showSpinner(false);
-    const box = h('div', null, [text, h('small', { text: t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
+    const box = h('div', null, [text, h('small', { text: hint || t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
     clear(msgEl);
     msgEl.appendChild(box);
     const opts2 = [{ label: t('Escolher outra fonte'), value: 'src' }];

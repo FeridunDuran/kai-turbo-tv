@@ -32,6 +32,8 @@ function testAddon(p, req, res) {
         { name: 'Teste\nResponse', title: 'proxyHeaders.response', url: TEST_VIDEO, behaviorHints: { proxyHeaders: { response: { 'Content-Type': 'video/mp4' } } } },
         // Torrent: without the PC server it must be hidden (count line only).
         { name: 'Teste\nTorrent', title: 'infoHash', infoHash: '0000000000000000000000000000000000000000' },
+        // Playback error messages: each one must explain the real cause.
+        ...['403', '404', 'html', 'garbage'].map((k) => ({ name: 'Teste\nErro ' + k, title: 'error case: ' + k, url: 'http://localhost:' + port + '/test-addon/err/' + k + '.mp4' })),
       ],
     });
   }
@@ -47,6 +49,20 @@ function testAddon(p, req, res) {
     }
     res.writeHead(302, { Location: TEST_VIDEO });
     return res.end();
+  }
+  if (p.startsWith('/test-addon/err/')) {
+    const k = p.slice('/test-addon/err/'.length).replace(/\.mp4$/, '');
+    const cors = { 'Access-Control-Allow-Origin': '*' };
+    if (k === '403' || k === '404') {
+      res.writeHead(Number(k), Object.assign({ 'Content-Type': 'text/plain' }, cors));
+      return res.end(k);
+    }
+    if (k === 'html') {
+      res.writeHead(200, Object.assign({ 'Content-Type': 'text/html' }, cors));
+      return res.end('<html><body>login</body></html>');
+    }
+    res.writeHead(200, Object.assign({ 'Content-Type': 'video/mp4' }, cors));
+    return res.end(Buffer.alloc(4096, 7));
   }
   if (p === '/test-addon/teste.srt') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
