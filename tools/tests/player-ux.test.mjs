@@ -325,3 +325,16 @@ test('a torrent open that times out on metadata is retried once automatically, t
   assert.ok(g.byHtml('Try again'), 'second failure is shown');
   f.close(); g.close();
 });
+
+
+test('startup code 3 with a starving resume range retries and preserves resume position', async()=>{
+ const f=await fixture({startTime:519372,statsSeq:[{downloaded:49000000,peers:5,ranges:[{start:332864379,sent:0}]}]});
+ f.video.duration=1283;f.video.emit('loadedmetadata');f.video.error={code:3};f.video.emit('error');await flush();await flush();
+ assert.ok(f.logs.some(l=>l[0]==='Torrent reopen after player no-data timeout'));
+ [...f.timers.values()].filter(t=>t.ms===300).forEach(t=>t.fn());
+ f.video.currentTime=0;f.video.emit('loadedmetadata');assert.ok(f.video.currentTime>=519);
+ assert.ok(!f.byHtml('Try again'));f.close();
+ const g=await fixture({statsSeq:[{downloaded:49000000,peers:5,ranges:[{start:332864379,sent:1024}]}]});
+ g.video.error={code:3};g.video.emit('error');await flush();await flush();await flush();
+ assert.ok(g.byHtml('Try again'),'decoder failure with payload is not silently retried');g.close();
+});

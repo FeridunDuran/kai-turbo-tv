@@ -10738,7 +10738,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearStartup();
       var failedUrl = mediaUrl;
       var failedAttempt = startGeneration;
-      if (isTorrent(stream) && !hasPlayed && err && err.code === 4 && (torrentReopens < 3 || sessionRestarts < 2)) {
+      if (isTorrent(stream) && !hasPlayed && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
         torrentStats(failedUrl).then(function (stats) {
           if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
           if (!stats && playedPosition > 0 && sessionRestarts < 2) {
@@ -10753,6 +10753,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
           if (torrentReopens >= 3) return playbackFailed(err, failedUrl, failedAttempt);
           var bytes = stats ? stats.downloaded || 0 : 0;
+          var ranges = stats && stats.ranges || [];
+          var lastRange = ranges.length ? ranges[ranges.length - 1] : null;
+          if (err.code === 3 && (!lastRange || lastRange.sent > 0 || !stats.peers)) return playbackFailed(err, failedUrl, failedAttempt);
           if (stats && bytes > reopenBytes) {
             reopenBytes = bytes;
             torrentReopens++;
@@ -10760,6 +10763,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               n: torrentReopens,
               receivedMB: Math.round(bytes / 104857.6) / 10
             });
+            pendingStart = Math.max(pendingStart, playedPosition * 1e3, (videoEl.currentTime || 0) * 1e3);
             try {
               videoEl.removeAttribute("src");
               videoEl.load();
@@ -11196,6 +11200,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           start: last2.start,
           sentKB: Math.round(last2.sent / 1024),
           closed: last2.closed,
+          closeReason: last2.closeReason || null,
+          readError: last2.readError || null,
           ageMs: Date.now() - last2.openedAt
         } : null,
         ranges: ranges.length,
@@ -11234,10 +11240,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!alive || mediaUrl !== forUrl) return;
         if (stats) {
           statsMisses = 0;
+          torrentStatsMissing = false;
           log.info(label, Object.assign(compactStats(stats), extra || {}));
         } else if (++statsMisses === 2 && !torrentStatsMissing) {
           torrentStatsMissing = true;
-          log.warn("Torrent diagnostics unavailable: fully restart TV to reload player service");
+          log.warn("Torrent diagnostics temporarily unavailable; service may be busy");
         }
       });
     }
@@ -14201,7 +14208,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T19:31:59.691Z";
+  var BUILD = "2026-11-05T20:50:13.177Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

@@ -143,14 +143,15 @@ test('16 MiB pieces: start piece survives the tail read, and the resume signal o
  const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
  vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Session: Session,supported: supported,'),context);
  const s=new context.TV_TORRENT.Session(engine,{name:'episode.mkv',offset:209*16777216+2282697,length:690305268},0);
- assert.equal(s.returnSlot,1);s.resumePending=true;
+ assert.equal(s.returnSlot,0);assert.deepEqual(Array.from(s.headerPieces),[209]);s.resumePending=true;
  s.ensureWindow(209);s.lastReadIndex=209;
  store.present.push(250);s.ensureWindow(250,true);s.lastReadIndex=250;
  assert.equal(removed.includes(209),false,'start piece kept across the 8.5 KB tail read');
  s.ensureWindow(209);assert.ok(store.present.includes(209),'start re-read served from RAM');
- selected.length=0;s.ensureWindow(211,true);
+ s.ensureWindow(230,true);s.lastReadIndex=230;s.ensureWindow(250,true);assert.ok(store.present.includes(209),'header survives multiple resume/tail jumps, not just one return');
+ selected.length=0;s.resumePending=true;s.ensureWindow(211,true);
  assert.deepEqual(selected.filter(x=>x[2]===1),[[211,211,1]],'resume piece only, no read-ahead before the signal');
- const retained=new Set([s.returnPiece]);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);
+ const retained=new Set(s.headerPieces);for(let i=s.windowFrom;i<=s.windowTo;i++)retained.add(i);
  assert.ok(retained.size*16777216<=48*1024*1024,'within the 48 MiB cache');
 });
 

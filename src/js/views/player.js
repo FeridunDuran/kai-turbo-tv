@@ -602,7 +602,7 @@ function PlayerView(opts) {
     // The TV's player reports error 4 after about 30 s without the first bytes (TV traces:
     // error at 30 s, the torrent piece verified 3 s later). While the engine is still
     // receiving data this is a slow start, not a failure: reopen the same local URL.
-    if (server.isTorrent(stream) && !hasPlayed && err && err.code === 4 && (torrentReopens < 3 || sessionRestarts < 2)) {
+    if (server.isTorrent(stream) && !hasPlayed && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
       tvproxy.torrentStats(failedUrl).then((stats) => {
         if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
         // The TV service no longer knows this stream (its session ended or the service restarted):
@@ -616,10 +616,16 @@ function PlayerView(opts) {
         }
         if (torrentReopens >= 3) return playbackFailed(err, failedUrl, failedAttempt);
         const bytes = stats ? stats.downloaded || 0 : 0;
+        const ranges = stats && stats.ranges || [];
+        const lastRange = ranges.length ? ranges[ranges.length - 1] : null;
+        // A decoder error after a seek with no payload for that Range can be starvation.
+        // Never repeatedly retry genuine decoder failures after payload was delivered.
+        if (err.code === 3 && (!lastRange || lastRange.sent > 0 || !stats.peers)) return playbackFailed(err, failedUrl, failedAttempt);
         if (stats && bytes > reopenBytes) {
           reopenBytes = bytes;
           torrentReopens++;
           log.info('Torrent reopen after player no-data timeout', { n: torrentReopens, receivedMB: Math.round(bytes / 104857.6) / 10 });
+          pendingStart = Math.max(pendingStart, playedPosition * 1000, (videoEl.currentTime || 0) * 1000);
           try { videoEl.removeAttribute('src'); videoEl.load(); } catch (e) { /* ignore */ }
           setTimeout(() => {
             if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
@@ -1078,7 +1084,7 @@ function PlayerView(opts) {
       cachedKB: Math.round((stats.cachedBytes || 0) / 1024), window: [stats.windowFrom, stats.windowTo],
       pieceKB: Math.round((stats.pieceLength || 0) / 1024), resumePending: stats.resumePending,
       scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
-      lastRange: last ? { start: last.start, sentKB: Math.round(last.sent / 1024), closed: last.closed, ageMs: Date.now() - last.openedAt } : null,
+      lastRange: last ? { start: last.start, sentKB: Math.round(last.sent / 1024), closed: last.closed, closeReason: last.closeReason || null, readError: last.readError || null, ageMs: Date.now() - last.openedAt } : null,
       ranges: ranges.length,
       discovery: d.createdAt ? { firstPeerMs: d.firstPeerMs, firstWireMs: d.firstWireMs, firstUnchokeMs: d.firstUnchokeMs,
         firstBlockMs: d.firstBlockMs, readyMs: d.readyMs, peersFound: d.peersFound, wiresOpened: d.wiresOpened,
@@ -1098,11 +1104,12 @@ function PlayerView(opts) {
       if (!alive || mediaUrl !== forUrl) return;
       if (stats) {
         statsMisses = 0;
+        torrentStatsMissing = false;
         log.info(label, Object.assign(compactStats(stats), extra || {}));
       } else if (++statsMisses === 2 && !torrentStatsMissing) {
-        // One missed reply can be a busy service; two in a row point at an old service.
+        // Missing replies also occur while the TV service is busy; they do not prove an old build.
         torrentStatsMissing = true;
-        log.warn('Torrent diagnostics unavailable: fully restart TV to reload player service');
+        log.warn('Torrent diagnostics temporarily unavailable; service may be busy');
       }
     });
   }

@@ -352,9 +352,9 @@ var TV_TORRENT = (function () {
     var slots = Math.max(1, Math.floor(CACHE_BYTES / this.pieceLength));
     this.headerPieces = [];
     this.startupComplete = this.store.present.indexOf(this.first) >= 0;
-    if (slots >= 4 && /\.(mp4|m4v|mov|mkv|webm)$/i.test(file.name)) {
+    if (slots >= 3 && /\.(mp4|m4v|mov|mkv|webm)$/i.test(file.name)) {
       this.headerPieces.push(this.first);
-      if (/\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
+      if (slots >= 4 && /\.(mp4|m4v|mov)$/i.test(file.name) && this.last !== this.first) this.headerPieces.push(this.last);
     }
     // One slot keeps the last piece read before a jump (see ensureWindow). TV traces: an MP4 read
     // 0 MiB, ~6 MiB, the moov at the end, then ~6 MiB again; an MKV with 16 MiB pieces read the
@@ -497,7 +497,7 @@ var TV_TORRENT = (function () {
   };
 
   Session.prototype.open = function (start, end, res) {
-    if (this.reader) this.reader.destroy();
+    if (this.reader) this.reader.destroy('replaced-range');
     this.waiters = {};
     this.lastUsed = Date.now();
 
@@ -538,7 +538,9 @@ var TV_TORRENT = (function () {
     this.stall = null;
   }
 
-  Reader.prototype.destroy = function () {
+  Reader.prototype.destroy = function (reason) {
+    if (this.destroyed) return;
+    if (this.diag) this.diag.closeReason = reason || "session-cleanup";
     this.destroyed = true;
     if (this.diag) this.diag.closed = true;
     clearTimeout(this.stall);
@@ -558,7 +560,7 @@ var TV_TORRENT = (function () {
       this.stall = setTimeout(function () { self._stalled(); }, STALL_MS);
       return;
     }
-    this.destroy();
+    this.destroy('no-data-timeout');
     try { this.res.destroy(); } catch (e) { /* already gone */ }
   };
 
@@ -580,7 +582,7 @@ var TV_TORRENT = (function () {
   Reader.prototype._next = function () {
     if (this.destroyed) return;
     if (this.pos > this.end) {
-      this.destroy();
+      this.destroy('range-complete');
       this.session.lastUsed = Date.now();
       try { this.res.end(); } catch (e) { /* already gone */ }
       return;
@@ -602,7 +604,8 @@ var TV_TORRENT = (function () {
       if (self.destroyed) return;
       if (!err) session.lastReadIndex = index;
       if (err) {
-        self.destroy();
+        if (self.diag) self.diag.readError = String(err.message || err).slice(0, 120);
+        self.destroy('piece-read-error');
         try { self.res.destroy(); } catch (e) { /* already gone */ }
         return;
       }
@@ -850,7 +853,7 @@ var TV_TORRENT = (function () {
     res.on('close', function () {
       // A previous Range response can close after its replacement has started.
       // It owns only its own reader, never the session's newest request.
-      reader.destroy();
+      reader.destroy('response-close');
     });
   }
 

@@ -327,3 +327,20 @@ The same trace shows the TV was still running an older player service (none of t
 listening/UPnP/PEX/snub counters were present), so the reconnect fix for dropped peers was not
 active yet. A full TV restart loads the current service.
 
+
+## 16 MiB resume failure follow-up
+
+The restarted TV ran the latest network code (PEX/UPnP and >64 active blocks). One startup
+at 519s failed with code 3 before playing; its required 16 MiB piece took 57s. A warm retry
+played after 30.4s, later buffered for 10.3s and emitted premature ended at 544/1283s.
+This trace does not identify the cause of the premature end.
+
+Three-slot caches now pin the first media header piece permanently rather than relying on
+one-jump return retention. Only caches with four or more slots prefetch an MP4 tail.
+Header plus forward window remain within 48 MiB. Startup code 3 can use the existing bounded
+reopen policy only when the latest Range has delivered zero bytes, peers exist and downloaded
+bytes advanced. Payload-bearing decoder failures still surface. Reopens preserve the pending
+resume position. Missing diagnostic replies no longer imply that the TV needs restarting.
+Range diagnostics now include closeReason and readError for the next TV investigation.
+107 tests, ES5 parse, build and the Node 4.4.3 loopback startup fixture pass.
+TV confirmation and the exact premature-end cause remain pending.
