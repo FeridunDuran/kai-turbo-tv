@@ -519,4 +519,5 @@ export const AR = {
   "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
   "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر.",
   'Seeds: {n}': 'البذور: {n}',
+  'Could not load the next episode. Try again.': 'تعذر تحميل الحلقة التالية. حاول مجدداً.',
 };

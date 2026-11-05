@@ -123,6 +123,9 @@ function PlayerView(opts) {
   let currentAudio = null;
   let startGeneration = 0;
   let startupTimer = null;
+  let nextRequest = null;
+  let nextRequestId = 0;
+  let mediaReady = false;
   function clearStartup() { clearTimeout(startupTimer); startupTimer = null; }
   function armStartup() {
     clearStartup();
@@ -164,7 +167,10 @@ function PlayerView(opts) {
   function nextVideo() {
     const vids = sortedVideos(meta);
     const i = vids.findIndex((v) => v.id === video.id);
-    return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
+    const next = i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
+    if (!next || ((video.season || 0) !== 0 && next.season === 0)) return null;
+    if (next.released && new Date(next.released).getTime() > Date.now()) return null;
+    return next;
   }
 
   // Próximo episódio para o "continuar assistindo", com a regra do MetaItem::next_video do
@@ -181,6 +187,17 @@ function PlayerView(opts) {
   // ---------- Carregamento ----------
   function start() {
     const attempt = ++startGeneration;
+    nextRequestId++;
+    nextRequest = null;
+    mediaReady = false;
+    lastTick = 0;
+    autoResume = false;
+    stuckSince = 0;
+    recoveries = 0;
+    lastT = -1;
+    seekTarget = null;
+    clearTimeout(seekCommitTimer);
+    bar.classList.remove('seeking');
     stopMedia();
     mediaUrl = '';
     hasPlayed = false;
@@ -240,7 +257,7 @@ function PlayerView(opts) {
           return tracks;
         })
         .catch(() => {
-          tracksPromise = null;
+          if (forUrl === mediaUrl) tracksPromise = null;
           return null;
         });
     }
@@ -297,13 +314,16 @@ function PlayerView(opts) {
       return;
     }
     if (!(settings.audioLangs || []).length || !server.isAvailable()) return;
+    const audioAttempt = startGeneration;
     setTimeout(() => {
-      if (alive && hasPlayed) loadEmbeddedTracks().then(() => autoPick());
+      if (alive && hasPlayed && audioAttempt === startGeneration) loadEmbeddedTracks().then(() => { if (alive && audioAttempt === startGeneration) autoPick(); });
     }, 20000);
   }
 
   // ---------- Eventos do vídeo ----------
   videoEl.addEventListener('loadedmetadata', () => {
+    if (!alive || !mediaUrl) return;
+    mediaReady = true;
     if (pendingStart > 0) {
       try {
         videoEl.currentTime = pendingStart / 1000;
@@ -344,10 +364,10 @@ function PlayerView(opts) {
     checkUpNext();
   });
   videoEl.addEventListener('ended', () => {
-    saveProgress(true);
-    watched.record(video.id, 1);
+    if (!alive || nextRequest) return;
+    upNextStop(false);
     if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();
-    else router.pop();
+    else { saveProgress(true); watched.record(video.id, 1); router.pop(); }
   });
 
   // ---------- Now playing on the phone remote ----------
@@ -386,7 +406,7 @@ function PlayerView(opts) {
   }
 
   function checkUpNext() {
-    if (upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
+    if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
     const d = videoEl.duration;
     const nv = nextVideo();
     if (!nv || !(d > 300) || !isFinite(d) || videoEl.currentTime < upNextStart()) return;
@@ -397,6 +417,8 @@ function PlayerView(opts) {
     upNextBox.classList.add('show');
     nav.focus(upNextPlay, { noScroll: true });
     upNextTimer = setInterval(() => {
+      if (!alive || seekTarget !== null || videoEl.seeking || videoEl.currentTime < upNextStart()) { upNextStop(false); return; }
+      if (videoEl.paused) return;
       upNextLeft--;
       upNextCount.textContent = t('Começa em {n}s', { n: upNextLeft });
       if (upNextLeft <= 0) upNextGo();
@@ -409,8 +431,8 @@ function PlayerView(opts) {
     upNextBox.classList.remove('show');
     if (cancelled) {
       upNextCancelled = true;
-      nav.focus(bar, { noScroll: true });
     }
+    if (cancelled || nav.current() === upNextPlay || nav.current() === upNextCancel) nav.focus(bar, { noScroll: true });
   }
 
   function upNextGo() {
@@ -650,6 +672,7 @@ function PlayerView(opts) {
     toast(t('Reconectando ao vídeo...'));
     pendingStart = Math.max(0, pos - 1) * 1000;
     const src = videoEl.currentSrc || mediaUrl;
+    const reopenAttempt = startGeneration;
     try {
       videoEl.pause();
       videoEl.removeAttribute('src');
@@ -659,7 +682,7 @@ function PlayerView(opts) {
     }
     // Reabre do zero: o ponto certo é aplicado no loadedmetadata e o play vem depois do seek.
     setTimeout(() => {
-      if (!alive) return;
+      if (!alive || reopenAttempt !== startGeneration) return;
       hasPlayed = false;
       armStartup();
       videoEl.autoplay = true;
@@ -896,17 +919,18 @@ function PlayerView(opts) {
   }
 
   function selectAddonSub(s, silent) {
+    const subtitleAttempt = startGeneration;
     disableEmbeddedSubs();
     currentSub = { kind: 'addon', id: s.id || s.url };
     renderer.setOffset(savedDelay());
     subs
       .load(s.url, server.subtitlesProxy(s.url))
       .then((cues) => {
-        if (!alive || currentSub.id !== (s.id || s.url)) return;
+        if (!alive || subtitleAttempt !== startGeneration || currentSub.id !== (s.id || s.url)) return;
         renderer.set(cues);
         if (!silent) toast(t('Legenda: {lang}', { lang: langName(s.lang) }));
       })
-      .catch(() => toast(t('Não foi possível baixar a legenda.')));
+      .catch(() => { if (alive && subtitleAttempt === startGeneration) toast(t('Não foi possível baixar a legenda.')); });
   }
 
   // Menus de faixas: lê as faixas embutidas só agora, quando o usuário pede.
@@ -914,7 +938,8 @@ function PlayerView(opts) {
     if (videoEl.selectAudio) return open();
     if (embedded || !server.isAvailable()) return open();
     toast(t('Lendo as faixas do arquivo...'), 2500);
-    loadEmbeddedTracks().then(() => alive && open());
+    const tracksAttempt = startGeneration;
+    loadEmbeddedTracks().then(() => alive && tracksAttempt === startGeneration && open());
   }
 
   function audioMenu() {
@@ -1038,19 +1063,45 @@ function PlayerView(opts) {
 
   // Próximo episódio: mantém o mesmo "bingeGroup" (mesma qualidade/fonte) quando possível.
   function playNext() {
+    if (nextRequest) return nextRequest;
     const nv = nextVideo();
-    if (!nv) return;
+    if (!nv) return Promise.resolve();
+    upNextStop(false);
     saveProgress(true);
+    const requestId = ++nextRequestId;
+    const previousVideo = video;
+    const previousSource = stream;
+    const sourceAttempt = startGeneration;
     const group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
+    const choose = (list) => {
+      const valid = list.filter((s) => server.isPlayableType(s) && (!server.isTorrent(s) || tvproxy.isTorrentAvailable()));
+      const sameTorrent = previousSource.infoHash && valid.find((s) => s.infoHash === previousSource.infoHash);
+      return sameTorrent || (group ? valid.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group && (!previousSource.addon || s.addon === previousSource.addon)) : null);
+    };
     showSpinner(true);
     message(t('Procurando o próximo episódio...'));
-    addons.fetchStreams(meta.type, nv.id).then((list) => {
-      if (!alive) return;
-      const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.isTorrent(match) || tvproxy.isTorrentAvailable())) {
+    const lookup = new Promise((resolve, reject) => {
+      let settled = false;
+      let collected = [];
+      addons.fetchStreams(meta.type, nv.id, (addon, streams) => {
+        collected = collected.concat(streams);
+        if (settled) return;
+        const match = choose(collected);
+        if (match) { settled = true; resolve({ match, streams: collected }); }
+      }).then((list) => {
+        if (alive && video === nv) opts.streams = list;
+        if (!settled) { settled = true; resolve({ match: choose(list), streams: list }); }
+      }).catch((error) => { if (!settled) reject(error); });
+    });
+    nextRequest = lookup.then((result) => {
+      if (!alive || requestId !== nextRequestId || previousVideo !== video || sourceAttempt !== startGeneration) return;
+      nextRequest = null;
+      if (result.match) {
+        mediaReady = false;
         video = nv;
-        stream = match;
-        opts.streams = list;
+        stream = result.match;
+        opts.streams = result.streams;
+        opts.fallbacks = [];
         pendingStart = 0;
         autoDone = { sub: false, audio: false };
         start();
@@ -1058,11 +1109,20 @@ function PlayerView(opts) {
         router.pop();
         openDetails(meta.type, meta.id, { videoId: nv.id, autoStreams: true });
       }
+    }).catch((error) => {
+      if (!alive || requestId !== nextRequestId) return;
+      nextRequest = null;
+      showSpinner(false);
+      message('');
+      log.warn('Next episode source lookup failed', error.message);
+      toast(t('Could not load the next episode. Try again.'));
     });
+    return nextRequest;
   }
 
   // ---------- Progresso ----------
   function saveProgress(final) {
+    if (!mediaReady || !mediaUrl) return;
     const d = videoEl.duration;
     if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
     const delta = watchedDelta;

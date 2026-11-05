@@ -5291,7 +5291,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "Possible causes include an unsupported codec, damaged data, or incomplete playback data.",
     "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
     "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source.",
-    "Seeds: {n}": "Seeds: {n}"
+    "Seeds: {n}": "Seeds: {n}",
+    "Could not load the next episode. Try again.": "Could not load the next episode. Try again."
   };
 
   // src/js/lib/i18n-ar.js
@@ -5806,7 +5807,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Possible causes include an unsupported codec, damaged data, or incomplete playback data.": "تشمل الأسباب المحتملة ترميزاً غير مدعوم أو بيانات تالفة أو غير مكتملة.",
     "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
     "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر.",
-    "Seeds: {n}": "البذور: {n}"
+    "Seeds: {n}": "البذور: {n}",
+    "Could not load the next episode. Try again.": "تعذر تحميل الحلقة التالية. حاول مجدداً."
   };
 
   // src/js/lib/i18n.js
@@ -10088,6 +10090,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var currentAudio = null;
     var startGeneration = 0;
     var startupTimer = null;
+    var nextRequest = null;
+    var nextRequestId = 0;
+    var mediaReady = false;
     function clearStartup() {
       clearTimeout(startupTimer);
       startupTimer = null;
@@ -10141,7 +10146,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var i = vids.findIndex(function (v) {
         return v.id === video.id;
       });
-      return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
+      var next = i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
+      if (!next || (video.season || 0) !== 0 && next.season === 0) return null;
+      if (next.released && new Date(next.released).getTime() > Date.now()) return null;
+      return next;
     }
     function nextVideoForResume() {
       var nv = nextVideo();
@@ -10152,6 +10160,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function start3() {
       var attempt = ++startGeneration;
+      nextRequestId++;
+      nextRequest = null;
+      mediaReady = false;
+      lastTick = 0;
+      autoResume = false;
+      stuckSince = 0;
+      recoveries = 0;
+      lastT = -1;
+      seekTarget = null;
+      clearTimeout(seekCommitTimer);
+      bar.classList.remove("seeking");
       stopMedia();
       mediaUrl = "";
       hasPlayed = false;
@@ -10202,7 +10221,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           log.info("Faixas embutidas", JSON.stringify(tracks2));
           return tracks2;
         }).catch(function () {
-          tracksPromise = null;
+          if (forUrl === mediaUrl) tracksPromise = null;
           return null;
         });
       }
@@ -10272,13 +10291,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return;
       }
       if (!(settings2.audioLangs || []).length || !isAvailable2()) return;
+      var audioAttempt = startGeneration;
       setTimeout(function () {
-        if (alive && hasPlayed) loadEmbeddedTracks().then(function () {
-          return autoPick();
+        if (alive && hasPlayed && audioAttempt === startGeneration) loadEmbeddedTracks().then(function () {
+          if (alive && audioAttempt === startGeneration) autoPick();
         });
       }, 2e4);
     }
     videoEl.addEventListener("loadedmetadata", function () {
+      if (!alive || !mediaUrl) return;
+      mediaReady = true;
       if (pendingStart > 0) {
         try {
           videoEl.currentTime = pendingStart / 1e3;
@@ -10321,9 +10343,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       checkUpNext();
     });
     videoEl.addEventListener("ended", function () {
-      saveProgress2(true);
-      record(video.id, 1);
-      if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();else pop();
+      if (!alive || nextRequest) return;
+      upNextStop(false);
+      if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();else {
+        saveProgress2(true);
+        record(video.id, 1);
+        pop();
+      }
     });
     function sendNowPlaying() {
       var d = videoEl.duration;
@@ -10361,7 +10387,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return outro ? outro.start : d - UP_NEXT_SECONDS;
     }
     function checkUpNext() {
-      if (upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
+      if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
       var d = videoEl.duration;
       var nv = nextVideo();
       if (!nv || !(d > 300) || !isFinite(d) || videoEl.currentTime < upNextStart()) return;
@@ -10376,6 +10402,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         noScroll: true
       });
       upNextTimer = setInterval(function () {
+        if (!alive || seekTarget !== null || videoEl.seeking || videoEl.currentTime < upNextStart()) {
+          upNextStop(false);
+          return;
+        }
+        if (videoEl.paused) return;
         upNextLeft--;
         upNextCount.textContent = t("Começa em {n}s", {
           n: upNextLeft
@@ -10389,10 +10420,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       upNextBox.classList.remove("show");
       if (cancelled) {
         upNextCancelled = true;
-        focus(bar, {
-          noScroll: true
-        });
       }
+      if (cancelled || current2() === upNextPlay || current2() === upNextCancel) focus(bar, {
+        noScroll: true
+      });
     }
     function upNextGo() {
       upNextStop(false);
@@ -10602,13 +10633,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       toast(t("Reconectando ao vídeo..."));
       pendingStart = Math.max(0, pos - 1) * 1e3;
       var src = videoEl.currentSrc || mediaUrl;
+      var reopenAttempt = startGeneration;
       try {
         videoEl.pause();
         videoEl.removeAttribute("src");
         videoEl.load();
       } catch (e) {}
       setTimeout(function () {
-        if (!alive) return;
+        if (!alive || reopenAttempt !== startGeneration) return;
         hasPlayed = false;
         armStartup();
         videoEl.autoplay = true;
@@ -10866,6 +10898,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     }
     function selectAddonSub(s, silent) {
+      var subtitleAttempt = startGeneration;
       disableEmbeddedSubs();
       currentSub = {
         kind: "addon",
@@ -10873,21 +10906,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       renderer.setOffset(savedDelay());
       load3(s.url, subtitlesProxy(s.url)).then(function (cues) {
-        if (!alive || currentSub.id !== (s.id || s.url)) return;
+        if (!alive || subtitleAttempt !== startGeneration || currentSub.id !== (s.id || s.url)) return;
         renderer.set(cues);
         if (!silent) toast(t("Legenda: {lang}", {
           lang: langName(s.lang)
         }));
       }).catch(function () {
-        return toast(t("Não foi possível baixar a legenda."));
+        if (alive && subtitleAttempt === startGeneration) toast(t("Não foi possível baixar a legenda."));
       });
     }
     function withTracks(open) {
       if (videoEl.selectAudio) return open();
       if (embedded || !isAvailable2()) return open();
       toast(t("Lendo as faixas do arquivo..."), 2500);
+      var tracksAttempt = startGeneration;
       loadEmbeddedTracks().then(function () {
-        return alive && open();
+        return alive && tracksAttempt === startGeneration && open();
       });
     }
     function audioMenu() {
@@ -11059,21 +11093,65 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function playNext() {
+      if (nextRequest) return nextRequest;
       var nv = nextVideo();
-      if (!nv) return;
+      if (!nv) return Promise.resolve();
+      upNextStop(false);
       saveProgress2(true);
+      var requestId = ++nextRequestId;
+      var previousVideo = video;
+      var previousSource = stream;
+      var sourceAttempt = startGeneration;
       var group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
+      var choose = function choose(list2) {
+        var valid = list2.filter(function (s) {
+          return isPlayableType(s) && (!isTorrent(s) || isTorrentAvailable());
+        });
+        var sameTorrent = previousSource.infoHash && valid.find(function (s) {
+          return s.infoHash === previousSource.infoHash;
+        });
+        return sameTorrent || (group ? valid.find(function (s) {
+          return s.behaviorHints && s.behaviorHints.bingeGroup === group && (!previousSource.addon || s.addon === previousSource.addon);
+        }) : null);
+      };
       showSpinner(true);
       message(t("Procurando o próximo episódio..."));
-      fetchStreams(meta.type, nv.id).then(function (list2) {
-        if (!alive) return;
-        var match = group ? list2.find(function (s) {
-          return s.behaviorHints && s.behaviorHints.bingeGroup === group;
-        }) : null;
-        if (match && (!isTorrent(match) || isTorrentAvailable())) {
+      var lookup = new Promise(function (resolve, reject) {
+        var settled = false;
+        var collected = [];
+        fetchStreams(meta.type, nv.id, function (addon, streams) {
+          collected = collected.concat(streams);
+          if (settled) return;
+          var match = choose(collected);
+          if (match) {
+            settled = true;
+            resolve({
+              match: match,
+              streams: collected
+            });
+          }
+        }).then(function (list2) {
+          if (alive && video === nv) opts.streams = list2;
+          if (!settled) {
+            settled = true;
+            resolve({
+              match: choose(list2),
+              streams: list2
+            });
+          }
+        }).catch(function (error) {
+          if (!settled) reject(error);
+        });
+      });
+      nextRequest = lookup.then(function (result) {
+        if (!alive || requestId !== nextRequestId || previousVideo !== video || sourceAttempt !== startGeneration) return;
+        nextRequest = null;
+        if (result.match) {
+          mediaReady = false;
           video = nv;
-          stream = match;
-          opts.streams = list2;
+          stream = result.match;
+          opts.streams = result.streams;
+          opts.fallbacks = [];
           pendingStart = 0;
           autoDone = {
             sub: false,
@@ -11087,9 +11165,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             autoStreams: true
           });
         }
+      }).catch(function (error) {
+        if (!alive || requestId !== nextRequestId) return;
+        nextRequest = null;
+        showSpinner(false);
+        message("");
+        log.warn("Next episode source lookup failed", error.message);
+        toast(t("Could not load the next episode. Try again."));
       });
+      return nextRequest;
     }
     function saveProgress2(final) {
+      if (!mediaReady || !mediaUrl) return;
       var d = videoEl.duration;
       if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
       var delta = watchedDelta;
@@ -13421,7 +13508,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T16:31:02.696Z";
+  var BUILD = "2026-11-05T16:40:36.790Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

@@ -529,4 +529,5 @@ export const EN = {
   "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
   "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source.",
   'Seeds: {n}': 'Seeds: {n}',
+  'Could not load the next episode. Try again.': 'Could not load the next episode. Try again.',
 };
