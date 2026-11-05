@@ -3,15 +3,19 @@ import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
+import * as store from '../lib/store.js';
 import * as server from '../api/server.js';
 import * as hero from '../api/hero.js';
 import { toast, spinnerLine, menu, fmtTime } from '../ui.js';
 import * as router from '../router.js';
 import { openPlayer } from './player.js';
+import { PersonView } from './person.js';
+import * as watched from '../lib/watched.js';
+import { trailerIds, openTrailer } from './trailer.js';
 import * as extras from '../api/extras.js';
 import { smallThumb } from '../lib/img.js';
 import { isAnime } from '../api/skip.js';
-import { t } from '../lib/i18n.js';
+import { t, epLabel } from '../lib/i18n.js';
 
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
@@ -27,6 +31,11 @@ export function sortedVideos(meta) {
       return sa - sb || (a.episode || 0) - (b.episode || 0);
     });
 }
+
+// Smart Choice waits at most this long for slower add-ons, and keeps this many runners-up
+// for the player to fall back on if a source won't play.
+const SMART_WAIT_MS = 10000;
+const SMART_FALLBACKS = 4;
 
 function DetailsView(type, id, opts) {
   const el = h('div.view');
@@ -99,8 +108,14 @@ function DetailsView(type, id, opts) {
       cast.length ? cast.join(', ') : null,
     ]);
 
-    watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: onWatch });
+    watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: () => onWatch(smartOn()) });
     libBtn = h('div.btn', { focusable: true, onSelect: toggleLibrary });
+    // With Smart Choice on, Watch plays straight away; this opens the full source list instead.
+    const sourcesBtn = smartOn() ? h('div.btn', { focusable: true, onSelect: () => onWatch(false) }, [h('span.ico', { text: '☰' }), t('Fontes')]) : null;
+    const trailers = trailerIds(meta);
+    const trailerBtn = trailers.length
+      ? h('div.btn', { focusable: true, onSelect: () => openTrailer(trailers, meta.name) }, [h('span.ico', { text: '🎬' }), t('Trailer')])
+      : null;
     updateButtons();
     info.appendChild(logo);
     info.appendChild(title);
@@ -109,7 +124,7 @@ function DetailsView(type, id, opts) {
     info.appendChild(genres);
     info.appendChild(desc);
     info.appendChild(castLine);
-    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn]));
+    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, sourcesBtn, trailerBtn, libBtn]));
     loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
   }
 
@@ -139,11 +154,12 @@ function DetailsView(type, id, opts) {
           ui.logo.src = loc.logo;
         }
         if (loc.cast.length) {
+          // Each cast member opens their profile (photo, biography, films and series).
           const row = h(
             'div.cast-row',
-            null,
+            { 'data-group': '' },
             loc.cast.slice(0, 7).map((c) =>
-              h('div.cast', null, [
+              h('div.cast', { focusable: true, onSelect: () => router.push(PersonView(c.id, c.name)) }, [
                 h('div.ph', null, c.photo ? h('img', { src: c.photo, alt: '' }) : null),
                 h('div.nm', { text: c.name }),
                 h('div.ch', { text: c.character }),
@@ -180,18 +196,22 @@ function DetailsView(type, id, opts) {
     let label = t('Assistir');
     if (li && li.state && li.state.timeOffset > 0) {
       const ep = isSeries() ? sortedVideos(meta).find((v) => v.id === li.state.video_id) : null;
-      label = t('Continuar') + (ep ? ' T' + ep.season + 'E' + ep.episode : '');
+      label = t('Continuar') + (ep ? ' ' + epLabel(ep.season, ep.episode) : '');
     }
     watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
     libBtn.innerHTML = stremio.isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t('Na biblioteca') : '<span class="ico">＋</span>' + t('Biblioteca');
   }
 
-  function onWatch() {
+  function smartOn() {
+    return store.settings().smartChoice !== false;
+  }
+
+  function onWatch(smart) {
     if (isSeries()) {
       const v = nextUpVideo();
-      if (v) showStreams(v, true);
+      if (v) showStreams(v, true, smart);
     } else {
-      showStreams({ id: movieVideoId(), title: meta.name }, true);
+      showStreams({ id: movieVideoId(), title: meta.name }, true, smart);
     }
   }
 
@@ -258,7 +278,12 @@ function DetailsView(type, id, opts) {
         if (v.released) sub += ' · ' + formatDate(v.released);
         const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
         if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
-        const row = h('div.episode', { focusable: true, onSelect: () => showStreams(v, true) }, [
+        // Watched markers: a check on finished episodes, a bar on half-watched ones.
+        const done = watched.isWatched(v.id);
+        const part = done ? 0 : watched.progress(v.id) || (inProgress && li.state.duration ? li.state.timeOffset / li.state.duration : 0);
+        if (done) thumb.appendChild(h('div.ep-watched', { text: '✓' }));
+        else if (part > 0) thumb.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(part * 100) + '%' } })));
+        const row = h('div.episode', { focusable: true, cls: done ? 'watched' : '', onSelect: () => showStreams(v, true) }, [
           thumb,
           h('div.ep-info', null, [
             h('div.ep-title', { text: (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio')) }),
@@ -311,11 +336,11 @@ function DetailsView(type, id, opts) {
     return out;
   }
 
-  function showStreams(video, focusFirst) {
+  function showStreams(video, focusFirst, smart) {
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
-    const head = isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.name || video.title || '') : t('Fontes');
+    const head = isSeries() ? epLabel(video.season, video.episode) + ' · ' + (video.name || video.title || '') : t('Fontes');
     const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
     panel.appendChild(h('div.panel-head', { 'data-group': '' }, [h('h2', { text: head }), filterBtn]));
     const sub = h('div.panel-sub');
@@ -347,8 +372,65 @@ function DetailsView(type, id, opts) {
     const all = [];
     let autoFocused = null;
     let serverOk = server.isAvailable();
+    // Smart Choice: picks a source once the debrid add-ons answer (or after SMART_WAIT_MS),
+    // unless the user moves the focus first.
+    let smartActive = !!smart;
+    const smartTimer = smartActive ? setTimeout(() => decideSmart(true), SMART_WAIT_MS) : null;
+
+    function stopSmart() {
+      smartActive = false;
+      clearTimeout(smartTimer);
+    }
+
+    // Candidates in list order (add-on priority, then each add-on's own order), with the ones
+    // that play best on the TV first: direct links before torrents, then Dolby Vision, REMUX and
+    // very high bitrates (the badges marked as warnings) last, and 4K/HDR after 1080p (over Wi-Fi
+    // the 2017 TVs break up on them).
+    function smartCandidates() {
+      const out = [];
+      groups.forEach((g, gi) => {
+        (g.streams || []).forEach((s, si) => {
+          if (!server.isPlayableType(s)) return;
+          const needs = server.needsServer(s);
+          if (needs && !serverOk) return;
+          const badges = streamBadges(s);
+          const warn = badges.some((b) => b.warn);
+          const heavy = badges.some((b) => b.t === '4K' || b.t === 'HDR');
+          out.push({ s: s, key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, gi, si] });
+        });
+      });
+      out.sort((x, y) => {
+        for (let i = 0; i < 5; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
+        return 0;
+      });
+      return out.map((c) => c.s);
+    }
+
+    function decideSmart(timedOut) {
+      if (!smartActive || !alive || streamsVideo !== video) return;
+      if (focusFirst && autoFocused && nav.current() !== autoFocused) return stopSmart(); // user took over
+      const list = smartCandidates();
+      const debridPending = groups.some((g) => addonRank(g.addon) === 0 && !g.done);
+      const best = list[0];
+      const clean = best && !server.needsServer(best) && !streamBadges(best).some((b) => b.warn);
+      if (!best) {
+        if (pendingCount <= 0 || timedOut) {
+          stopSmart();
+          if (pendingCount <= 0) toast(t('Escolha inteligente: nenhuma fonte que a TV toque. Escolha na lista.'), 5000);
+        }
+        return;
+      }
+      if (pendingCount > 0 && !timedOut && (debridPending || !clean)) return;
+      stopSmart();
+      play(video, best, all, list.slice(1, 1 + SMART_FALLBACKS));
+    }
 
     function status() {
+      if (smartActive) {
+        sub.textContent = t('Escolha inteligente: procurando a melhor fonte...') + '  ·  ' + t('aperte uma seta para escolher você');
+        barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
+        return;
+      }
       const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
@@ -398,6 +480,7 @@ function DetailsView(type, id, opts) {
           if (g) {
             g.done = true;
             g.count = streams.length;
+            g.streams = streams;
             streams.forEach((s) => {
               all.push(s);
               g.el.appendChild(streamItem(s, video, serverOk, all));
@@ -416,6 +499,7 @@ function DetailsView(type, id, opts) {
             if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
           }
           status();
+          decideSmart(false);
         });
       })
       .catch(() => {});
@@ -448,10 +532,11 @@ function DetailsView(type, id, opts) {
     );
   }
 
-  function play(video, stream, all) {
+  function play(video, stream, all, fallbacks) {
     const li = stremio.libraryItem(meta.id);
     const resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-    const start = (ms) => openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries() });
+    const start = (ms) =>
+      openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries(), fallbacks: fallbacks || [] });
     if (resumeMs > 30000) {
       menu(
         t('Continuar de onde parou?'),

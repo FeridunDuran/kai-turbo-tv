@@ -8,22 +8,134 @@ features to Tizen, fully controlled with the Samsung remote.
 > **Unofficial.** Not affiliated with Stremio, Stremio Kai or Samsung. The app hosts no
 > content: it only shows what the add-ons on **your** Stremio account provide.
 
-![Home screen](docs/screenshot-home.png)
+![Stremio Kai home screen on a Samsung TV](docs/screenshots/home.jpg)
 
 ## Features
 
+### A home screen built for the TV
+Rotating hero banner with the title's logo, rating, runtime and genres, and **Watch** /
+**Details** one press away. Below it, every catalog from your Stremio add-ons as a row.
+
+### See all, without dead ends
+Every row ends in a **See all** tile that opens the whole catalog as a grid. More titles load
+on their own as you scroll down, so you never hit the end of a list.
+
+| Row end | Full catalog |
+|---|---|
+| ![See all tile at the end of a row](docs/screenshots/see-all-row.jpg) | ![Full catalog grid](docs/screenshots/see-all-grid.jpg) |
+
+### Smart Choice
+Press **Watch** and the app picks the best source and starts playing, no source list to scroll
+through. It prefers direct (debrid) links, your add-ons' order, and files the TV plays well,
+skipping Dolby Vision, REMUX and very high bitrates when there's anything else. If a source won't
+start, it moves on to the next best one. **Sources** still shows the full list.
+
+![Details page: Watch with Smart Choice, Sources, Trailer and Library](docs/screenshots/smart-choice.jpg)
+
+### Phone remote
+Use your phone as the remote, no app to install. Scan the QR code in **Settings → Phone remote**
+and your phone's browser opens a remote with a D-pad, OK, Back and playback buttons, subtitle
+sync and volume buttons, a **Now playing** card (poster, title and a progress bar you can drag
+to jump anywhere), **Search on the TV** (type, or speak with your keyboard's 🎤: the TV jumps to Search
+from any screen), and a text box that types straight into the TV's search or sign-in fields. A PIN shown on the TV keeps
+others on your Wi-Fi out. It runs as a small TizenBrew service on the TV, nothing leaves your
+home network.
+
+| On your phone | On the TV (Settings) |
+|---|---|
+| <img src="docs/screenshots/phone-remote.jpg" alt="Phone remote page" width="300"> | ![QR code and PIN in Settings](docs/screenshots/phone-remote-qr.jpg) |
+
+**Browse on the phone:** the **Browse** tab shows your Continue watching, New episodes and
+Library as posters; tap one and it opens on the TV, ready on that episode.
+
+<img src="docs/screenshots/phone-browse.jpg" alt="Browse tab on the phone" width="300">
+
+### Search across all your add-ons
+Results from every add-on that supports search, grouped by movies and series.
+
+![Search results](docs/screenshots/search.jpg)
+
+### Release calendar: anime, series and movies
+A week at a time, day by day:
+- **Anime:** every episode airing that day, including Chinese and Korean titles, with air
+  time, episode and score.
+- **Series:** new episodes from streaming services worldwide and US TV, with the network.
+- **Movies:** the day each film becomes available to stream at home (with a free
+  [TMDB](https://www.themoviedb.org/settings/api) key in Settings).
+
+| Anime | Series |
+|---|---|
+| ![Anime calendar](docs/screenshots/calendar-anime.jpg) | ![Series calendar](docs/screenshots/calendar-series.jpg) |
+
+### English and Arabic
+The whole app in **English** or **Arabic** (Settings → Language / اللغة, or automatic from the
+TV's language). Arabic switches to a right-to-left layout, while titles and synopses keep their
+own direction.
+
+| Home | Details |
+|---|---|
+| ![Arabic home screen](docs/screenshots/arabic-home.jpg) | ![Arabic details screen](docs/screenshots/arabic-details.jpg) |
+
+### Profiles and settings
+"Who's watching?" profiles, each on its own Stremio account, plus language, Smart Choice,
+theme, subtitle and streaming-server settings, all usable with the remote.
+
+![Settings](docs/screenshots/settings.jpg)
+
+### Trailers and actor profiles
+- **Trailer** on every film and series page plays the official trailer full screen. Back closes
+  it, OK pauses, and left/right switch between trailers when there are several.
+- Select anyone in the **cast** to open their profile: photo, age, birthplace, biography, and all
+  their films and series, each one a press away.
+- With a free [TMDB](https://www.themoviedb.org/settings/api) key in Settings, descriptions,
+  titles and biographies appear **in Arabic** when the app is in Arabic (English when TMDB has
+  no Arabic text).
+
+![A trailer playing full screen](docs/screenshots/trailer.jpg)
+
+### New episodes
+A home-screen row with the episodes released in the last 7 days for the series in your library,
+skipping the ones you've watched. Each opens straight on that episode.
+
+![New episodes row](docs/screenshots/new-episodes.jpg)
+
+### Watching
+- **Skip intros automatically.** Intros and recaps are skipped on their own (IntroDB and
+  AniSkip); at the credits the Up next card takes over. Settings → Skip intro can switch back to
+  a button.
+- **Watched markers.** Finished episodes get a ✓ and half-watched ones a progress bar.
+
+![Episodes with watched markers](docs/screenshots/watched.jpg)
+
+- **Up next.** Near the end of an episode (at the credits, when known) a card shows the next
+  episode with a 10-second countdown: **Play now**, or **Cancel** / Back to stay.
+- **Subtitle sync shortcut.** Subtitles out of time? While playing, press **Channel up/down**
+  (or yellow/blue, or the phone remote's buttons) to move them later or earlier by 0.25 s. The
+  setting is remembered for that episode or film.
+- **Continue watching everywhere.** Progress syncs through your Stremio account: stop on the TV,
+  carry on on your phone, PC or Fire TV, and the other way round. The TV refreshes the row when
+  you come back to the home screen.
+
+### Themes
+Purple, gold, teal, red, blue or green: **Settings → Colour theme** recolours the whole app.
+
+![Gold theme](docs/screenshots/theme-gold.jpg)
+
+### And more
+- **Search by actor.** With a TMDB key, search shows matching actors and directors first; each
+  opens their profile.
+- **In-app updater.** Settings shows the installed and newest version; one press updates.
 - **Your Stremio account.** Sign in with a code (on your phone at link.stremio.com) or by email.
   Add-ons, library and "Continue watching" come from your account, and progress syncs back.
-- **Stremio Kai look.** Rotating hero banner, dark or OLED theme, ratings from several sources,
-  synopses and cast with photos (with a TMDB key).
+- **Ratings.** IMDb out of the box; Rotten Tomatoes, Metacritic, Letterboxd and Trakt with a
+  free [MDBList](https://mdblist.com) API key (Settings).
 - **Smart source list.** Direct (debrid) links first, filter by add-on, and 4K, HDR,
   Dolby Vision and REMUX tags.
 - **Player.** Uses the TV's hardware player (H.264, HEVC, HDR10), skips intros and outros
   (IntroDB and AniSkip), automatic subtitles, next episode on the same source, and reconnects
   if a video stalls.
-- **Profiles.** "Who's watching?" screen, each profile on its own Stremio account.
 - **Built for the Samsung remote.** Arrows, OK, Return, play/pause, fast-forward/rewind,
-  colour and channel keys. No pointer needed.
+  colour and channel keys, and Samsung's on-screen keyboard. No pointer needed.
 - **Light enough for old Tizen.** Plain JavaScript compiled down for the old web engine on
   Tizen 3.0 (Chromium 47); no WebAssembly required.
 
@@ -109,7 +221,7 @@ Leave Developer Mode on from now on, or TizenBrew won't open.
 1. Open **TizenBrew** and go to **Module Manager → Add module**.
 2. Choose **GitHub** (not NPM) and enter:
    ```
-   ITzAkai/stremio-kai-tizen
+   FeridunDuran/stremio-kai-tizen
    ```
 3. **Stremio Kai** now appears in TizenBrew. Open it.
 
@@ -122,7 +234,11 @@ Leave Developer Mode on from now on, or TizenBrew won't open.
    shown on the TV, or sign in with email.
 3. Your add-ons and library load from your account. Pick something and play.
 
-TizenBrew picks up updates to Stremio Kai automatically.
+**Updating:** open **Settings → Updates**. It shows your installed version and the newest one on
+GitHub with what changed; **Check for update → Update now** installs it and reloads the app. The
+app also checks once a day and tells you when there's something new.
+
+![Updates in Settings](docs/screenshots/updates.jpg)
 
 ### Troubleshooting
 

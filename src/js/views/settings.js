@@ -15,17 +15,19 @@ import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, switchProfile, createProfile } from './profiles.js';
 import { t } from '../lib/i18n.js';
+import * as phone from '../lib/phone.js';
+import * as theme from '../lib/theme.js';
 
 const SUB_LANGS = [
-  { label: 'Português (BR) e Português', value: ['pob', 'por', 'pt', 'pt-br'] },
   { label: 'Inglês', value: ['eng', 'en'] },
+  { label: 'Árabe', value: ['ara', 'ar'] },
   { label: 'Espanhol', value: ['spa', 'es'] },
   { label: 'Nenhum (não ligar sozinho)', value: [] },
 ];
 const AUDIO_LANGS = [
   { label: 'Original do arquivo', value: [] },
-  { label: 'Português (dublado) quando houver', value: ['por', 'pt', 'pob'] },
   { label: 'Inglês quando houver', value: ['eng', 'en'] },
+  { label: 'Árabe quando houver', value: ['ara', 'ar'] },
   { label: 'Japonês quando houver', value: ['jpn', 'ja'] },
 ];
 
@@ -63,29 +65,25 @@ export function SettingsView() {
     update
       .check()
       .then((info) => {
-        if (!info) return toast(t('Você já está na versão mais nova (v{v}).', { v: update.VERSION }));
-        return update.canSelfUpdate().then((can) => {
-          if (!can) {
-            // Sem Homebrew Channel (só modo desenvolvedor) o app não consegue se instalar sozinho.
-            menu(
-              t('Versão {v} disponível', { v: info.version }),
-              [
-                { label: t('Como atualizar'), sub: t('No PC: webOS Dev Manager → instalar o .ipk da release') },
-                { label: info.pageUrl, sub: t('Página da release') },
-              ],
-              { center: true }
-            );
-            return;
+        if (!info) return toast(t('Você já tem a versão mais nova.'));
+        confirmDialog(
+          t('Atualização disponível ({date}): {msg}', { date: shortDate(info.date), msg: info.message || '' }),
+          t('Atualizar agora'),
+          () => {
+            toast(t('Atualizando... o app vai recarregar.'), 60000);
+            update.apply(info).then((ok) => {
+              if (!ok) toast(t('A atualização ainda está chegando. Tente de novo em alguns minutos.'), 6000);
+            });
           }
-          confirmDialog(t('Instalar a versão {v}? O app vai fechar e reabrir.', { v: info.version }), t('Atualizar'), () => {
-            update
-              .install(info, (st) => toast(st, 8000))
-              .then(() => toast(t('Atualizado! Reabrindo...')))
-              .catch((e) => toast(t('Não foi possível atualizar: {msg}', { msg: e.message }), 6000));
-          });
-        });
+        );
       })
       .catch((e) => toast(t('Não foi possível verificar: {msg}', { msg: e.message }), 5000));
+  }
+
+  function shortDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear() + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
   }
 
   function installFromUrl(url, name) {
@@ -117,13 +115,13 @@ export function SettingsView() {
     // ---- Idioma do app (vale para a TV inteira; o nome fica bilíngue para quem não lê o atual) ----
     const LANGS = [
       { id: 'auto', label: t('Automático (idioma da TV)') },
-      { id: 'pt', label: 'Português' },
       { id: 'en', label: 'English' },
+      { id: 'ar', label: 'العربية' },
     ];
-    body.appendChild(h('div.set-section', { text: 'Idioma / Language' }));
+    body.appendChild(h('div.set-section', { text: 'Language / اللغة' }));
     body.appendChild(
-      row('Idioma / Language', '', (LANGS.find((l) => l.id === s.language) || LANGS[0]).label, () =>
-        menu('Idioma / Language', LANGS.map((l) => ({ label: l.label, value: l.id, checked: l.id === s.language })), {
+      row('Language / اللغة', '', (LANGS.find((l) => l.id === s.language) || LANGS[0]).label, () =>
+        menu('Language / اللغة', LANGS.map((l) => ({ label: l.label, value: l.id, checked: l.id === s.language })), {
           onPick: (v) => {
             if (v === s.language) return;
             store.saveSettings({ language: v });
@@ -235,6 +233,27 @@ export function SettingsView() {
       );
     }
 
+    // ---- Phone remote: QR code that opens the remote page with the PIN already filled in ----
+    body.appendChild(h('div.set-section', { text: t('Controle pelo celular') }));
+    const phoneBox = h('div.set-row.phone-remote', { focusable: true }, h('div.phone-sub', { text: t('Carregando...') }));
+    body.appendChild(phoneBox);
+    phone.info().then((i) => {
+      clear(phoneBox);
+      if (!i) {
+        phoneBox.appendChild(h('div.phone-sub', { text: t('O controle pelo celular não está rodando. Feche o app e abra de novo pelo TizenBrew.') }));
+        return;
+      }
+      phoneBox.appendChild(h('img.phone-qr', { src: phone.qrImage(i.url, 300), alt: '' }));
+      phoneBox.appendChild(
+        h('div.phone-text', null, [
+          h('div.phone-title', { text: t('Aponte a câmera do celular para o código') }),
+          h('div.phone-sub', { text: t('Ou abra no navegador do celular (mesmo Wi-Fi):') }),
+          h('div.phone-url', { text: 'http://' + i.ip + ':' + i.port }),
+          h('div.phone-sub', { text: t('PIN: {pin}', { pin: i.pin }) }),
+        ])
+      );
+    });
+
     body.appendChild(h('div.set-section', { text: t('Servidor de streaming (PC)') }));
     const st = server.lastStatus();
     const stText = !s.serverUrl ? t('não configurado') : st.ok && st.url === server.baseUrl() ? t('conectado ✓') : t('sem resposta');
@@ -294,6 +313,22 @@ export function SettingsView() {
         )
       )
     );
+    const curTheme = theme.THEMES.find((x) => x.id === s.theme) || theme.THEMES[0];
+    body.appendChild(
+      row(t('Tema de cores'), t('Cor de destaque do app'), t(curTheme.label), () =>
+        menu(
+          t('Tema de cores'),
+          theme.THEMES.map((x) => ({ label: t(x.label), value: x.id, checked: x.id === curTheme.id })),
+          {
+            onPick: (v) => {
+              store.saveSettings({ theme: v });
+              theme.apply(v);
+              render();
+            },
+          }
+        )
+      )
+    );
     body.appendChild(
       row(t('Tema OLED (preto puro)'), t('Fundo totalmente preto'), '', () => {
         const on = !store.settings().oled;
@@ -301,6 +336,21 @@ export function SettingsView() {
         document.body.classList.toggle('oled', on);
         render();
       }, toggle(s.oled))
+    );
+    body.appendChild(
+      row(t('Escolha inteligente'), t('Assistir já toca a melhor fonte; o botão Fontes mostra a lista'), '', () => {
+        store.saveSettings({ smartChoice: store.settings().smartChoice === false });
+        render();
+      }, toggle(s.smartChoice !== false))
+    );
+    body.appendChild(
+      row(t('Modo desempenho'), t('Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano'), '', () => {
+        const on = store.settings().perfMode === false;
+        store.saveSettings({ perfMode: on });
+        document.body.classList.toggle('perf', on);
+        router.dropTab('home'); // rebuilt with or without the extras
+        render();
+      }, toggle(store.settings().perfMode !== false))
     );
     body.appendChild(
       row(t('Rolagem animada'), t('Mais bonita, porém mais pesada na TV'), '', () => {
@@ -388,13 +438,13 @@ export function SettingsView() {
       t('Pular abertura e encerramento'),
       t('IntroDB (séries e filmes) e AniSkip (animes)'),
       [
-        { id: 'prompt', label: t('Mostrar botão "Pular"') },
         { id: 'auto', label: t('Pular automaticamente') },
+        { id: 'prompt', label: t('Mostrar botão "Pular"') },
         { id: 'off', label: t('Desligado') },
       ],
       'skipMode',
       s.skipMode,
-      { prompt: t('Mostrar botão'), auto: t('Automático'), off: t('Desligado') }[s.skipMode] || t('Mostrar botão')
+      { prompt: t('Mostrar botão'), auto: t('Automático'), off: t('Desligado') }[s.skipMode] || t('Automático')
     );
 
     // ---- Metadados (opcional, como no Kai) ----
@@ -415,7 +465,7 @@ export function SettingsView() {
         ])
       );
     };
-    keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
+    keyRow(t('Chave TMDB'), t('Descrições em árabe, perfis de atores, calendário de filmes, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
     keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
 
     body.appendChild(h('div.set-section', { text: t('Addons') }));
@@ -463,10 +513,24 @@ export function SettingsView() {
         logInput,
       ])
     );
-    body.appendChild(row(t('Versão'), device || 'Stremio Kai Timeworn', 'v' + update.VERSION, null));
-    body.appendChild(
-      row(t('Procurar atualização'), t('Baixa a versão nova do GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate())
-    );
+    body.appendChild(h('div.set-section', { text: t('Atualizações') }));
+    body.appendChild(row(t('Versão instalada'), device || 'Stremio Kai', shortDate(update.BUILD), null));
+    const latestRow = row(t('Versão mais nova no GitHub'), update.REPO, t('Verificando...'), () => checkForUpdate());
+    body.appendChild(latestRow);
+    update
+      .latest()
+      .then((info) => {
+        const v = latestRow.querySelector('.value');
+        if (!v) return;
+        const newer = info.build && info.build !== update.BUILD && Date.parse(info.build) > Date.parse(update.BUILD);
+        v.textContent = shortDate(info.date) + (newer ? '  ·  ' + t('nova!') : '  ·  ' + t('em dia'));
+        if (info.message) latestRow.querySelector('.label small').textContent = info.message;
+      })
+      .catch(() => {
+        const v = latestRow.querySelector('.value');
+        if (v) v.textContent = t('sem conexão');
+      });
+    body.appendChild(row(t('Procurar atualização'), t('Baixa a versão nova do GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
 
     const rows = body.querySelectorAll('.set-row');
     if (keepIndex >= 0 && rows[keepIndex]) nav.focus(rows[keepIndex]);

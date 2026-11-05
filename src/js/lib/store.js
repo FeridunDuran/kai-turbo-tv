@@ -114,7 +114,7 @@ export function set(key, value) {
 
 // ---------- Preferências ----------
 // Da TV (iguais para todos os perfis):
-const DEVICE_KEYS = ['serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language'];
+const DEVICE_KEYS = ['serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'perfMode', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language'];
 
 const DEFAULT_SETTINGS = {
   // TV
@@ -122,14 +122,17 @@ const DEFAULT_SETTINGS = {
   tmdbKey: typeof __KAI_TMDB__ !== 'undefined' ? __KAI_TMDB__ : '',
   mdblistKey: typeof __KAI_MDBLIST__ !== 'undefined' ? __KAI_MDBLIST__ : '',
   smoothScroll: false, // rolagem animada (mais bonita, mais pesada na TV)
+  perfMode: true, // Performance mode: no animations, no New episodes row, no background sync
+  smartChoice: true, // Watch picks the best source and plays it
+  theme: 'purple', // see lib/theme.js
   devlogUrl: typeof __KAI_DEVLOG__ !== 'undefined' ? __KAI_DEVLOG__ : '',
-  language: 'auto', // 'auto' (idioma da TV) | 'pt' | 'en'
+  language: 'auto', // 'auto' (TV language: Arabic or English) | 'en' | 'ar'
   askProfile: true, // "Quem está assistindo?" ao abrir, se houver mais de um perfil
   wizardDone: false,
   // Perfil
   heroSource: 'cinemeta',
   oled: false,
-  subtitleLangs: ['pob', 'por', 'pt', 'pt-br'],
+  subtitleLangs: ['eng', 'en'],
   audioLangs: [], // vazio = mantém o áudio padrão do arquivo (geralmente o original)
   subtitleSize: 100,
   subtitleFont: 'nata',
@@ -137,14 +140,15 @@ const DEFAULT_SETTINGS = {
   subtitleColor: '#ffffff',
   subtitleBold: true,
   subtitlePosition: 'low',
-  skipMode: 'prompt', // prompt | auto | off
+  skipMode: 'auto', // auto (default) | prompt | off
   subtitlesAuto: true,
   localAddons: [],
 };
 
 export function settings() {
   // Legenda automática padrão segue o idioma do app (quem já escolheu, mantém a escolha).
-  const base = Object.assign({}, DEFAULT_SETTINGS, current() === 'en' ? { subtitleLangs: ['eng', 'en'] } : null);
+  const subs = { en: ['eng', 'en'], ar: ['ara', 'ar'] }[current()];
+  const base = Object.assign({}, DEFAULT_SETTINGS, subs ? { subtitleLangs: subs } : null);
   return Object.assign(base, rawGet('device', {}), get('settings', {}));
 }
 

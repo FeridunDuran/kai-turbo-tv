@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0b14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Stremio Kai remote</title>
+<style>
+  :root { --bg: #0d0b14; --card: #1b1826; --key: #262236; --text: #f2f0f8; --muted: #9a94ad; --accent: #7b5bf5; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif; }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  header { width: 100%; max-width: 420px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .brand { font-size: 20px; } .brand b { color: #9d85ff; }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.ok { color: #8fe3aa; } .status.bad { color: #ff8f8f; }
+  main { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 22px; }
+  button { font: inherit; color: var(--text); background: var(--key); border: 0; border-radius: 18px; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  button:active { transform: scale(0.96); background: #332d47; }
+  .pad { position: relative; width: min(300px, 78vw); height: min(300px, 78vw); margin: 4px auto 0; border-radius: 50%; background: var(--card); }
+  .pad button { position: absolute; width: 33%; height: 33%; border-radius: 50%; background: transparent; font-size: 30px; color: #d8d2ea; }
+  .pad button:active { background: rgba(255,255,255,0.08); }
+  .pad .up { top: 2%; left: 33.5%; } .pad .down { bottom: 2%; left: 33.5%; }
+  .pad .left { left: 2%; top: 33.5%; } .pad .right { right: 2%; top: 33.5%; }
+  .pad .ok { left: 31%; top: 31%; width: 38%; height: 38%; background: var(--accent); color: #fff; font-size: 20px; font-weight: 700; }
+  .pad .ok:active { background: #6847e8; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .row.two { grid-template-columns: 1fr 1fr; }
+  .row button { height: 58px; font-size: 22px; }
+  .row button small { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .type { display: flex; gap: 10px; }
+  .type input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--card); border: 2px solid #2d2840; border-radius: 16px; padding: 14px 16px; outline: none; }
+  .type input:focus { border-color: var(--accent); }
+  .type button { padding: 0 20px; background: var(--accent); font-weight: 700; }
+  .hint { color: var(--muted); font-size: 13px; text-align: center; margin: -10px 0 0; }
+  .tabs { width: 100%; max-width: 420px; display: flex; gap: 8px; margin-bottom: 18px; }
+  .tabs button { flex: 1; height: 42px; border-radius: 14px; font-weight: 600; }
+  .tabs button.on { background: var(--accent); }
+  body.locked .tabs { display: none; }
+  body.tab-browse main { display: none; }
+  .browse { width: 100%; max-width: 420px; }
+  .browse[hidden] { display: none; }
+  .browse h2 { font-size: 16px; margin: 6px 0 10px; }
+  .browse .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 14px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .browse .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .browse .grid .item { max-width: none; }
+  .browse .item { flex: 0 0 31%; max-width: 31%; min-width: 0; overflow: hidden; scroll-snap-align: start; background: none; padding: 0; border-radius: 12px; text-align: left; color: var(--text); }
+  .browse .item img, .browse .item .ph { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; background: var(--card); display: block; }
+  .browse .item .t { font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .browse .item .s { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .browse .item .bar { height: 3px; background: #2d2840; border-radius: 2px; margin-top: 4px; }
+  .browse .item .bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+  .browse .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
+  .now { display: flex; gap: 14px; background: var(--card); border-radius: 18px; padding: 12px; }
+  .now[hidden] { display: none; }
+  .now img { width: 74px; height: 110px; object-fit: cover; border-radius: 10px; background: #2d2840; flex-shrink: 0; }
+  .np-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+  .np-title { font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-ep { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 17px; }
+  .np-info input[type=range] { width: 100%; margin: 10px 0 4px; accent-color: var(--accent); }
+  .np-times { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .np-times button { width: 46px; height: 34px; border-radius: 12px; font-size: 16px; }
+  .type .mic { padding: 0 16px; background: var(--key); font-size: 22px; }
+  .type .mic.on { background: #e5484d; }
+  .pin { display: none; flex-direction: column; gap: 14px; align-items: center; text-align: center; padding-top: 30px; }
+  .pin input { width: 200px; text-align: center; font-size: 34px; letter-spacing: 12px; color: var(--text); background: var(--card); border: 2px solid #2d2840; border-radius: 16px; padding: 12px; outline: none; }
+  .pin button { padding: 14px 40px; background: var(--accent); font-weight: 700; }
+  body.locked main { display: none; } body.locked .pin { display: flex; }
+</style>
+</head>
+<body class="locked">
+<header>
+  <div class="brand">Stremio <b>Kai</b> remote</div>
+  <div class="status" id="status">…</div>
+</header>
+
+<section class="pin">
+  <div>Enter the PIN shown on the TV<br><small style="color:var(--muted)">Settings → Phone remote</small></div>
+  <input id="pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
+  <button id="pinGo">Connect</button>
+</section>
+
+<nav class="tabs" id="tabs">
+  <button class="on" data-tab="remote">Remote</button>
+  <button data-tab="browse">Browse</button>
+</nav>
+
+<section class="browse" id="browse" hidden></section>
+
+<main>
+  <section class="now" id="now" hidden>
+    <img id="npPoster" alt="">
+    <div class="np-info">
+      <div class="np-title" id="npTitle"></div>
+      <div class="np-ep" id="npEp"></div>
+      <input type="range" id="npSeek" min="0" max="100" value="0">
+      <div class="np-times"><span id="npPos">0:00</span><button id="npPlay" data-key="10252">⏯</button><span id="npDur">0:00</span></div>
+    </div>
+  </section>
+  <div class="pad">
+    <button class="up" data-key="38" aria-label="Up">▲</button>
+    <button class="left" data-key="37" aria-label="Left">◀</button>
+    <button class="ok" data-key="13">OK</button>
+    <button class="right" data-key="39" aria-label="Right">▶</button>
+    <button class="down" data-key="40" aria-label="Down">▼</button>
+  </div>
+  <div class="row">
+    <button data-key="10009">↩<small>Back</small></button>
+    <button data-key="10252">⏯<small>Play / pause</small></button>
+    <button data-key="413">⏹<small>Stop</small></button>
+  </div>
+  <div class="row two">
+    <button data-key="412">⏪<small>Rewind</small></button>
+    <button data-key="417">⏩<small>Forward</small></button>
+  </div>
+  <div class="row">
+    <button data-vol="down">🔉<small>Volume −</small></button>
+    <button data-vol="mute">🔇<small>Mute</small></button>
+    <button data-vol="up">🔊<small>Volume +</small></button>
+  </div>
+  <div class="row two">
+    <button data-key="428">⏪ Aa<small>Subtitles earlier</small></button>
+    <button data-key="427">Aa ⏩<small>Subtitles later</small></button>
+  </div>
+  <form class="type" id="searchForm">
+    <input id="query" type="search" placeholder="Search on the TV…" autocomplete="off" enterkeyhint="search">
+    <button type="button" id="mic" class="mic" aria-label="Voice search" hidden>🎤</button>
+    <button type="submit">Search</button>
+  </form>
+  <p class="hint" id="voiceHint">Speak your search: tap 🎤 on your phone's keyboard, or the mic button.</p>
+  <form class="type" id="typeForm">
+    <input id="text" placeholder="Type on the TV…" autocomplete="off" enterkeyhint="send">
+    <button type="submit">Send</button>
+  </form>
+  <p class="hint">Typing fills the selected text box on the TV (search, sign-in…).</p>
+</main>
+
+<script>
+(function () {
+  var pin = '';
+  var statusEl = document.getElementById('status');
+  function status(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); }
+
+  // The QR code on the TV opens this page with #pin=1234, so scanning connects straight away.
+  var m = location.hash.match(/pin=(\d{4})/);
+  try { pin = (m && m[1]) || localStorage.getItem('kaiRemotePin') || ''; } catch (e) { pin = (m && m[1]) || ''; }
+  if (m) history.replaceState(null, '', location.pathname);
+
+  function check(p) {
+    return fetch('/api/check?pin=' + encodeURIComponent(p)).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+  function unlock(p) {
+    return check(p).then(function (ok) {
+      if (!ok) { status('Wrong PIN', 'bad'); document.body.classList.add('locked'); return false; }
+      pin = p;
+      try { localStorage.setItem('kaiRemotePin', p); } catch (e) {}
+      document.body.classList.remove('locked');
+      status('Connected', 'ok');
+      refreshNow();
+      return true;
+    });
+  }
+  document.getElementById('pinGo').onclick = function () { unlock(document.getElementById('pin').value.trim()); };
+  document.getElementById('pin').onkeydown = function (e) { if (e.key === 'Enter') unlock(this.value.trim()); };
+
+  function post(url, body) {
+    return fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'pin=' + encodeURIComponent(pin), { method: 'POST', body: body || '' })
+      .then(function (r) {
+        if (r.status === 401) { status('PIN changed: enter it again', 'bad'); document.body.classList.add('locked'); }
+        else status('Connected', 'ok');
+      })
+      .catch(function () { status('TV not reachable', 'bad'); });
+  }
+
+  // Holding an arrow repeats it, like the real remote.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (b) {
+    var code = b.getAttribute('data-key');
+    var repeat = null, delay = null;
+    var arrow = /^3[7-9]$|^40$/.test(code);
+    function stop() { clearTimeout(delay); clearInterval(repeat); delay = repeat = null; }
+    b.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      if (navigator.vibrate) navigator.vibrate(10);
+      post('/api/key?code=' + code);
+      if (arrow) delay = setTimeout(function () { repeat = setInterval(function () { post('/api/key?code=' + code); }, 140); }, 400);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, stop); });
+  });
+
+  document.getElementById('typeForm').onsubmit = function (e) {
+    e.preventDefault();
+    var input = document.getElementById('text');
+    if (!input.value) return;
+    post('/api/text?submit=1', input.value).then(function () { input.value = ''; });
+  };
+
+  // ---- Browse: Continue watching, New episodes and Library from the TV; tap to open on the TV ----
+  var browseEl = document.getElementById('browse');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (b) {
+    b.onclick = function () {
+      var browse = b.getAttribute('data-tab') === 'browse';
+      document.body.classList.toggle('tab-browse', browse);
+      browseEl.hidden = !browse;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-tab]'), function (x) { x.classList.toggle('on', x === b); });
+      if (browse) loadBrowse();
+    };
+  });
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+  function item(it) {
+    var b = el('button', 'item');
+    if (it.poster) { var im = el('img'); im.loading = 'lazy'; im.alt = ''; im.src = it.poster; b.appendChild(im); } else b.appendChild(el('div', 'ph'));
+    b.appendChild(el('div', 't', it.name));
+    if (it.sub) b.appendChild(el('div', 's', it.sub));
+    if (it.progress) { var bar = el('div', 'bar'), fill = el('i'); fill.style.width = Math.round(it.progress * 100) + '%'; bar.appendChild(fill); b.appendChild(bar); }
+    b.onclick = function () {
+      if (navigator.vibrate) navigator.vibrate(15);
+      post('/api/open?type=' + encodeURIComponent(it.type) + '&id=' + encodeURIComponent(it.id) + (it.video ? '&video=' + encodeURIComponent(it.video) : ''))
+        .then(function () { status('Opening on the TV…', 'ok'); });
+    };
+    return b;
+  }
+  function loadBrowse() {
+    fetch('/api/browse?pin=' + encodeURIComponent(pin)).then(function (r) { return r.json(); }).then(function (d) {
+      browseEl.innerHTML = '';
+      var labels = d.labels || {};
+      var any = false;
+      [['continueWatching', 'strip'], ['newEpisodes', 'strip'], ['library', 'grid']].forEach(function (sec) {
+        var list = d[sec[0]] || [];
+        if (!list.length) return;
+        any = true;
+        browseEl.appendChild(el('h2', '', labels[sec[0]] || sec[0]));
+        var box = el('div', sec[1]);
+        list.forEach(function (it) { box.appendChild(item(it)); });
+        browseEl.appendChild(box);
+      });
+      if (!any) browseEl.appendChild(el('div', 'empty', 'Nothing yet: open the app on the TV and sign in to your Stremio account.'));
+    }).catch(function () { status('TV not reachable', 'bad'); });
+  }
+
+  // Volume: the TV's own volume, through the TV.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vol]'), function (b) {
+    b.addEventListener('click', function () {
+      if (navigator.vibrate) navigator.vibrate(10);
+      fetch('/api/volume?dir=' + b.getAttribute('data-vol') + '&pin=' + encodeURIComponent(pin), { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (r) { if (r.ok) status('Connected', 'ok'); else status(/allow/.test(r.error || '') ? 'Allow the remote on the TV' : 'Volume not available', 'bad'); })
+        .catch(function () { status('TV not reachable', 'bad'); });
+    });
+  });
+
+  // Now playing: poster, title and a progress bar you can drag to jump.
+  var nowEl = document.getElementById('now'), seek = document.getElementById('npSeek'), dragging = false, lastPoster = '';
+  function fmt(sec) {
+    sec = Math.max(0, Math.floor(sec)); var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function refreshNow() {
+    if (!pin || document.body.classList.contains('locked') || document.hidden) return;
+    fetch('/api/state?pin=' + encodeURIComponent(pin)).then(function (r) { return r.json(); }).then(function (r) {
+      var p = r.playing;
+      nowEl.hidden = !p;
+      if (!p) return;
+      document.getElementById('npTitle').textContent = p.title;
+      document.getElementById('npEp').textContent = p.episode || '';
+      if (p.poster && p.poster !== lastPoster) { document.getElementById('npPoster').src = lastPoster = p.poster; }
+      document.getElementById('npDur').textContent = fmt(p.duration);
+      document.getElementById('npPlay').textContent = p.paused ? '▶' : '⏸';
+      if (!dragging && p.duration) {
+        // The TV reports every few seconds; move the bar along in between.
+        var pos = p.paused ? p.position : p.position + (Date.now() - r.at) / 1000;
+        seek.max = p.duration; seek.value = Math.min(pos, p.duration);
+        document.getElementById('npPos').textContent = fmt(pos);
+      }
+    }).catch(function () {});
+  }
+  seek.addEventListener('input', function () { dragging = true; document.getElementById('npPos').textContent = fmt(seek.value); });
+  seek.addEventListener('change', function () {
+    dragging = false;
+    post('/api/seek?to=' + Math.floor(seek.value));
+  });
+  setInterval(refreshNow, 2000);
+
+  // Search on the TV from anywhere in the app (typed, keyboard dictation, or the mic button).
+  var query = document.getElementById('query');
+  function search(q) {
+    q = (q || '').trim();
+    if (q.length < 2) return;
+    post('/api/search', q).then(function () { query.value = ''; status('Searching on the TV…', 'ok'); });
+  }
+  document.getElementById('searchForm').onsubmit = function (e) { e.preventDefault(); search(query.value); };
+
+  // The browser's speech recognition only runs on secure (https) pages; on the TV's local
+  // address the keyboard's own dictation button does the same job, so the hint stays.
+  var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!(Rec && window.isSecureContext)) document.getElementById('voiceHint').textContent = "Speak your search: tap 🎤 on your phone's keyboard, then Search.";
+  if (Rec && window.isSecureContext) {
+    var mic = document.getElementById('mic');
+    mic.hidden = false;
+    mic.onclick = function () {
+      var r = new Rec();
+      r.lang = navigator.language || 'en-US';
+      r.interimResults = false;
+      mic.classList.add('on');
+      r.onresult = function (e) { var q = e.results[0][0].transcript; query.value = q; search(q); };
+      r.onend = function () { mic.classList.remove('on'); };
+      r.onerror = function () { mic.classList.remove('on'); status('Mic not available: use the keyboard 🎤', 'bad'); };
+      r.start();
+    };
+  }
+
+  if (pin) unlock(pin); else status('Locked');
+})();
+</script>
+</body>
+</html>

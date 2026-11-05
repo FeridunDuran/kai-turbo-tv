@@ -12,8 +12,8 @@ export const KEY = {
   RIGHT: 39,
   DOWN: 40,
   ENTER: 13,
-  IME_DONE: 65376,
-  IME_CANCEL: 65385,
+  IME_DONE: 65376, // Samsung on-screen keyboard Done (not the remote's OK)
+  IME_CANCEL: 65385, // Samsung on-screen keyboard Cancel
   BACK: TIZEN ? 10009 : 461, // Samsung Return / LG Back
   ESC: 27,
   BACKSPACE: 8,
@@ -196,11 +196,10 @@ export function move(dir) {
     focusFirst();
     return true;
   }
-  const all = candidates(layer.root).filter((e) => e !== cur);
   const group = cur.closest('[data-group]');
   const horizontal = dir === 'left' || dir === 'right';
   if (group && horizontal === !group.hasAttribute('data-vertical')) {
-    const inGroup = all.filter((e) => group.contains(e));
+    const inGroup = candidates(group).filter((e) => e !== cur);
     const g = pick(inGroup, cur, dir);
     if (g) {
       focus(g);
@@ -208,6 +207,7 @@ export function move(dir) {
     }
     if (group.hasAttribute('data-trap')) return false;
   }
+  const all = candidates(layer.root).filter((e) => e !== cur);
   let best = pick(all, cur, dir);
   if (!best) return false;
   const bg = best.closest('[data-group]');
@@ -262,8 +262,7 @@ function onKeyDown(e) {
   const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
   if (typing) {
     if (code === KEY.ENTER || code === KEY.IME_DONE) {
-      // Samsung IME Done is distinct from the remote-control Enter key.
-      // Let the IME perform its default completion action.
+      // Let the keyboard finish its own Done action so the typed text is kept.
       if (code === KEY.ENTER) e.preventDefault();
       active.blur();
       if (active.__submit) active.__submit(active.value);

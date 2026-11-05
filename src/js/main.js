@@ -9,6 +9,7 @@ import * as stremio from './api/stremio.js';
 import * as server from './api/server.js';
 import * as addons from './api/addons.js';
 import * as router from './router.js';
+import { openDetails } from './views/details.js';
 import { HomeView } from './views/home.js';
 import { SearchView } from './views/search.js';
 import { LibraryView } from './views/library.js';
@@ -21,6 +22,8 @@ import { toast } from './ui.js';
 import * as profiles from './views/profiles.js';
 import { openLogin } from './views/login.js';
 import { registerTizenKeys } from './lib/platform.js';
+import * as phone from './lib/phone.js';
+import * as theme from './lib/theme.js';
 
 function boot() {
   const s = store.settings();
@@ -29,6 +32,17 @@ function boot() {
   log.info('Iniciando', navigator.userAgent);
 
   registerTizenKeys();
+  phone.start();
+  // Opened from the phone's Browse tab: the title's page, ready on the episode when there is one.
+  phone.onOpen((ev) => {
+    router.goTab('home');
+    openDetails(ev.kind, ev.item, ev.video ? { videoId: ev.video, autoStreams: true } : {});
+  });
+  phone.onSearch((q) => {
+    router.goTab('search');
+    const view = router.currentView();
+    if (view && view.search) view.search(q);
+  });
   nav.install();
   // Imagens e fileiras sob demanda depois que a rolagem para (segurar a seta não recalcula a cada passo).
   nav.setSmooth(s.smoothScroll);
@@ -73,6 +87,8 @@ function start() {
   stremio.reloadProfile();
   const s = store.settings();
   document.body.classList.toggle('oled', !!s.oled);
+  theme.apply(s.theme);
+  document.body.classList.toggle('perf', s.perfMode !== false);
   log.info('Perfil', store.activeProfile().name);
 
   // Atualiza a conta em segundo plano; a tela inicial abre com o cache.
@@ -107,7 +123,7 @@ function start() {
       setTimeout(() => {
         update
           .check()
-          .then((info) => info && toast(t('Versão {v} disponível: Ajustes → Procurar atualização', { v: info.version }), 7000))
+          .then((info) => info && toast(t('Atualização disponível: Ajustes → Procurar atualização'), 7000))
           .catch(() => {});
       }, 8000);
     }

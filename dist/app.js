@@ -1961,7 +1961,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var nativeIterator = IterablePrototype[ITERATOR] || IterablePrototype["@@iterator"] || DEFAULT && IterablePrototype[DEFAULT];
         var defaultIterator = !BUGGY_SAFARI_ITERATORS && nativeIterator || getIterationMethod(DEFAULT);
         var anyNativeIterator = NAME === "Array" ? IterablePrototype.entries || nativeIterator : nativeIterator;
-        var CurrentIteratorPrototype, methods, KEY2;
+        var CurrentIteratorPrototype, methods, KEY3;
         if (anyNativeIterator) {
           CurrentIteratorPrototype = getPrototypeOf(anyNativeIterator.call(new Iterable()));
           if (CurrentIteratorPrototype !== Object.prototype && CurrentIteratorPrototype.next) {
@@ -1992,9 +1992,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             keys: IS_SET ? defaultIterator : getIterationMethod(KEYS),
             entries: getIterationMethod(ENTRIES)
           };
-          if (FORCED) for (KEY2 in methods) {
-            if (BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME || !(KEY2 in IterablePrototype)) {
-              defineBuiltIn(IterablePrototype, KEY2, methods[KEY2]);
+          if (FORCED) for (KEY3 in methods) {
+            if (BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME || !(KEY3 in IterablePrototype)) {
+              defineBuiltIn(IterablePrototype, KEY3, methods[KEY3]);
             }
           } else $({
             target: NAME,
@@ -3157,6 +3157,1523 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   });
 
+  // node_modules/qrcode-generator/qrcode.js
+  var require_qrcode = __commonJS({
+    "node_modules/qrcode-generator/qrcode.js": function node_modules_qrcodeGenerator_qrcodeJs(exports, module) {
+      var qrcode2 = function () {
+        var qrcode3 = function qrcode3(typeNumber, errorCorrectionLevel) {
+          var PAD0 = 236;
+          var PAD1 = 17;
+          var _typeNumber = typeNumber;
+          var _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+          var _modules = null;
+          var _moduleCount = 0;
+          var _dataCache = null;
+          var _dataList = [];
+          var _this = {};
+          var makeImpl = function makeImpl(test, maskPattern) {
+            _moduleCount = _typeNumber * 4 + 17;
+            _modules = function (moduleCount) {
+              var modules = new Array(moduleCount);
+              for (var row = 0; row < moduleCount; row += 1) {
+                modules[row] = new Array(moduleCount);
+                for (var col = 0; col < moduleCount; col += 1) {
+                  modules[row][col] = null;
+                }
+              }
+              return modules;
+            }(_moduleCount);
+            setupPositionProbePattern(0, 0);
+            setupPositionProbePattern(_moduleCount - 7, 0);
+            setupPositionProbePattern(0, _moduleCount - 7);
+            setupPositionAdjustPattern();
+            setupTimingPattern();
+            setupTypeInfo(test, maskPattern);
+            if (_typeNumber >= 7) {
+              setupTypeNumber(test);
+            }
+            if (_dataCache == null) {
+              _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+            }
+            mapData(_dataCache, maskPattern);
+          };
+          var setupPositionProbePattern = function setupPositionProbePattern(row, col) {
+            for (var r = -1; r <= 7; r += 1) {
+              if (row + r <= -1 || _moduleCount <= row + r) continue;
+              for (var c = -1; c <= 7; c += 1) {
+                if (col + c <= -1 || _moduleCount <= col + c) continue;
+                if (0 <= r && r <= 6 && (c == 0 || c == 6) || 0 <= c && c <= 6 && (r == 0 || r == 6) || 2 <= r && r <= 4 && 2 <= c && c <= 4) {
+                  _modules[row + r][col + c] = true;
+                } else {
+                  _modules[row + r][col + c] = false;
+                }
+              }
+            }
+          };
+          var getBestMaskPattern = function getBestMaskPattern() {
+            var minLostPoint = 0;
+            var pattern = 0;
+            for (var i = 0; i < 8; i += 1) {
+              makeImpl(true, i);
+              var lostPoint = QRUtil.getLostPoint(_this);
+              if (i == 0 || minLostPoint > lostPoint) {
+                minLostPoint = lostPoint;
+                pattern = i;
+              }
+            }
+            return pattern;
+          };
+          var setupTimingPattern = function setupTimingPattern() {
+            for (var r = 8; r < _moduleCount - 8; r += 1) {
+              if (_modules[r][6] != null) {
+                continue;
+              }
+              _modules[r][6] = r % 2 == 0;
+            }
+            for (var c = 8; c < _moduleCount - 8; c += 1) {
+              if (_modules[6][c] != null) {
+                continue;
+              }
+              _modules[6][c] = c % 2 == 0;
+            }
+          };
+          var setupPositionAdjustPattern = function setupPositionAdjustPattern() {
+            var pos = QRUtil.getPatternPosition(_typeNumber);
+            for (var i = 0; i < pos.length; i += 1) {
+              for (var j = 0; j < pos.length; j += 1) {
+                var row = pos[i];
+                var col = pos[j];
+                if (_modules[row][col] != null) {
+                  continue;
+                }
+                for (var r = -2; r <= 2; r += 1) {
+                  for (var c = -2; c <= 2; c += 1) {
+                    if (r == -2 || r == 2 || c == -2 || c == 2 || r == 0 && c == 0) {
+                      _modules[row + r][col + c] = true;
+                    } else {
+                      _modules[row + r][col + c] = false;
+                    }
+                  }
+                }
+              }
+            }
+          };
+          var setupTypeNumber = function setupTypeNumber(test) {
+            var bits = QRUtil.getBCHTypeNumber(_typeNumber);
+            for (var i = 0; i < 18; i += 1) {
+              var mod = !test && (bits >> i & 1) == 1;
+              _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+            }
+            for (var i = 0; i < 18; i += 1) {
+              var mod = !test && (bits >> i & 1) == 1;
+              _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+            }
+          };
+          var setupTypeInfo = function setupTypeInfo(test, maskPattern) {
+            var data = _errorCorrectionLevel << 3 | maskPattern;
+            var bits = QRUtil.getBCHTypeInfo(data);
+            for (var i = 0; i < 15; i += 1) {
+              var mod = !test && (bits >> i & 1) == 1;
+              if (i < 6) {
+                _modules[i][8] = mod;
+              } else if (i < 8) {
+                _modules[i + 1][8] = mod;
+              } else {
+                _modules[_moduleCount - 15 + i][8] = mod;
+              }
+            }
+            for (var i = 0; i < 15; i += 1) {
+              var mod = !test && (bits >> i & 1) == 1;
+              if (i < 8) {
+                _modules[8][_moduleCount - i - 1] = mod;
+              } else if (i < 9) {
+                _modules[8][15 - i - 1 + 1] = mod;
+              } else {
+                _modules[8][15 - i - 1] = mod;
+              }
+            }
+            _modules[_moduleCount - 8][8] = !test;
+          };
+          var mapData = function mapData(data, maskPattern) {
+            var inc = -1;
+            var row = _moduleCount - 1;
+            var bitIndex = 7;
+            var byteIndex = 0;
+            var maskFunc = QRUtil.getMaskFunction(maskPattern);
+            for (var col = _moduleCount - 1; col > 0; col -= 2) {
+              if (col == 6) col -= 1;
+              while (true) {
+                for (var c = 0; c < 2; c += 1) {
+                  if (_modules[row][col - c] == null) {
+                    var dark = false;
+                    if (byteIndex < data.length) {
+                      dark = (data[byteIndex] >>> bitIndex & 1) == 1;
+                    }
+                    var mask = maskFunc(row, col - c);
+                    if (mask) {
+                      dark = !dark;
+                    }
+                    _modules[row][col - c] = dark;
+                    bitIndex -= 1;
+                    if (bitIndex == -1) {
+                      byteIndex += 1;
+                      bitIndex = 7;
+                    }
+                  }
+                }
+                row += inc;
+                if (row < 0 || _moduleCount <= row) {
+                  row -= inc;
+                  inc = -inc;
+                  break;
+                }
+              }
+            }
+          };
+          var createBytes = function createBytes(buffer2, rsBlocks) {
+            var offset = 0;
+            var maxDcCount = 0;
+            var maxEcCount = 0;
+            var dcdata = new Array(rsBlocks.length);
+            var ecdata = new Array(rsBlocks.length);
+            for (var r = 0; r < rsBlocks.length; r += 1) {
+              var dcCount = rsBlocks[r].dataCount;
+              var ecCount = rsBlocks[r].totalCount - dcCount;
+              maxDcCount = Math.max(maxDcCount, dcCount);
+              maxEcCount = Math.max(maxEcCount, ecCount);
+              dcdata[r] = new Array(dcCount);
+              for (var i = 0; i < dcdata[r].length; i += 1) {
+                dcdata[r][i] = 255 & buffer2.getBuffer()[i + offset];
+              }
+              offset += dcCount;
+              var rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+              var rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+              var modPoly = rawPoly.mod(rsPoly);
+              ecdata[r] = new Array(rsPoly.getLength() - 1);
+              for (var i = 0; i < ecdata[r].length; i += 1) {
+                var modIndex = i + modPoly.getLength() - ecdata[r].length;
+                ecdata[r][i] = modIndex >= 0 ? modPoly.getAt(modIndex) : 0;
+              }
+            }
+            var totalCodeCount = 0;
+            for (var i = 0; i < rsBlocks.length; i += 1) {
+              totalCodeCount += rsBlocks[i].totalCount;
+            }
+            var data = new Array(totalCodeCount);
+            var index = 0;
+            for (var i = 0; i < maxDcCount; i += 1) {
+              for (var r = 0; r < rsBlocks.length; r += 1) {
+                if (i < dcdata[r].length) {
+                  data[index] = dcdata[r][i];
+                  index += 1;
+                }
+              }
+            }
+            for (var i = 0; i < maxEcCount; i += 1) {
+              for (var r = 0; r < rsBlocks.length; r += 1) {
+                if (i < ecdata[r].length) {
+                  data[index] = ecdata[r][i];
+                  index += 1;
+                }
+              }
+            }
+            return data;
+          };
+          var createData = function createData(typeNumber2, errorCorrectionLevel2, dataList) {
+            var rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, errorCorrectionLevel2);
+            var buffer2 = qrBitBuffer();
+            for (var i = 0; i < dataList.length; i += 1) {
+              var data = dataList[i];
+              buffer2.put(data.getMode(), 4);
+              buffer2.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
+              data.write(buffer2);
+            }
+            var totalDataCount = 0;
+            for (var i = 0; i < rsBlocks.length; i += 1) {
+              totalDataCount += rsBlocks[i].dataCount;
+            }
+            if (buffer2.getLengthInBits() > totalDataCount * 8) {
+              throw "code length overflow. (" + buffer2.getLengthInBits() + ">" + totalDataCount * 8 + ")";
+            }
+            if (buffer2.getLengthInBits() + 4 <= totalDataCount * 8) {
+              buffer2.put(0, 4);
+            }
+            while (buffer2.getLengthInBits() % 8 != 0) {
+              buffer2.putBit(false);
+            }
+            while (true) {
+              if (buffer2.getLengthInBits() >= totalDataCount * 8) {
+                break;
+              }
+              buffer2.put(PAD0, 8);
+              if (buffer2.getLengthInBits() >= totalDataCount * 8) {
+                break;
+              }
+              buffer2.put(PAD1, 8);
+            }
+            return createBytes(buffer2, rsBlocks);
+          };
+          _this.addData = function (data, mode) {
+            mode = mode || "Byte";
+            var newData = null;
+            switch (mode) {
+              case "Numeric":
+                newData = qrNumber(data);
+                break;
+              case "Alphanumeric":
+                newData = qrAlphaNum(data);
+                break;
+              case "Byte":
+                newData = qr8BitByte(data);
+                break;
+              case "Kanji":
+                newData = qrKanji(data);
+                break;
+              default:
+                throw "mode:" + mode;
+            }
+            _dataList.push(newData);
+            _dataCache = null;
+          };
+          _this.isDark = function (row, col) {
+            if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+              throw row + "," + col;
+            }
+            return _modules[row][col];
+          };
+          _this.getModuleCount = function () {
+            return _moduleCount;
+          };
+          _this.make = function () {
+            if (_typeNumber < 1) {
+              var typeNumber2 = 1;
+              for (; typeNumber2 < 40; typeNumber2++) {
+                var rsBlocks = QRRSBlock.getRSBlocks(typeNumber2, _errorCorrectionLevel);
+                var buffer2 = qrBitBuffer();
+                for (var i = 0; i < _dataList.length; i++) {
+                  var data = _dataList[i];
+                  buffer2.put(data.getMode(), 4);
+                  buffer2.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber2));
+                  data.write(buffer2);
+                }
+                var totalDataCount = 0;
+                for (var i = 0; i < rsBlocks.length; i++) {
+                  totalDataCount += rsBlocks[i].dataCount;
+                }
+                if (buffer2.getLengthInBits() <= totalDataCount * 8) {
+                  break;
+                }
+              }
+              _typeNumber = typeNumber2;
+            }
+            makeImpl(false, getBestMaskPattern());
+          };
+          _this.createTableTag = function (cellSize, margin) {
+            cellSize = cellSize || 2;
+            margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+            var qrHtml = "";
+            qrHtml += '<table style="';
+            qrHtml += " border-width: 0px; border-style: none;";
+            qrHtml += " border-collapse: collapse;";
+            qrHtml += " padding: 0px; margin: " + margin + "px;";
+            qrHtml += '">';
+            qrHtml += "<tbody>";
+            for (var r = 0; r < _this.getModuleCount(); r += 1) {
+              qrHtml += "<tr>";
+              for (var c = 0; c < _this.getModuleCount(); c += 1) {
+                qrHtml += '<td style="';
+                qrHtml += " border-width: 0px; border-style: none;";
+                qrHtml += " border-collapse: collapse;";
+                qrHtml += " padding: 0px; margin: 0px;";
+                qrHtml += " width: " + cellSize + "px;";
+                qrHtml += " height: " + cellSize + "px;";
+                qrHtml += " background-color: ";
+                qrHtml += _this.isDark(r, c) ? "#000000" : "#ffffff";
+                qrHtml += ";";
+                qrHtml += '"/>';
+              }
+              qrHtml += "</tr>";
+            }
+            qrHtml += "</tbody>";
+            qrHtml += "</table>";
+            return qrHtml;
+          };
+          _this.createSvgTag = function (cellSize, margin, alt, title) {
+            var opts = {};
+            if (_typeof(arguments[0]) == "object") {
+              opts = arguments[0];
+              cellSize = opts.cellSize;
+              margin = opts.margin;
+              alt = opts.alt;
+              title = opts.title;
+            }
+            cellSize = cellSize || 2;
+            margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+            alt = typeof alt === "string" ? {
+              text: alt
+            } : alt || {};
+            alt.text = alt.text || null;
+            alt.id = alt.text ? alt.id || "qrcode-description" : null;
+            title = typeof title === "string" ? {
+              text: title
+            } : title || {};
+            title.text = title.text || null;
+            title.id = title.text ? title.id || "qrcode-title" : null;
+            var size = _this.getModuleCount() * cellSize + margin * 2;
+            var c,
+              mc,
+              r,
+              mr,
+              qrSvg = "",
+              rect;
+            rect = "l" + cellSize + ",0 0," + cellSize + " -" + cellSize + ",0 0,-" + cellSize + "z ";
+            qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+            qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : "";
+            qrSvg += ' viewBox="0 0 ' + size + " " + size + '" ';
+            qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+            qrSvg += title.text || alt.text ? ' role="img" aria-labelledby="' + escapeXml([title.id, alt.id].join(" ").trim()) + '"' : "";
+            qrSvg += ">";
+            qrSvg += title.text ? '<title id="' + escapeXml(title.id) + '">' + escapeXml(title.text) + "</title>" : "";
+            qrSvg += alt.text ? '<description id="' + escapeXml(alt.id) + '">' + escapeXml(alt.text) + "</description>" : "";
+            qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+            qrSvg += '<path d="';
+            for (r = 0; r < _this.getModuleCount(); r += 1) {
+              mr = r * cellSize + margin;
+              for (c = 0; c < _this.getModuleCount(); c += 1) {
+                if (_this.isDark(r, c)) {
+                  mc = c * cellSize + margin;
+                  qrSvg += "M" + mc + "," + mr + rect;
+                }
+              }
+            }
+            qrSvg += '" stroke="transparent" fill="black"/>';
+            qrSvg += "</svg>";
+            return qrSvg;
+          };
+          _this.createDataURL = function (cellSize, margin) {
+            cellSize = cellSize || 2;
+            margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+            var size = _this.getModuleCount() * cellSize + margin * 2;
+            var min = margin;
+            var max = size - margin;
+            return createDataURL(size, size, function (x, y) {
+              if (min <= x && x < max && min <= y && y < max) {
+                var c = Math.floor((x - min) / cellSize);
+                var r = Math.floor((y - min) / cellSize);
+                return _this.isDark(r, c) ? 0 : 1;
+              } else {
+                return 1;
+              }
+            });
+          };
+          _this.createImgTag = function (cellSize, margin, alt) {
+            cellSize = cellSize || 2;
+            margin = typeof margin == "undefined" ? cellSize * 4 : margin;
+            var size = _this.getModuleCount() * cellSize + margin * 2;
+            var img = "";
+            img += "<img";
+            img += ' src="';
+            img += _this.createDataURL(cellSize, margin);
+            img += '"';
+            img += ' width="';
+            img += size;
+            img += '"';
+            img += ' height="';
+            img += size;
+            img += '"';
+            if (alt) {
+              img += ' alt="';
+              img += escapeXml(alt);
+              img += '"';
+            }
+            img += "/>";
+            return img;
+          };
+          var escapeXml = function escapeXml(s) {
+            var escaped = "";
+            for (var i = 0; i < s.length; i += 1) {
+              var c = s.charAt(i);
+              switch (c) {
+                case "<":
+                  escaped += "&lt;";
+                  break;
+                case ">":
+                  escaped += "&gt;";
+                  break;
+                case "&":
+                  escaped += "&amp;";
+                  break;
+                case '"':
+                  escaped += "&quot;";
+                  break;
+                default:
+                  escaped += c;
+                  break;
+              }
+            }
+            return escaped;
+          };
+          var _createHalfASCII = function _createHalfASCII(margin) {
+            var cellSize = 1;
+            margin = typeof margin == "undefined" ? cellSize * 2 : margin;
+            var size = _this.getModuleCount() * cellSize + margin * 2;
+            var min = margin;
+            var max = size - margin;
+            var y, x, r1, r2, p;
+            var blocks = {
+              "██": "█",
+              "█ ": "▀",
+              " █": "▄",
+              "  ": " "
+            };
+            var blocksLastLineNoMargin = {
+              "██": "▀",
+              "█ ": "▀",
+              " █": " ",
+              "  ": " "
+            };
+            var ascii = "";
+            for (y = 0; y < size; y += 2) {
+              r1 = Math.floor((y - min) / cellSize);
+              r2 = Math.floor((y + 1 - min) / cellSize);
+              for (x = 0; x < size; x += 1) {
+                p = "█";
+                if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+                  p = " ";
+                }
+                if (min <= x && x < max && min <= y + 1 && y + 1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+                  p += " ";
+                } else {
+                  p += "█";
+                }
+                ascii += margin < 1 && y + 1 >= max ? blocksLastLineNoMargin[p] : blocks[p];
+              }
+              ascii += "\n";
+            }
+            if (size % 2 && margin > 0) {
+              return ascii.substring(0, ascii.length - size - 1) + Array(size + 1).join("▀");
+            }
+            return ascii.substring(0, ascii.length - 1);
+          };
+          _this.createASCII = function (cellSize, margin) {
+            cellSize = cellSize || 1;
+            if (cellSize < 2) {
+              return _createHalfASCII(margin);
+            }
+            cellSize -= 1;
+            margin = typeof margin == "undefined" ? cellSize * 2 : margin;
+            var size = _this.getModuleCount() * cellSize + margin * 2;
+            var min = margin;
+            var max = size - margin;
+            var y, x, r, p;
+            var white = Array(cellSize + 1).join("██");
+            var black = Array(cellSize + 1).join("  ");
+            var ascii = "";
+            var line = "";
+            for (y = 0; y < size; y += 1) {
+              r = Math.floor((y - min) / cellSize);
+              line = "";
+              for (x = 0; x < size; x += 1) {
+                p = 1;
+                if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+                  p = 0;
+                }
+                line += p ? white : black;
+              }
+              for (r = 0; r < cellSize; r += 1) {
+                ascii += line + "\n";
+              }
+            }
+            return ascii.substring(0, ascii.length - 1);
+          };
+          _this.renderTo2dContext = function (context, cellSize) {
+            cellSize = cellSize || 2;
+            var length = _this.getModuleCount();
+            for (var row = 0; row < length; row++) {
+              for (var col = 0; col < length; col++) {
+                context.fillStyle = _this.isDark(row, col) ? "black" : "white";
+                context.fillRect(row * cellSize, col * cellSize, cellSize, cellSize);
+              }
+            }
+          };
+          return _this;
+        };
+        qrcode3.stringToBytesFuncs = {
+          "default": function _default(s) {
+            var bytes = [];
+            for (var i = 0; i < s.length; i += 1) {
+              var c = s.charCodeAt(i);
+              bytes.push(c & 255);
+            }
+            return bytes;
+          }
+        };
+        qrcode3.stringToBytes = qrcode3.stringToBytesFuncs["default"];
+        qrcode3.createStringToBytes = function (unicodeData, numChars) {
+          var unicodeMap = function () {
+            var bin = base64DecodeInputStream(unicodeData);
+            var read = function read() {
+              var b = bin.read();
+              if (b == -1) throw "eof";
+              return b;
+            };
+            var count = 0;
+            var unicodeMap2 = {};
+            while (true) {
+              var b0 = bin.read();
+              if (b0 == -1) break;
+              var b1 = read();
+              var b2 = read();
+              var b3 = read();
+              var k = String.fromCharCode(b0 << 8 | b1);
+              var v = b2 << 8 | b3;
+              unicodeMap2[k] = v;
+              count += 1;
+            }
+            if (count != numChars) {
+              throw count + " != " + numChars;
+            }
+            return unicodeMap2;
+          }();
+          var unknownChar = "?".charCodeAt(0);
+          return function (s) {
+            var bytes = [];
+            for (var i = 0; i < s.length; i += 1) {
+              var c = s.charCodeAt(i);
+              if (c < 128) {
+                bytes.push(c);
+              } else {
+                var b = unicodeMap[s.charAt(i)];
+                if (typeof b == "number") {
+                  if ((b & 255) == b) {
+                    bytes.push(b);
+                  } else {
+                    bytes.push(b >>> 8);
+                    bytes.push(b & 255);
+                  }
+                } else {
+                  bytes.push(unknownChar);
+                }
+              }
+            }
+            return bytes;
+          };
+        };
+        var QRMode = {
+          MODE_NUMBER: 1 << 0,
+          MODE_ALPHA_NUM: 1 << 1,
+          MODE_8BIT_BYTE: 1 << 2,
+          MODE_KANJI: 1 << 3
+        };
+        var QRErrorCorrectionLevel = {
+          L: 1,
+          M: 0,
+          Q: 3,
+          H: 2
+        };
+        var QRMaskPattern = {
+          PATTERN000: 0,
+          PATTERN001: 1,
+          PATTERN010: 2,
+          PATTERN011: 3,
+          PATTERN100: 4,
+          PATTERN101: 5,
+          PATTERN110: 6,
+          PATTERN111: 7
+        };
+        var QRUtil = function () {
+          var PATTERN_POSITION_TABLE = [[], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50], [6, 30, 54], [6, 32, 58], [6, 34, 62], [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78], [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90], [6, 28, 50, 72, 94], [6, 26, 50, 74, 98], [6, 30, 54, 78, 102], [6, 28, 54, 80, 106], [6, 32, 58, 84, 110], [6, 30, 58, 86, 114], [6, 34, 62, 90, 118], [6, 26, 50, 74, 98, 122], [6, 30, 54, 78, 102, 126], [6, 26, 52, 78, 104, 130], [6, 30, 56, 82, 108, 134], [6, 34, 60, 86, 112, 138], [6, 30, 58, 86, 114, 142], [6, 34, 62, 90, 118, 146], [6, 30, 54, 78, 102, 126, 150], [6, 24, 50, 76, 102, 128, 154], [6, 28, 54, 80, 106, 132, 158], [6, 32, 58, 84, 110, 136, 162], [6, 26, 54, 82, 110, 138, 166], [6, 30, 58, 86, 114, 142, 170]];
+          var G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
+          var G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
+          var G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
+          var _this = {};
+          var getBCHDigit = function getBCHDigit(data) {
+            var digit = 0;
+            while (data != 0) {
+              digit += 1;
+              data >>>= 1;
+            }
+            return digit;
+          };
+          _this.getBCHTypeInfo = function (data) {
+            var d = data << 10;
+            while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+              d ^= G15 << getBCHDigit(d) - getBCHDigit(G15);
+            }
+            return (data << 10 | d) ^ G15_MASK;
+          };
+          _this.getBCHTypeNumber = function (data) {
+            var d = data << 12;
+            while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+              d ^= G18 << getBCHDigit(d) - getBCHDigit(G18);
+            }
+            return data << 12 | d;
+          };
+          _this.getPatternPosition = function (typeNumber) {
+            return PATTERN_POSITION_TABLE[typeNumber - 1];
+          };
+          _this.getMaskFunction = function (maskPattern) {
+            switch (maskPattern) {
+              case QRMaskPattern.PATTERN000:
+                return function (i, j) {
+                  return (i + j) % 2 == 0;
+                };
+              case QRMaskPattern.PATTERN001:
+                return function (i, j) {
+                  return i % 2 == 0;
+                };
+              case QRMaskPattern.PATTERN010:
+                return function (i, j) {
+                  return j % 3 == 0;
+                };
+              case QRMaskPattern.PATTERN011:
+                return function (i, j) {
+                  return (i + j) % 3 == 0;
+                };
+              case QRMaskPattern.PATTERN100:
+                return function (i, j) {
+                  return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 == 0;
+                };
+              case QRMaskPattern.PATTERN101:
+                return function (i, j) {
+                  return i * j % 2 + i * j % 3 == 0;
+                };
+              case QRMaskPattern.PATTERN110:
+                return function (i, j) {
+                  return (i * j % 2 + i * j % 3) % 2 == 0;
+                };
+              case QRMaskPattern.PATTERN111:
+                return function (i, j) {
+                  return (i * j % 3 + (i + j) % 2) % 2 == 0;
+                };
+              default:
+                throw "bad maskPattern:" + maskPattern;
+            }
+          };
+          _this.getErrorCorrectPolynomial = function (errorCorrectLength) {
+            var a = qrPolynomial([1], 0);
+            for (var i = 0; i < errorCorrectLength; i += 1) {
+              a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0));
+            }
+            return a;
+          };
+          _this.getLengthInBits = function (mode, type) {
+            if (1 <= type && type < 10) {
+              switch (mode) {
+                case QRMode.MODE_NUMBER:
+                  return 10;
+                case QRMode.MODE_ALPHA_NUM:
+                  return 9;
+                case QRMode.MODE_8BIT_BYTE:
+                  return 8;
+                case QRMode.MODE_KANJI:
+                  return 8;
+                default:
+                  throw "mode:" + mode;
+              }
+            } else if (type < 27) {
+              switch (mode) {
+                case QRMode.MODE_NUMBER:
+                  return 12;
+                case QRMode.MODE_ALPHA_NUM:
+                  return 11;
+                case QRMode.MODE_8BIT_BYTE:
+                  return 16;
+                case QRMode.MODE_KANJI:
+                  return 10;
+                default:
+                  throw "mode:" + mode;
+              }
+            } else if (type < 41) {
+              switch (mode) {
+                case QRMode.MODE_NUMBER:
+                  return 14;
+                case QRMode.MODE_ALPHA_NUM:
+                  return 13;
+                case QRMode.MODE_8BIT_BYTE:
+                  return 16;
+                case QRMode.MODE_KANJI:
+                  return 12;
+                default:
+                  throw "mode:" + mode;
+              }
+            } else {
+              throw "type:" + type;
+            }
+          };
+          _this.getLostPoint = function (qrcode4) {
+            var moduleCount = qrcode4.getModuleCount();
+            var lostPoint = 0;
+            for (var row = 0; row < moduleCount; row += 1) {
+              for (var col = 0; col < moduleCount; col += 1) {
+                var sameCount = 0;
+                var dark = qrcode4.isDark(row, col);
+                for (var r = -1; r <= 1; r += 1) {
+                  if (row + r < 0 || moduleCount <= row + r) {
+                    continue;
+                  }
+                  for (var c = -1; c <= 1; c += 1) {
+                    if (col + c < 0 || moduleCount <= col + c) {
+                      continue;
+                    }
+                    if (r == 0 && c == 0) {
+                      continue;
+                    }
+                    if (dark == qrcode4.isDark(row + r, col + c)) {
+                      sameCount += 1;
+                    }
+                  }
+                }
+                if (sameCount > 5) {
+                  lostPoint += 3 + sameCount - 5;
+                }
+              }
+            }
+            ;
+            for (var row = 0; row < moduleCount - 1; row += 1) {
+              for (var col = 0; col < moduleCount - 1; col += 1) {
+                var count = 0;
+                if (qrcode4.isDark(row, col)) count += 1;
+                if (qrcode4.isDark(row + 1, col)) count += 1;
+                if (qrcode4.isDark(row, col + 1)) count += 1;
+                if (qrcode4.isDark(row + 1, col + 1)) count += 1;
+                if (count == 0 || count == 4) {
+                  lostPoint += 3;
+                }
+              }
+            }
+            for (var row = 0; row < moduleCount; row += 1) {
+              for (var col = 0; col < moduleCount - 6; col += 1) {
+                if (qrcode4.isDark(row, col) && !qrcode4.isDark(row, col + 1) && qrcode4.isDark(row, col + 2) && qrcode4.isDark(row, col + 3) && qrcode4.isDark(row, col + 4) && !qrcode4.isDark(row, col + 5) && qrcode4.isDark(row, col + 6)) {
+                  lostPoint += 40;
+                }
+              }
+            }
+            for (var col = 0; col < moduleCount; col += 1) {
+              for (var row = 0; row < moduleCount - 6; row += 1) {
+                if (qrcode4.isDark(row, col) && !qrcode4.isDark(row + 1, col) && qrcode4.isDark(row + 2, col) && qrcode4.isDark(row + 3, col) && qrcode4.isDark(row + 4, col) && !qrcode4.isDark(row + 5, col) && qrcode4.isDark(row + 6, col)) {
+                  lostPoint += 40;
+                }
+              }
+            }
+            var darkCount = 0;
+            for (var col = 0; col < moduleCount; col += 1) {
+              for (var row = 0; row < moduleCount; row += 1) {
+                if (qrcode4.isDark(row, col)) {
+                  darkCount += 1;
+                }
+              }
+            }
+            var ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+            lostPoint += ratio * 10;
+            return lostPoint;
+          };
+          return _this;
+        }();
+        var QRMath = function () {
+          var EXP_TABLE = new Array(256);
+          var LOG_TABLE = new Array(256);
+          for (var i = 0; i < 8; i += 1) {
+            EXP_TABLE[i] = 1 << i;
+          }
+          for (var i = 8; i < 256; i += 1) {
+            EXP_TABLE[i] = EXP_TABLE[i - 4] ^ EXP_TABLE[i - 5] ^ EXP_TABLE[i - 6] ^ EXP_TABLE[i - 8];
+          }
+          for (var i = 0; i < 255; i += 1) {
+            LOG_TABLE[EXP_TABLE[i]] = i;
+          }
+          var _this = {};
+          _this.glog = function (n) {
+            if (n < 1) {
+              throw "glog(" + n + ")";
+            }
+            return LOG_TABLE[n];
+          };
+          _this.gexp = function (n) {
+            while (n < 0) {
+              n += 255;
+            }
+            while (n >= 256) {
+              n -= 255;
+            }
+            return EXP_TABLE[n];
+          };
+          return _this;
+        }();
+        function qrPolynomial(num, shift) {
+          if (typeof num.length == "undefined") {
+            throw num.length + "/" + shift;
+          }
+          var _num = function () {
+            var offset = 0;
+            while (offset < num.length && num[offset] == 0) {
+              offset += 1;
+            }
+            var _num2 = new Array(num.length - offset + shift);
+            for (var i = 0; i < num.length - offset; i += 1) {
+              _num2[i] = num[i + offset];
+            }
+            return _num2;
+          }();
+          var _this = {};
+          _this.getAt = function (index) {
+            return _num[index];
+          };
+          _this.getLength = function () {
+            return _num.length;
+          };
+          _this.multiply = function (e) {
+            var num2 = new Array(_this.getLength() + e.getLength() - 1);
+            for (var i = 0; i < _this.getLength(); i += 1) {
+              for (var j = 0; j < e.getLength(); j += 1) {
+                num2[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i)) + QRMath.glog(e.getAt(j)));
+              }
+            }
+            return qrPolynomial(num2, 0);
+          };
+          _this.mod = function (e) {
+            if (_this.getLength() - e.getLength() < 0) {
+              return _this;
+            }
+            var ratio = QRMath.glog(_this.getAt(0)) - QRMath.glog(e.getAt(0));
+            var num2 = new Array(_this.getLength());
+            for (var i = 0; i < _this.getLength(); i += 1) {
+              num2[i] = _this.getAt(i);
+            }
+            for (var i = 0; i < e.getLength(); i += 1) {
+              num2[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i)) + ratio);
+            }
+            return qrPolynomial(num2, 0).mod(e);
+          };
+          return _this;
+        }
+        ;
+        var QRRSBlock = function () {
+          var RS_BLOCK_TABLE = [
+          // L
+          // M
+          // Q
+          // H
+          // 1
+          [1, 26, 19], [1, 26, 16], [1, 26, 13], [1, 26, 9],
+          // 2
+          [1, 44, 34], [1, 44, 28], [1, 44, 22], [1, 44, 16],
+          // 3
+          [1, 70, 55], [1, 70, 44], [2, 35, 17], [2, 35, 13],
+          // 4
+          [1, 100, 80], [2, 50, 32], [2, 50, 24], [4, 25, 9],
+          // 5
+          [1, 134, 108], [2, 67, 43], [2, 33, 15, 2, 34, 16], [2, 33, 11, 2, 34, 12],
+          // 6
+          [2, 86, 68], [4, 43, 27], [4, 43, 19], [4, 43, 15],
+          // 7
+          [2, 98, 78], [4, 49, 31], [2, 32, 14, 4, 33, 15], [4, 39, 13, 1, 40, 14],
+          // 8
+          [2, 121, 97], [2, 60, 38, 2, 61, 39], [4, 40, 18, 2, 41, 19], [4, 40, 14, 2, 41, 15],
+          // 9
+          [2, 146, 116], [3, 58, 36, 2, 59, 37], [4, 36, 16, 4, 37, 17], [4, 36, 12, 4, 37, 13],
+          // 10
+          [2, 86, 68, 2, 87, 69], [4, 69, 43, 1, 70, 44], [6, 43, 19, 2, 44, 20], [6, 43, 15, 2, 44, 16],
+          // 11
+          [4, 101, 81], [1, 80, 50, 4, 81, 51], [4, 50, 22, 4, 51, 23], [3, 36, 12, 8, 37, 13],
+          // 12
+          [2, 116, 92, 2, 117, 93], [6, 58, 36, 2, 59, 37], [4, 46, 20, 6, 47, 21], [7, 42, 14, 4, 43, 15],
+          // 13
+          [4, 133, 107], [8, 59, 37, 1, 60, 38], [8, 44, 20, 4, 45, 21], [12, 33, 11, 4, 34, 12],
+          // 14
+          [3, 145, 115, 1, 146, 116], [4, 64, 40, 5, 65, 41], [11, 36, 16, 5, 37, 17], [11, 36, 12, 5, 37, 13],
+          // 15
+          [5, 109, 87, 1, 110, 88], [5, 65, 41, 5, 66, 42], [5, 54, 24, 7, 55, 25], [11, 36, 12, 7, 37, 13],
+          // 16
+          [5, 122, 98, 1, 123, 99], [7, 73, 45, 3, 74, 46], [15, 43, 19, 2, 44, 20], [3, 45, 15, 13, 46, 16],
+          // 17
+          [1, 135, 107, 5, 136, 108], [10, 74, 46, 1, 75, 47], [1, 50, 22, 15, 51, 23], [2, 42, 14, 17, 43, 15],
+          // 18
+          [5, 150, 120, 1, 151, 121], [9, 69, 43, 4, 70, 44], [17, 50, 22, 1, 51, 23], [2, 42, 14, 19, 43, 15],
+          // 19
+          [3, 141, 113, 4, 142, 114], [3, 70, 44, 11, 71, 45], [17, 47, 21, 4, 48, 22], [9, 39, 13, 16, 40, 14],
+          // 20
+          [3, 135, 107, 5, 136, 108], [3, 67, 41, 13, 68, 42], [15, 54, 24, 5, 55, 25], [15, 43, 15, 10, 44, 16],
+          // 21
+          [4, 144, 116, 4, 145, 117], [17, 68, 42], [17, 50, 22, 6, 51, 23], [19, 46, 16, 6, 47, 17],
+          // 22
+          [2, 139, 111, 7, 140, 112], [17, 74, 46], [7, 54, 24, 16, 55, 25], [34, 37, 13],
+          // 23
+          [4, 151, 121, 5, 152, 122], [4, 75, 47, 14, 76, 48], [11, 54, 24, 14, 55, 25], [16, 45, 15, 14, 46, 16],
+          // 24
+          [6, 147, 117, 4, 148, 118], [6, 73, 45, 14, 74, 46], [11, 54, 24, 16, 55, 25], [30, 46, 16, 2, 47, 17],
+          // 25
+          [8, 132, 106, 4, 133, 107], [8, 75, 47, 13, 76, 48], [7, 54, 24, 22, 55, 25], [22, 45, 15, 13, 46, 16],
+          // 26
+          [10, 142, 114, 2, 143, 115], [19, 74, 46, 4, 75, 47], [28, 50, 22, 6, 51, 23], [33, 46, 16, 4, 47, 17],
+          // 27
+          [8, 152, 122, 4, 153, 123], [22, 73, 45, 3, 74, 46], [8, 53, 23, 26, 54, 24], [12, 45, 15, 28, 46, 16],
+          // 28
+          [3, 147, 117, 10, 148, 118], [3, 73, 45, 23, 74, 46], [4, 54, 24, 31, 55, 25], [11, 45, 15, 31, 46, 16],
+          // 29
+          [7, 146, 116, 7, 147, 117], [21, 73, 45, 7, 74, 46], [1, 53, 23, 37, 54, 24], [19, 45, 15, 26, 46, 16],
+          // 30
+          [5, 145, 115, 10, 146, 116], [19, 75, 47, 10, 76, 48], [15, 54, 24, 25, 55, 25], [23, 45, 15, 25, 46, 16],
+          // 31
+          [13, 145, 115, 3, 146, 116], [2, 74, 46, 29, 75, 47], [42, 54, 24, 1, 55, 25], [23, 45, 15, 28, 46, 16],
+          // 32
+          [17, 145, 115], [10, 74, 46, 23, 75, 47], [10, 54, 24, 35, 55, 25], [19, 45, 15, 35, 46, 16],
+          // 33
+          [17, 145, 115, 1, 146, 116], [14, 74, 46, 21, 75, 47], [29, 54, 24, 19, 55, 25], [11, 45, 15, 46, 46, 16],
+          // 34
+          [13, 145, 115, 6, 146, 116], [14, 74, 46, 23, 75, 47], [44, 54, 24, 7, 55, 25], [59, 46, 16, 1, 47, 17],
+          // 35
+          [12, 151, 121, 7, 152, 122], [12, 75, 47, 26, 76, 48], [39, 54, 24, 14, 55, 25], [22, 45, 15, 41, 46, 16],
+          // 36
+          [6, 151, 121, 14, 152, 122], [6, 75, 47, 34, 76, 48], [46, 54, 24, 10, 55, 25], [2, 45, 15, 64, 46, 16],
+          // 37
+          [17, 152, 122, 4, 153, 123], [29, 74, 46, 14, 75, 47], [49, 54, 24, 10, 55, 25], [24, 45, 15, 46, 46, 16],
+          // 38
+          [4, 152, 122, 18, 153, 123], [13, 74, 46, 32, 75, 47], [48, 54, 24, 14, 55, 25], [42, 45, 15, 32, 46, 16],
+          // 39
+          [20, 147, 117, 4, 148, 118], [40, 75, 47, 7, 76, 48], [43, 54, 24, 22, 55, 25], [10, 45, 15, 67, 46, 16],
+          // 40
+          [19, 148, 118, 6, 149, 119], [18, 75, 47, 31, 76, 48], [34, 54, 24, 34, 55, 25], [20, 45, 15, 61, 46, 16]];
+          var qrRSBlock = function qrRSBlock(totalCount, dataCount) {
+            var _this2 = {};
+            _this2.totalCount = totalCount;
+            _this2.dataCount = dataCount;
+            return _this2;
+          };
+          var _this = {};
+          var getRsBlockTable = function getRsBlockTable(typeNumber, errorCorrectionLevel) {
+            switch (errorCorrectionLevel) {
+              case QRErrorCorrectionLevel.L:
+                return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+              case QRErrorCorrectionLevel.M:
+                return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+              case QRErrorCorrectionLevel.Q:
+                return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+              case QRErrorCorrectionLevel.H:
+                return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+              default:
+                return void 0;
+            }
+          };
+          _this.getRSBlocks = function (typeNumber, errorCorrectionLevel) {
+            var rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+            if (typeof rsBlock == "undefined") {
+              throw "bad rs block @ typeNumber:" + typeNumber + "/errorCorrectionLevel:" + errorCorrectionLevel;
+            }
+            var length = rsBlock.length / 3;
+            var list2 = [];
+            for (var i = 0; i < length; i += 1) {
+              var count = rsBlock[i * 3 + 0];
+              var totalCount = rsBlock[i * 3 + 1];
+              var dataCount = rsBlock[i * 3 + 2];
+              for (var j = 0; j < count; j += 1) {
+                list2.push(qrRSBlock(totalCount, dataCount));
+              }
+            }
+            return list2;
+          };
+          return _this;
+        }();
+        var qrBitBuffer = function qrBitBuffer() {
+          var _buffer = [];
+          var _length = 0;
+          var _this = {};
+          _this.getBuffer = function () {
+            return _buffer;
+          };
+          _this.getAt = function (index) {
+            var bufIndex = Math.floor(index / 8);
+            return (_buffer[bufIndex] >>> 7 - index % 8 & 1) == 1;
+          };
+          _this.put = function (num, length) {
+            for (var i = 0; i < length; i += 1) {
+              _this.putBit((num >>> length - i - 1 & 1) == 1);
+            }
+          };
+          _this.getLengthInBits = function () {
+            return _length;
+          };
+          _this.putBit = function (bit) {
+            var bufIndex = Math.floor(_length / 8);
+            if (_buffer.length <= bufIndex) {
+              _buffer.push(0);
+            }
+            if (bit) {
+              _buffer[bufIndex] |= 128 >>> _length % 8;
+            }
+            _length += 1;
+          };
+          return _this;
+        };
+        var qrNumber = function qrNumber(data) {
+          var _mode = QRMode.MODE_NUMBER;
+          var _data = data;
+          var _this = {};
+          _this.getMode = function () {
+            return _mode;
+          };
+          _this.getLength = function (buffer2) {
+            return _data.length;
+          };
+          _this.write = function (buffer2) {
+            var data2 = _data;
+            var i = 0;
+            while (i + 2 < data2.length) {
+              buffer2.put(strToNum(data2.substring(i, i + 3)), 10);
+              i += 3;
+            }
+            if (i < data2.length) {
+              if (data2.length - i == 1) {
+                buffer2.put(strToNum(data2.substring(i, i + 1)), 4);
+              } else if (data2.length - i == 2) {
+                buffer2.put(strToNum(data2.substring(i, i + 2)), 7);
+              }
+            }
+          };
+          var strToNum = function strToNum(s) {
+            var num = 0;
+            for (var i = 0; i < s.length; i += 1) {
+              num = num * 10 + chatToNum(s.charAt(i));
+            }
+            return num;
+          };
+          var chatToNum = function chatToNum(c) {
+            if ("0" <= c && c <= "9") {
+              return c.charCodeAt(0) - "0".charCodeAt(0);
+            }
+            throw "illegal char :" + c;
+          };
+          return _this;
+        };
+        var qrAlphaNum = function qrAlphaNum(data) {
+          var _mode = QRMode.MODE_ALPHA_NUM;
+          var _data = data;
+          var _this = {};
+          _this.getMode = function () {
+            return _mode;
+          };
+          _this.getLength = function (buffer2) {
+            return _data.length;
+          };
+          _this.write = function (buffer2) {
+            var s = _data;
+            var i = 0;
+            while (i + 1 < s.length) {
+              buffer2.put(getCode(s.charAt(i)) * 45 + getCode(s.charAt(i + 1)), 11);
+              i += 2;
+            }
+            if (i < s.length) {
+              buffer2.put(getCode(s.charAt(i)), 6);
+            }
+          };
+          var getCode = function getCode(c) {
+            if ("0" <= c && c <= "9") {
+              return c.charCodeAt(0) - "0".charCodeAt(0);
+            } else if ("A" <= c && c <= "Z") {
+              return c.charCodeAt(0) - "A".charCodeAt(0) + 10;
+            } else {
+              switch (c) {
+                case " ":
+                  return 36;
+                case "$":
+                  return 37;
+                case "%":
+                  return 38;
+                case "*":
+                  return 39;
+                case "+":
+                  return 40;
+                case "-":
+                  return 41;
+                case ".":
+                  return 42;
+                case "/":
+                  return 43;
+                case ":":
+                  return 44;
+                default:
+                  throw "illegal char :" + c;
+              }
+            }
+          };
+          return _this;
+        };
+        var qr8BitByte = function qr8BitByte(data) {
+          var _mode = QRMode.MODE_8BIT_BYTE;
+          var _data = data;
+          var _bytes = qrcode3.stringToBytes(data);
+          var _this = {};
+          _this.getMode = function () {
+            return _mode;
+          };
+          _this.getLength = function (buffer2) {
+            return _bytes.length;
+          };
+          _this.write = function (buffer2) {
+            for (var i = 0; i < _bytes.length; i += 1) {
+              buffer2.put(_bytes[i], 8);
+            }
+          };
+          return _this;
+        };
+        var qrKanji = function qrKanji(data) {
+          var _mode = QRMode.MODE_KANJI;
+          var _data = data;
+          var stringToBytes = qrcode3.stringToBytesFuncs["SJIS"];
+          if (!stringToBytes) {
+            throw "sjis not supported.";
+          }
+          !function (c, code) {
+            var test = stringToBytes(c);
+            if (test.length != 2 || (test[0] << 8 | test[1]) != code) {
+              throw "sjis not supported.";
+            }
+          }("友", 38726);
+          var _bytes = stringToBytes(data);
+          var _this = {};
+          _this.getMode = function () {
+            return _mode;
+          };
+          _this.getLength = function (buffer2) {
+            return ~~(_bytes.length / 2);
+          };
+          _this.write = function (buffer2) {
+            var data2 = _bytes;
+            var i = 0;
+            while (i + 1 < data2.length) {
+              var c = (255 & data2[i]) << 8 | 255 & data2[i + 1];
+              if (33088 <= c && c <= 40956) {
+                c -= 33088;
+              } else if (57408 <= c && c <= 60351) {
+                c -= 49472;
+              } else {
+                throw "illegal char at " + (i + 1) + "/" + c;
+              }
+              c = (c >>> 8 & 255) * 192 + (c & 255);
+              buffer2.put(c, 13);
+              i += 2;
+            }
+            if (i < data2.length) {
+              throw "illegal char at " + (i + 1);
+            }
+          };
+          return _this;
+        };
+        var byteArrayOutputStream = function byteArrayOutputStream() {
+          var _bytes = [];
+          var _this = {};
+          _this.writeByte = function (b) {
+            _bytes.push(b & 255);
+          };
+          _this.writeShort = function (i) {
+            _this.writeByte(i);
+            _this.writeByte(i >>> 8);
+          };
+          _this.writeBytes = function (b, off, len) {
+            off = off || 0;
+            len = len || b.length;
+            for (var i = 0; i < len; i += 1) {
+              _this.writeByte(b[i + off]);
+            }
+          };
+          _this.writeString = function (s) {
+            for (var i = 0; i < s.length; i += 1) {
+              _this.writeByte(s.charCodeAt(i));
+            }
+          };
+          _this.toByteArray = function () {
+            return _bytes;
+          };
+          _this.toString = function () {
+            var s = "";
+            s += "[";
+            for (var i = 0; i < _bytes.length; i += 1) {
+              if (i > 0) {
+                s += ",";
+              }
+              s += _bytes[i];
+            }
+            s += "]";
+            return s;
+          };
+          return _this;
+        };
+        var base64EncodeOutputStream = function base64EncodeOutputStream() {
+          var _buffer = 0;
+          var _buflen = 0;
+          var _length = 0;
+          var _base64 = "";
+          var _this = {};
+          var writeEncoded = function writeEncoded(b) {
+            _base64 += String.fromCharCode(encode(b & 63));
+          };
+          var encode = function encode(n) {
+            if (n < 0) {} else if (n < 26) {
+              return 65 + n;
+            } else if (n < 52) {
+              return 97 + (n - 26);
+            } else if (n < 62) {
+              return 48 + (n - 52);
+            } else if (n == 62) {
+              return 43;
+            } else if (n == 63) {
+              return 47;
+            }
+            throw "n:" + n;
+          };
+          _this.writeByte = function (n) {
+            _buffer = _buffer << 8 | n & 255;
+            _buflen += 8;
+            _length += 1;
+            while (_buflen >= 6) {
+              writeEncoded(_buffer >>> _buflen - 6);
+              _buflen -= 6;
+            }
+          };
+          _this.flush = function () {
+            if (_buflen > 0) {
+              writeEncoded(_buffer << 6 - _buflen);
+              _buffer = 0;
+              _buflen = 0;
+            }
+            if (_length % 3 != 0) {
+              var padlen = 3 - _length % 3;
+              for (var i = 0; i < padlen; i += 1) {
+                _base64 += "=";
+              }
+            }
+          };
+          _this.toString = function () {
+            return _base64;
+          };
+          return _this;
+        };
+        var base64DecodeInputStream = function base64DecodeInputStream(str2) {
+          var _str = str2;
+          var _pos = 0;
+          var _buffer = 0;
+          var _buflen = 0;
+          var _this = {};
+          _this.read = function () {
+            while (_buflen < 8) {
+              if (_pos >= _str.length) {
+                if (_buflen == 0) {
+                  return -1;
+                }
+                throw "unexpected end of file./" + _buflen;
+              }
+              var c = _str.charAt(_pos);
+              _pos += 1;
+              if (c == "=") {
+                _buflen = 0;
+                return -1;
+              } else if (c.match(/^\s$/)) {
+                continue;
+              }
+              _buffer = _buffer << 6 | decode(c.charCodeAt(0));
+              _buflen += 6;
+            }
+            var n = _buffer >>> _buflen - 8 & 255;
+            _buflen -= 8;
+            return n;
+          };
+          var decode = function decode(c) {
+            if (65 <= c && c <= 90) {
+              return c - 65;
+            } else if (97 <= c && c <= 122) {
+              return c - 97 + 26;
+            } else if (48 <= c && c <= 57) {
+              return c - 48 + 52;
+            } else if (c == 43) {
+              return 62;
+            } else if (c == 47) {
+              return 63;
+            } else {
+              throw "c:" + c;
+            }
+          };
+          return _this;
+        };
+        var gifImage = function gifImage(width, height) {
+          var _width = width;
+          var _height = height;
+          var _data = new Array(width * height);
+          var _this = {};
+          _this.setPixel = function (x, y, pixel) {
+            _data[y * _width + x] = pixel;
+          };
+          _this.write = function (out) {
+            out.writeString("GIF87a");
+            out.writeShort(_width);
+            out.writeShort(_height);
+            out.writeByte(128);
+            out.writeByte(0);
+            out.writeByte(0);
+            out.writeByte(0);
+            out.writeByte(0);
+            out.writeByte(0);
+            out.writeByte(255);
+            out.writeByte(255);
+            out.writeByte(255);
+            out.writeString(",");
+            out.writeShort(0);
+            out.writeShort(0);
+            out.writeShort(_width);
+            out.writeShort(_height);
+            out.writeByte(0);
+            var lzwMinCodeSize = 2;
+            var raster = getLZWRaster(lzwMinCodeSize);
+            out.writeByte(lzwMinCodeSize);
+            var offset = 0;
+            while (raster.length - offset > 255) {
+              out.writeByte(255);
+              out.writeBytes(raster, offset, 255);
+              offset += 255;
+            }
+            out.writeByte(raster.length - offset);
+            out.writeBytes(raster, offset, raster.length - offset);
+            out.writeByte(0);
+            out.writeString(";");
+          };
+          var bitOutputStream = function bitOutputStream(out) {
+            var _out = out;
+            var _bitLength = 0;
+            var _bitBuffer = 0;
+            var _this2 = {};
+            _this2.write = function (data, length) {
+              if (data >>> length != 0) {
+                throw "length over";
+              }
+              while (_bitLength + length >= 8) {
+                _out.writeByte(255 & (data << _bitLength | _bitBuffer));
+                length -= 8 - _bitLength;
+                data >>>= 8 - _bitLength;
+                _bitBuffer = 0;
+                _bitLength = 0;
+              }
+              _bitBuffer = data << _bitLength | _bitBuffer;
+              _bitLength = _bitLength + length;
+            };
+            _this2.flush = function () {
+              if (_bitLength > 0) {
+                _out.writeByte(_bitBuffer);
+              }
+            };
+            return _this2;
+          };
+          var getLZWRaster = function getLZWRaster(lzwMinCodeSize) {
+            var clearCode = 1 << lzwMinCodeSize;
+            var endCode = (1 << lzwMinCodeSize) + 1;
+            var bitLength = lzwMinCodeSize + 1;
+            var table = lzwTable();
+            for (var i = 0; i < clearCode; i += 1) {
+              table.add(String.fromCharCode(i));
+            }
+            table.add(String.fromCharCode(clearCode));
+            table.add(String.fromCharCode(endCode));
+            var byteOut = byteArrayOutputStream();
+            var bitOut = bitOutputStream(byteOut);
+            bitOut.write(clearCode, bitLength);
+            var dataIndex = 0;
+            var s = String.fromCharCode(_data[dataIndex]);
+            dataIndex += 1;
+            while (dataIndex < _data.length) {
+              var c = String.fromCharCode(_data[dataIndex]);
+              dataIndex += 1;
+              if (table.contains(s + c)) {
+                s = s + c;
+              } else {
+                bitOut.write(table.indexOf(s), bitLength);
+                if (table.size() < 4095) {
+                  if (table.size() == 1 << bitLength) {
+                    bitLength += 1;
+                  }
+                  table.add(s + c);
+                }
+                s = c;
+              }
+            }
+            bitOut.write(table.indexOf(s), bitLength);
+            bitOut.write(endCode, bitLength);
+            bitOut.flush();
+            return byteOut.toByteArray();
+          };
+          var lzwTable = function lzwTable() {
+            var _map = {};
+            var _size = 0;
+            var _this2 = {};
+            _this2.add = function (key) {
+              if (_this2.contains(key)) {
+                throw "dup key:" + key;
+              }
+              _map[key] = _size;
+              _size += 1;
+            };
+            _this2.size = function () {
+              return _size;
+            };
+            _this2.indexOf = function (key) {
+              return _map[key];
+            };
+            _this2.contains = function (key) {
+              return typeof _map[key] != "undefined";
+            };
+            return _this2;
+          };
+          return _this;
+        };
+        var createDataURL = function createDataURL(width, height, getPixel) {
+          var gif = gifImage(width, height);
+          for (var y = 0; y < height; y += 1) {
+            for (var x = 0; x < width; x += 1) {
+              gif.setPixel(x, y, getPixel(x, y));
+            }
+          }
+          var b = byteArrayOutputStream();
+          gif.write(b);
+          var base64 = base64EncodeOutputStream();
+          var bytes = b.toByteArray();
+          for (var i = 0; i < bytes.length; i += 1) {
+            base64.writeByte(bytes[i]);
+          }
+          base64.flush();
+          return "data:image/gif;base64," + base64;
+        };
+        return qrcode3;
+      }();
+      !function () {
+        qrcode2.stringToBytesFuncs["UTF-8"] = function (s) {
+          function toUTF8Array(str2) {
+            var utf8 = [];
+            for (var i = 0; i < str2.length; i++) {
+              var charcode = str2.charCodeAt(i);
+              if (charcode < 128) utf8.push(charcode);else if (charcode < 2048) {
+                utf8.push(192 | charcode >> 6, 128 | charcode & 63);
+              } else if (charcode < 55296 || charcode >= 57344) {
+                utf8.push(224 | charcode >> 12, 128 | charcode >> 6 & 63, 128 | charcode & 63);
+              } else {
+                i++;
+                charcode = 65536 + ((charcode & 1023) << 10 | str2.charCodeAt(i) & 1023);
+                utf8.push(240 | charcode >> 18, 128 | charcode >> 12 & 63, 128 | charcode >> 6 & 63, 128 | charcode & 63);
+              }
+            }
+            return utf8;
+          }
+          return toUTF8Array(s);
+        };
+      }();
+      (function (factory) {
+        if (typeof define === "function" && define.amd) {
+          define([], factory);
+        } else if (_typeof(exports) === "object") {
+          module.exports = factory();
+        }
+      })(function () {
+        return qrcode2;
+      });
+    }
+  });
+
   // src/js/polyfills.js
   var import_assign = __toESM(require_assign(), 1);
   var import_entries = __toESM(require_entries(), 1);
@@ -3267,6 +4784,62 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Sair": "Exit",
     "Nada por aqui.": "Nothing here.",
     "Carregando...": "Loading...",
+    "Ver tudo": "See all",
+    "Novos episódios": "New episodes",
+    "Séries da sua biblioteca, últimos 7 dias": "Series in your library, last 7 days",
+    "Pessoas": "People",
+    "Tema de cores": "Colour theme",
+    "Cor de destaque do app": "The app's highlight colour",
+    "Dourado": "Gold",
+    "Assistir agora": "Play now",
+    "A seguir": "Up next",
+    "Começa em {n}s": "Starts in {n}s",
+    "Ligue uma legenda primeiro.": "Turn on subtitles first.",
+    "O ajuste funciona com legendas de addons (OpenSubtitles etc.).": "Sync works with add-on subtitles (OpenSubtitles etc.).",
+    "Você já tem a versão mais nova.": "You're on the newest version.",
+    "Atualização disponível ({date}): {msg}": "Update available ({date}): {msg}",
+    "Atualizar agora": "Update now",
+    "Atualizando... o app vai recarregar.": "Updating... the app will reload.",
+    "A atualização ainda está chegando. Tente de novo em alguns minutos.": "The update is still on its way. Try again in a few minutes.",
+    "Atualizações": "Updates",
+    "Versão instalada": "Installed version",
+    "Versão mais nova no GitHub": "Newest version on GitHub",
+    "Verificando...": "Checking...",
+    "nova!": "new!",
+    "em dia": "up to date",
+    "sem conexão": "no connection",
+    "Atualização disponível: Ajustes → Procurar atualização": "Update available: Settings → Check for updates",
+    "Descrições em árabe, perfis de atores, calendário de filmes, logos e elenco com fotos (grátis em themoviedb.org)": "Arabic descriptions, actor profiles, movie calendar, logos and cast photos (free at themoviedb.org)",
+    "Trailer": "Trailer",
+    "Voltar fecha o trailer": "Back closes the trailer",
+    "Nascimento: {date}": "Born: {date}",
+    "Falecimento: {date}": "Died: {date}",
+    "{n} anos": "{n} years old",
+    "Local de nascimento: {place}": "Birthplace: {place}",
+    "Direção": "Directing",
+    "Atuação": "Acting",
+    "Sem biografia disponível.": "No biography available.",
+    "Filmes e séries": "Movies and series",
+    "Esse título ainda não tem página no Stremio.": "This title doesn't have a Stremio page yet.",
+    "Não foi possível carregar este perfil.": "Couldn't load this profile.",
+    "Controle pelo celular": "Phone remote",
+    "O controle pelo celular não está rodando. Feche o app e abra de novo pelo TizenBrew.": "The phone remote isn't running. Close the app and open it again from TizenBrew.",
+    "Aponte a câmera do celular para o código": "Point your phone's camera at the code",
+    "Ou abra no navegador do celular (mesmo Wi-Fi):": "Or open this in your phone's browser (same Wi-Fi):",
+    "PIN: {pin}": "PIN: {pin}",
+    "Selecione um campo de texto na TV primeiro.": "Select a text box on the TV first.",
+    "Árabe quando houver": "Arabic when available",
+    "Calendário": "Calendar",
+    "Streaming": "Streaming",
+    "As datas de streaming dos filmes vêm do TMDB: coloque sua chave grátis do TMDB em Ajustes.": "Movie streaming dates come from TMDB: add your free TMDB key in Settings.",
+    "Nenhum filme chega ao streaming neste dia.": "No movies arrive on streaming this day.",
+    "Esse filme ainda não tem página no Stremio.": "This movie doesn't have a Stremio page yet.",
+    "Escolha inteligente": "Smart Choice",
+    "Assistir já toca a melhor fonte; o botão Fontes mostra a lista": "Watch plays the best source right away; the Sources button shows the list",
+    "Escolha inteligente: procurando a melhor fonte...": "Smart Choice: finding the best source...",
+    "aperte uma seta para escolher você": "press an arrow to choose yourself",
+    "Escolha inteligente: nenhuma fonte que a TV toque. Escolha na lista.": "Smart Choice: no source the TV can play. Pick one from the list.",
+    "Essa fonte não tocou. Tentando outra...": "That source didn't play. Trying another...",
     "carregando...": "loading...",
     "Sair do Stremio Kai?": "Exit Stremio Kai?",
     "Desconhecido": "Unknown",
@@ -3526,6 +5099,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "MDBList · Tendências (Snoak)": "MDBList · Trending (Snoak)",
     "Tema OLED (preto puro)": "OLED theme (pure black)",
     "Fundo totalmente preto": "Fully black background",
+    "Modo desempenho": "Performance mode",
+    "Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano": "Faster on the TV: no animations, no New episodes and no background syncing",
     "Rolagem animada": "Animated scrolling",
     "Mais bonita, porém mais pesada na TV": "Prettier, but heavier on the TV",
     "Legendas e áudio": "Subtitles and audio",
@@ -3641,24 +5216,468 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Tipo de link não suportado na TV": "Link type not supported on the TV"
   };
 
+  // src/js/lib/i18n-ar.js
+  var AR = {
+    // Navegação e geral
+    "Início": "الرئيسية",
+    "Buscar": "بحث",
+    "Biblioteca": "المكتبة",
+    "Animes": "أنمي",
+    "Ajustes": "الإعدادات",
+    "Cancelar": "إلغاء",
+    "Voltar": "رجوع",
+    "Continuar": "متابعة",
+    "Pular": "تخطي",
+    "Sair": "خروج",
+    "Nada por aqui.": "لا يوجد شيء هنا.",
+    "Carregando...": "جارٍ التحميل...",
+    "Ver tudo": "عرض الكل",
+    "Novos episódios": "حلقات جديدة",
+    "Séries da sua biblioteca, últimos 7 dias": "مسلسلات مكتبتك، آخر 7 أيام",
+    "Pessoas": "الأشخاص",
+    "Tema de cores": "سمة الألوان",
+    "Cor de destaque do app": "لون التمييز في التطبيق",
+    "Dourado": "ذهبي",
+    "Assistir agora": "شاهد الآن",
+    "A seguir": "التالي",
+    "Começa em {n}s": "يبدأ خلال {n} ث",
+    "Ligue uma legenda primeiro.": "شغّل الترجمة أولًا.",
+    "O ajuste funciona com legendas de addons (OpenSubtitles etc.).": "يعمل الضبط مع ترجمات الإضافات (OpenSubtitles وغيرها).",
+    "Você já tem a versão mais nova.": "لديك أحدث إصدار.",
+    "Atualização disponível ({date}): {msg}": "يتوفر تحديث ({date}): {msg}",
+    "Atualizar agora": "تحديث الآن",
+    "Atualizando... o app vai recarregar.": "جارٍ التحديث... سيُعاد تحميل التطبيق.",
+    "A atualização ainda está chegando. Tente de novo em alguns minutos.": "التحديث لم يصل بعد. حاول مجددًا بعد بضع دقائق.",
+    "Atualizações": "التحديثات",
+    "Versão instalada": "الإصدار المثبّت",
+    "Versão mais nova no GitHub": "أحدث إصدار على GitHub",
+    "Verificando...": "جارٍ التحقق...",
+    "nova!": "جديد!",
+    "em dia": "محدّث",
+    "sem conexão": "لا يوجد اتصال",
+    "Atualização disponível: Ajustes → Procurar atualização": "يتوفر تحديث: الإعدادات ← البحث عن تحديث",
+    "Descrições em árabe, perfis de atores, calendário de filmes, logos e elenco com fotos (grátis em themoviedb.org)": "الأوصاف بالعربية، ملفات الممثلين، تقويم الأفلام، الشعارات وصور طاقم التمثيل (مجانًا من themoviedb.org)",
+    "Trailer": "الإعلان",
+    "Voltar fecha o trailer": "زر الرجوع يغلق الإعلان",
+    "Nascimento: {date}": "تاريخ الميلاد: {date}",
+    "Falecimento: {date}": "تاريخ الوفاة: {date}",
+    "{n} anos": "{n} سنة",
+    "Local de nascimento: {place}": "مكان الميلاد: {place}",
+    "Direção": "الإخراج",
+    "Atuação": "التمثيل",
+    "Sem biografia disponível.": "لا تتوفر سيرة ذاتية.",
+    "Filmes e séries": "الأفلام والمسلسلات",
+    "Esse título ainda não tem página no Stremio.": "لا توجد صفحة لهذا العنوان في Stremio بعد.",
+    "Não foi possível carregar este perfil.": "تعذّر تحميل هذا الملف الشخصي.",
+    "Controle pelo celular": "التحكم بالهاتف",
+    "O controle pelo celular não está rodando. Feche o app e abra de novo pelo TizenBrew.": "التحكم بالهاتف لا يعمل. أغلق التطبيق وافتحه مرة أخرى من TizenBrew.",
+    "Aponte a câmera do celular para o código": "وجّه كاميرا الهاتف نحو الرمز",
+    "Ou abra no navegador do celular (mesmo Wi-Fi):": "أو افتح هذا العنوان في متصفح الهاتف (نفس شبكة Wi-Fi):",
+    "PIN: {pin}": "الرمز السري: {pin}",
+    "Selecione um campo de texto na TV primeiro.": "اختر حقل نص على التلفاز أولًا.",
+    "Árabe quando houver": "العربية عند توفرها",
+    "Calendário": "التقويم",
+    "Streaming": "البث",
+    "As datas de streaming dos filmes vêm do TMDB: coloque sua chave grátis do TMDB em Ajustes.": "مواعيد بث الأفلام مصدرها TMDB: أضف مفتاح TMDB المجاني في الإعدادات.",
+    "Nenhum filme chega ao streaming neste dia.": "لا توجد أفلام تصل إلى البث في هذا اليوم.",
+    "Esse filme ainda não tem página no Stremio.": "هذا الفيلم ليست له صفحة على Stremio بعد.",
+    "Escolha inteligente": "الاختيار الذكي",
+    "Assistir já toca a melhor fonte; o botão Fontes mostra a lista": "زر مشاهدة يشغّل أفضل مصدر فورًا؛ وزر المصادر يعرض القائمة",
+    "Escolha inteligente: procurando a melhor fonte...": "الاختيار الذكي: جارٍ البحث عن أفضل مصدر...",
+    "aperte uma seta para escolher você": "اضغط سهمًا لتختار بنفسك",
+    "Escolha inteligente: nenhuma fonte que a TV toque. Escolha na lista.": "الاختيار الذكي: لا يوجد مصدر يمكن للتلفاز تشغيله. اختر من القائمة.",
+    "Essa fonte não tocou. Tentando outra...": "تعذّر تشغيل هذا المصدر. جارٍ تجربة مصدر آخر...",
+    "carregando...": "جارٍ التحميل...",
+    "Sair do Stremio Kai?": "الخروج من Stremio Kai؟",
+    "Desconhecido": "غير معروف",
+    "Desligado": "إيقاف",
+    "Desligada": "إيقاف",
+    "Automático": "تلقائي",
+    // Perfis
+    "Perfil": "الملف الشخصي",
+    "Perfis": "الملفات الشخصية",
+    "Perfil atual": "الملف الحالي",
+    "Trocar para este perfil": "التبديل إلى هذا الملف",
+    "+ Adicionar perfil": "+ إضافة ملف",
+    "Adicionar perfil": "إضافة ملف",
+    "Com outra conta Stremio (histórico separado)": "بحساب Stremio آخر (سجل منفصل)",
+    "Gerenciar perfis": "إدارة الملفات",
+    "Nome, cor, apagar": "الاسم، اللون، الحذف",
+    "Quem está assistindo?": "من يشاهد؟",
+    "Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.": "لكل ملف حساب Stremio خاص به، مع سجل ومكتبة منفصلين.",
+    "Nome do novo perfil": "اسم الملف الجديد",
+    "Criar perfil": "إنشاء ملف",
+    "Ex.: Ana, Pedro, Sala": "مثال: أحمد، سارة، غرفة المعيشة",
+    "Digite um nome para o perfil.": "اكتب اسمًا للملف.",
+    "Já existe um perfil com esse nome.": "يوجد ملف بهذا الاسم بالفعل.",
+    "Nome do perfil": "اسم الملف",
+    "Nome do perfil salvo": "تم حفظ اسم الملف",
+    "Este perfil usa a conta Stremio abaixo": "يستخدم هذا الملف حساب Stremio أدناه",
+    "Cor do perfil": "لون الملف",
+    "Roxo": "بنفسجي",
+    "Rosa": "وردي",
+    "Verde-água": "أزرق مخضر",
+    "Laranja": "برتقالي",
+    "Azul": "أزرق",
+    "Vermelho": "أحمر",
+    "Verde": "أخضر",
+    "Cinza": "رمادي",
+    "Trocar de perfil": "تبديل الملف",
+    "{n} perfis nesta TV": "{n} ملفات على هذا التلفاز",
+    "Para outra pessoa, com outra conta Stremio": "لشخص آخر، بحساب Stremio آخر",
+    'Perguntar "Quem está assistindo?" ao abrir': 'السؤال "من يشاهد؟" عند التشغيل',
+    "Apagar este perfil": "حذف هذا الملف",
+    "Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)": "يزيل حساب الملف وتفضيلاته من هذا التلفاز (يبقى حساب Stremio نفسه)",
+    'Apagar o perfil "{name}" desta TV?': 'حذف الملف "{name}" من هذا التلفاز؟',
+    "Apagar": "حذف",
+    // Assistente
+    "PASSO {n} DE {total}": "الخطوة {n} من {total}",
+    "Bem-vindo! Quem vai usar este perfil?": "مرحبًا! من سيستخدم هذا الملف؟",
+    "Dê um nome ao perfil. Depois você pode criar outros perfis, cada um com a própria conta Stremio e histórico.": "اختر اسمًا لهذا الملف. لاحقًا يمكنك إنشاء ملفات أخرى، لكل منها حساب Stremio وسجل خاص به.",
+    "Bem-vindo ao Stremio Kai": "مرحبًا بك في Stremio Kai",
+    "Você já está conectado à sua conta Stremio. Seus addons e sua biblioteca já estão aqui.": "أنت مسجّل الدخول إلى Stremio بالفعل. إضافاتك ومكتبتك موجودة هنا.",
+    "Entre com a sua conta Stremio para trazer seus addons (Torrentio, debrid, Anime Kitsu...) e a biblioteca.": "سجّل الدخول بحساب Stremio لجلب إضافاتك (Torrentio، debrid، Anime Kitsu...) ومكتبتك.",
+    "Entrar na conta": "تسجيل الدخول",
+    "Servidor de torrents no PC": "خادم التورنت على الكمبيوتر",
+    "Servidor conectado em {url}. Torrents liberados.": "الخادم متصل على {url}. تم تفعيل التورنت.",
+    "Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.": "لتشغيل التورنت، أبقِ stremio-service يعمل على كمبيوتر في شبكتك. روابط debrid تعمل بدونه.",
+    "Procurar na rede": "البحث في الشبكة",
+    "Procurando o servidor na rede...": "جارٍ البحث عن الخادم في الشبكة...",
+    "Nenhum servidor encontrado. Você pode configurar depois em Ajustes.": "لم يُعثر على خادم. يمكنك إعداده لاحقًا من الإعدادات.",
+    "Servidor encontrado em {ip}": "تم العثور على الخادم على {ip}",
+    "Servidor do PC conectado": "خادم الكمبيوتر متصل",
+    "Não foi possível procurar. Configure depois em Ajustes.": "تعذّر البحث. أعدّه لاحقًا من الإعدادات.",
+    "Legendas": "الترجمة",
+    "Em qual idioma o app deve ligar a legenda sozinho quando o áudio não for no seu idioma?": "ما لغة الترجمة التي تُفعَّل تلقائيًا عندما لا يكون الصوت بلغتك؟",
+    "Português (BR)": "البرتغالية (البرازيل)",
+    "Inglês": "الإنجليزية",
+    "Não ligar sozinho": "عدم التفعيل تلقائيًا",
+    // Login
+    "Gerando código...": "جارٍ إنشاء الرمز...",
+    "E-mail": "البريد الإلكتروني",
+    "Senha": "كلمة المرور",
+    "Entrar": "تسجيل الدخول",
+    "Entrar com o celular": "تسجيل الدخول بالهاتف",
+    "No celular ou PC, abra <b>link.stremio.com</b> e digite o código:": "على هاتفك أو الكمبيوتر، افتح <b>link.stremio.com</b> وأدخل الرمز:",
+    "Ou com e-mail": "أو بالبريد الإلكتروني",
+    "Use a mesma conta do Stremio. Seus addons e a biblioteca vêm junto.": "استخدم حساب Stremio الخاص بك. ستأتي إضافاتك ومكتبتك معه.",
+    "Aguardando confirmação...": "في انتظار التأكيد...",
+    "Não foi possível gerar o código. Use o e-mail ao lado.": "تعذّر إنشاء الرمز. استخدم البريد الإلكتروني بدلًا من ذلك.",
+    "Código expirou. Gerando outro...": "انتهت صلاحية الرمز. جارٍ إنشاء رمز جديد...",
+    "Preencha e-mail e senha.": "أدخل البريد الإلكتروني وكلمة المرور.",
+    "Entrando...": "جارٍ تسجيل الدخول...",
+    "Falha no login": "فشل تسجيل الدخول",
+    "Conectado à conta Stremio": "تم تسجيل الدخول إلى Stremio",
+    // Início, busca, biblioteca, calendário
+    "Continuar assistindo": "متابعة المشاهدة",
+    "Carregando catálogos...": "جارٍ تحميل الكتالوجات...",
+    "Nenhum catálogo. Entre na sua conta em Ajustes.": "لا توجد كتالوجات. سجّل الدخول إلى حسابك من الإعدادات.",
+    "Erro ao carregar addons: {msg}": "خطأ في تحميل الإضافات: {msg}",
+    "Filmes": "أفلام",
+    "Séries": "مسلسلات",
+    "Canais": "القنوات",
+    "Assistir": "مشاهدة",
+    "Detalhes": "التفاصيل",
+    "Buscar filmes e séries...": "ابحث عن أفلام ومسلسلات...",
+    "Digite pelo menos 2 letras e confirme no teclado.": "اكتب حرفين على الأقل وأكّد من لوحة المفاتيح.",
+    'Buscando "{q}"...': 'جارٍ البحث عن "{q}"...',
+    "Nenhum addon com busca instalado.": "لا توجد إضافة بحث مثبّتة.",
+    'Nada encontrado para "{q}".': 'لا توجد نتائج لـ "{q}".',
+    "Tudo": "الكل",
+    "Sua biblioteca está vazia.": "مكتبتك فارغة.",
+    "Entre na sua conta em Ajustes para ver a biblioteca.": "سجّل الدخول إلى حسابك من الإعدادات لعرض مكتبتك.",
+    "Carregando biblioteca...": "جارٍ تحميل المكتبة...",
+    "Hoje": "اليوم",
+    "Amanhã": "غدًا",
+    "Ontem": "أمس",
+    "Domingo": "الأحد",
+    "Segunda": "الاثنين",
+    "Terça": "الثلاثاء",
+    "Quarta": "الأربعاء",
+    "Quinta": "الخميس",
+    "Sexta": "الجمعة",
+    "Sábado": "السبت",
+    "Buscando lançamentos...": "جارٍ تحميل الإصدارات...",
+    "Nenhum episódio neste dia.": "لا توجد حلقات في هذا اليوم.",
+    "Abrindo {name}...": "جارٍ فتح {name}...",
+    "Esse anime não foi encontrado nos seus addons (instale o Anime Kitsu).": "لم يُعثر على هذا الأنمي في إضافاتك (ثبّت Anime Kitsu).",
+    "Não foi possível carregar o calendário: {msg}": "تعذّر تحميل التقويم: {msg}",
+    // Detalhes e fontes
+    "{n} temporadas": "{n} مواسم",
+    "{n} temporada": "{n} موسم",
+    "Direção: ": "الإخراج: ",
+    "Elenco: ": "الممثلون: ",
+    "Na biblioteca": "في المكتبة",
+    "Removido da biblioteca": "أُزيل من المكتبة",
+    "Adicionado à biblioteca": "أُضيف إلى المكتبة",
+    "Episódios": "الحلقات",
+    "Especiais": "حلقات خاصة",
+    "Temporada {n}": "الموسم {n}",
+    "Episódio {n}": "الحلقة {n}",
+    "Episódio": "الحلقة",
+    "parou em {time}": "توقف عند {time}",
+    "Fontes": "المصادر",
+    "Todos": "الكل",
+    "Todos ▾": "الكل ▾",
+    "Buscando fontes nos addons...": "جارٍ البحث عن مصادر في الإضافات...",
+    "Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.": "لا توجد إضافة بث مثبّتة (مثل Torrentio). ثبّت واحدة من حساب Stremio.",
+    "Servidor do PC não conectado: só links diretos": "خادم الكمبيوتر غير متصل: الروابط المباشرة فقط",
+    "{n} addon(s) ainda carregando": "{n} إضافة لا تزال قيد التحميل",
+    "{n} fontes": "{n} مصادر",
+    "Mostrar fontes de": "عرض المصادر من",
+    "Nenhuma fonte encontrada.": "لم يُعثر على مصادر.",
+    "Não suportado na TV": "غير مدعوم على التلفاز",
+    "Torrent · via PC": "تورنت · عبر الكمبيوتر",
+    "Torrent · precisa do PC": "تورنت · يحتاج الكمبيوتر",
+    "Direto": "مباشر",
+    "Esse tipo de fonte não abre na TV.": "هذا النوع من المصادر لا يعمل على التلفاز.",
+    "Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.": "التورنت يحتاج إلى تشغيل stremio-service على الكمبيوتر. أعدّه من الإعدادات.",
+    "Continuar de onde parou?": "المتابعة من حيث توقفت؟",
+    "Continuar de {time}": "المتابعة من {time}",
+    "Começar do início": "البدء من البداية",
+    "Não foi possível abrir": "تعذّر الفتح",
+    "Detalhes não encontrados": "لم يُعثر على التفاصيل",
+    "Nenhum addon fornece detalhes para {id}": "لا توجد إضافة توفّر تفاصيل لـ {id}",
+    "Público": "الجمهور",
+    // Player
+    "Áudio": "الصوت",
+    "Próximo": "التالي",
+    "Tocar": "تشغيل",
+    "Pausar": "إيقاف مؤقت",
+    "Pular abertura": "تخطي المقدمة",
+    "Pular recapitulação": "تخطي الملخص",
+    "Próximo episódio": "الحلقة التالية",
+    "Pular encerramento": "تخطي الخاتمة",
+    "Abertura pulada": "تم تخطي المقدمة",
+    "Recapitulação pulada": "تم تخطي الملخص",
+    "Encerramento pulado": "تم تخطي الخاتمة",
+    "Termina às {time}": "ينتهي في {time}",
+    "O vídeo parou de carregar": "توقف تحميل الفيديو",
+    "Reabre o vídeo em {time}": "يعيد فتح الفيديو عند {time}",
+    "Tentar de novo": "إعادة المحاولة",
+    "Escolher outra fonte": "اختيار مصدر آخر",
+    "Reconectando ao vídeo...": "جارٍ إعادة الاتصال بالفيديو...",
+    "A TV não conseguiu tocar este arquivo diretamente.": "تعذّر على التلفاز تشغيل هذا الملف مباشرة.",
+    "A TV não conseguiu tocar este arquivo (formato ou codec não suportado).": "تعذّر على التلفاز تشغيل هذا الملف (صيغة أو ترميز غير مدعوم).",
+    "Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).": "جرّب مصدرًا آخر (ويُفضَّل MP4/MKV بترميز H.264 أو HEVC وصوت AAC/AC3).",
+    "Converter no PC (experimental)": "التحويل على الكمبيوتر (تجريبي)",
+    "O servidor converte para HLS que a TV aceita": "يحوّل الخادم الفيديو إلى HLS الذي يقبله التلفاز",
+    "Problema na reprodução": "مشكلة في التشغيل",
+    "Troca de áudio indisponível agora.": "تبديل الصوت غير متاح الآن.",
+    "Falha ao trocar áudio: {msg}": "فشل تبديل الصوت: {msg}",
+    "Falha na legenda embutida: {msg}": "فشل الترجمة المدمجة: {msg}",
+    "Legenda: {lang}": "الترجمة: {lang}",
+    "Não foi possível baixar a legenda.": "تعذّر تنزيل الترجمة.",
+    "Lendo as faixas do arquivo...": "جارٍ قراءة مسارات الملف...",
+    "{n} canais": "{n} قنوات",
+    "Só uma faixa de áudio.": "مسار صوتي واحد فقط.",
+    "Para listar as faixas, conecte o servidor do PC em Ajustes.": "لعرض المسارات، اربط خادم الكمبيوتر من الإعدادات.",
+    "Embutida no arquivo": "مدمجة في الملف",
+    "Atraso da legenda: {n}s": "تأخير الترجمة: {n} ث",
+    "Ajustar sincronia": "ضبط المزامنة",
+    "Tamanho: {n}%": "الحجم: {n}%",
+    "Carregando legendas...": "جارٍ تحميل الترجمات...",
+    "Nenhuma legenda.": "لا توجد ترجمات.",
+    "Atraso da legenda": "تأخير الترجمة",
+    "Legenda aparece antes": "تظهر الترجمة أبكر",
+    "Legenda aparece depois": "تظهر الترجمة لاحقًا",
+    "Sem ajuste": "بدون ضبط",
+    "Tamanho da legenda": "حجم الترجمة",
+    "Essa fonte precisa do servidor do PC.": "هذا المصدر يحتاج إلى خادم الكمبيوتر.",
+    "Procurando o próximo episódio...": "جارٍ البحث عن الحلقة التالية...",
+    // nomes de idiomas
+    "Português": "البرتغالية",
+    "Espanhol": "الإسبانية",
+    "Japonês": "اليابانية",
+    "Francês": "الفرنسية",
+    "Alemão": "الألمانية",
+    "Italiano": "الإيطالية",
+    "Coreano": "الكورية",
+    "Chinês": "الصينية",
+    "Russo": "الروسية",
+    "Árabe": "العربية",
+    "Hindi": "الهندية",
+    "Indefinido": "غير محدد",
+    // Ajustes
+    "Automático (idioma da TV)": "تلقائي (لغة التلفاز)",
+    "Conta Stremio": "حساب Stremio",
+    "Conectado": "تم تسجيل الدخول",
+    "Addons e biblioteca sincronizados com a conta": "الإضافات والمكتبة متزامنة مع الحساب",
+    "conta Stremio": "حساب Stremio",
+    "Atualizar addons e biblioteca": "تحديث الإضافات والمكتبة",
+    "Busca de novo a lista de addons instalados": "يعيد تحميل قائمة الإضافات المثبّتة",
+    "Atualizado": "تم التحديث",
+    "Erro: {msg}": "خطأ: {msg}",
+    "Sair da conta": "تسجيل الخروج",
+    "Sair da conta Stremio?": "تسجيل الخروج من Stremio؟",
+    "Traz seus addons (Torrentio, debrid...) e a biblioteca": "يجلب إضافاتك (Torrentio، debrid...) ومكتبتك",
+    "Servidor de streaming (PC)": "خادم البث (الكمبيوتر)",
+    "não configurado": "غير مُعدّ",
+    "conectado ✓": "متصل ✓",
+    "sem resposta": "لا استجابة",
+    "Servidor conectado": "الخادم متصل",
+    "Servidor não respondeu em {url}": "لم يستجب الخادم على {url}",
+    "Endereço do PC": "عنوان الكمبيوتر",
+    "Rode o stremio-service no PC (porta 11470). Status: {s}": "شغّل stremio-service على الكمبيوتر (المنفذ 11470). الحالة: {s}",
+    "Varre a rede local atrás do servidor": "يفحص الشبكة المحلية بحثًا عن الخادم",
+    "Procurando servidor na rede...": "جارٍ البحث عن الخادم في الشبكة...",
+    "Nenhum servidor encontrado. Ele está aberto no PC?": "لم يُعثر على خادم. هل هو قيد التشغيل على الكمبيوتر؟",
+    "Falha na busca: {msg}": "فشل البحث: {msg}",
+    "Testar conexão": "اختبار الاتصال",
+    "Servidor OK": "الخادم يعمل",
+    "Sem resposta de {url}": "لا استجابة من {url}",
+    "Aparência (Kai)": "المظهر (Kai)",
+    "Hero Banner": "البانر الرئيسي",
+    "Destaques no topo da tela inicial": "أبرز العناوين أعلى الشاشة الرئيسية",
+    "Fonte do Hero Banner": "مصدر البانر الرئيسي",
+    "Cinemeta · Populares": "Cinemeta · الأكثر شعبية",
+    "Cinemeta · Mais bem avaliados": "Cinemeta · الأعلى تقييمًا",
+    "MDBList · Tendências (Snoak)": "MDBList · الرائج (Snoak)",
+    "Tema OLED (preto puro)": "سمة OLED (أسود خالص)",
+    "Fundo totalmente preto": "خلفية سوداء بالكامل",
+    "Modo desempenho": "وضع الأداء",
+    "Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano": "أسرع على التلفاز: بدون حركات، بدون الحلقات الجديدة وبدون مزامنة في الخلفية",
+    "Rolagem animada": "تمرير متحرك",
+    "Mais bonita, porém mais pesada na TV": "أجمل، لكنها أثقل على التلفاز",
+    "Legendas e áudio": "الترجمة والصوت",
+    "Idioma da legenda": "لغة الترجمة",
+    "Escolhida sozinha ao abrir o vídeo": "تُختار تلقائيًا عند فتح الفيديو",
+    "Português (BR) e Português": "البرتغالية (البرازيل) والبرتغالية",
+    "Nenhum (não ligar sozinho)": "بدون (عدم التفعيل تلقائيًا)",
+    "Ligar legenda automaticamente": "تفعيل الترجمة تلقائيًا",
+    "Se o áudio não estiver no seu idioma": "إذا لم يكن الصوت بلغتك",
+    "Áudio preferido": "الصوت المفضّل",
+    "Precisa do servidor do PC para ler as faixas": "يحتاج إلى خادم الكمبيوتر لقراءة المسارات",
+    "Original do arquivo": "الأصلي في الملف",
+    "Português (dublado) quando houver": "البرتغالية (مدبلج) عند توفرها",
+    "Inglês quando houver": "الإنجليزية عند توفرها",
+    "Japonês quando houver": "اليابانية عند توفرها",
+    "Aparência da legenda": "مظهر الترجمة",
+    "Oi. Meu nome é Peter Parker.": "مرحبًا. اسمي بيتر باركر.",
+    "Você não lembra de mim...": "أنت لا تتذكرني...",
+    "Fonte": "الخط",
+    "Vale para legendas de addons (OpenSubtitles etc.)": "ينطبق على ترجمات الإضافات (OpenSubtitles وغيرها)",
+    "Estilo": "النمط",
+    "Contorno, sombra ou caixa de fundo": "إطار، ظل أو صندوق خلفية",
+    "Cor do texto": "لون النص",
+    "Tamanho": "الحجم",
+    "Posição": "الموضع",
+    "Distância da borda de baixo": "المسافة من الحافة السفلية",
+    "Negrito": "عريض",
+    "O Kai usa negrito": "يستخدم Kai الخط العريض",
+    "Legendas embutidas no arquivo são desenhadas pela própria TV: só cor, tamanho, posição e caixa se aplicam a elas.": "الترجمات المدمجة في الملف يرسمها التلفاز نفسه: لا ينطبق عليها إلا اللون والحجم والموضع والصندوق.",
+    "Nata Sans (padrão Kai)": "Nata Sans (افتراضي Kai)",
+    "Fonte da TV (LG)": "خط التلفاز (LG)",
+    "Clássica (Arial)": "كلاسيكي (Arial)",
+    "Contorno fino + sombra (Kai)": "إطار رفيع + ظل (Kai)",
+    "Contorno grosso": "إطار سميك",
+    "Só sombra": "ظل فقط",
+    "Caixa de fundo": "صندوق خلفية",
+    "Branco": "أبيض",
+    "Amarelo": "أصفر",
+    "Cinza claro": "رمادي فاتح",
+    "Ciano": "سماوي",
+    "Baixa": "منخفض",
+    "Média": "متوسط",
+    "Alta": "مرتفع",
+    "Player": "المشغّل",
+    "Pular abertura e encerramento": "تخطي المقدمة والخاتمة",
+    "IntroDB (séries e filmes) e AniSkip (animes)": "IntroDB (المسلسلات والأفلام) وAniSkip (الأنمي)",
+    'Mostrar botão "Pular"': 'إظهار زر "تخطي"',
+    "Pular automaticamente": "التخطي تلقائيًا",
+    "Mostrar botão": "إظهار الزر",
+    "Metadados extras (opcional)": "بيانات وصفية إضافية (اختياري)",
+    "Chave salva": "تم حفظ المفتاح",
+    "Chave removida": "تمت إزالة المفتاح",
+    "Chave TMDB": "مفتاح TMDB",
+    "Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)": "ملخصات وعناوين مترجمة، وشعارات، وصور الممثلين (مجانًا على themoviedb.org)",
+    "Chave MDBList": "مفتاح MDBList",
+    "Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)": "تقييمات Rotten Tomatoes وMetacritic وTrakt وLetterboxd (مجانًا على mdblist.com)",
+    "Addons": "الإضافات",
+    "Addons ativos": "الإضافات النشطة",
+    "Gerencie pela sua conta em web.stremio.com": "أدِرها من حسابك على web.stremio.com",
+    "Sem conta: Cinemeta, OpenSubtitles e os adicionados aqui": "بدون حساب: Cinemeta وOpenSubtitles والإضافات المضافة هنا",
+    "{n} addon(s)": "{n} إضافة",
+    "Instalar {name}": "تثبيت {name}",
+    "Catálogos e detalhes de animes (usado pelo calendário)": "كتالوجات وتفاصيل الأنمي (يستخدمها التقويم)",
+    "Legendas em português para quase tudo": "ترجمات لكل شيء تقريبًا",
+    "Cole a URL do manifest.json do addon": "الصق رابط manifest.json الخاص بالإضافة",
+    "o addon": "الإضافة",
+    "Addon adicionado": "تمت إضافة الإضافة",
+    "Adicionar addon por URL": "إضافة إضافة عبر رابط",
+    "Instala na sua conta Stremio": "تُثبَّت في حساب Stremio الخاص بك",
+    "Fica só nesta TV": "تبقى على هذا التلفاز فقط",
+    "Entre na conta primeiro": "سجّل الدخول أولًا",
+    "Instalar {name} na sua conta Stremio?": "تثبيت {name} في حساب Stremio الخاص بك؟",
+    "Instalar": "تثبيت",
+    "Instalando...": "جارٍ التثبيت...",
+    "{name} instalado na sua conta": "تم تثبيت {name} في حسابك",
+    "Não foi possível instalar: {msg}": "تعذّر التثبيت: {msg}",
+    "Esse addon já está instalado": "هذه الإضافة مثبّتة بالفعل",
+    "Manifest inválido": "ملف manifest غير صالح",
+    "Sobre e depuração": "حول التطبيق وتصحيح الأخطاء",
+    "Log remoto": "السجل عن بُعد",
+    "npm run logs no PC": "npm run logs على الكمبيوتر",
+    "Log remoto ligado": "السجل عن بُعد مفعّل",
+    "Enviando logs para o PC": "جارٍ إرسال السجلات إلى الكمبيوتر",
+    "Log remoto desligado": "السجل عن بُعد متوقف",
+    "Versão": "الإصدار",
+    "Procurar atualização": "البحث عن تحديث",
+    "Baixa a versão nova do GitHub ({repo})": "ينزّل الإصدار الجديد من GitHub ({repo})",
+    "Procurando atualização...": "جارٍ البحث عن تحديث...",
+    "Você já está na versão mais nova (v{v}).": "لديك أحدث إصدار (v{v}).",
+    "Versão {v} disponível": "الإصدار {v} متاح",
+    "Versão {v} disponível: Ajustes → Procurar atualização": "الإصدار {v} متاح: الإعدادات ← البحث عن تحديث",
+    "Como atualizar": "طريقة التحديث",
+    "No PC: webOS Dev Manager → instalar o .ipk da release": "على الكمبيوتر: webOS Dev Manager ← ثبّت ملف .ipk الخاص بالإصدار",
+    "Página da release": "صفحة الإصدار",
+    "Instalar a versão {v}? O app vai fechar e reabrir.": "تثبيت الإصدار {v}؟ سيُغلق التطبيق ثم يُعاد فتحه.",
+    "Atualizar": "تحديث",
+    "Atualizado! Reabrindo...": "تم التحديث! جارٍ إعادة الفتح...",
+    "Não foi possível atualizar: {msg}": "تعذّر التحديث: {msg}",
+    "Não foi possível verificar: {msg}": "تعذّر التحقق: {msg}",
+    "Baixando": "جارٍ التنزيل",
+    "Conferindo o arquivo...": "جارٍ التحقق من الملف...",
+    "Falha na instalação": "فشل التثبيت",
+    "Release sem hash SHA-256": "الإصدار بدون بصمة SHA-256",
+    // Erros de rede e da conta
+    "Erro da API Stremio": "خطأ في واجهة Stremio API",
+    "Não foi possível gerar o código": "تعذّر إنشاء الرمز",
+    "Falha de rede em {url}": "خطأ في الشبكة على {url}",
+    "Tempo esgotado em {url}": "انتهت المهلة على {url}",
+    "JSON inválido de {url}": "JSON غير صالح من {url}",
+    "HTTP {code} em {url}": "HTTP {code} على {url}",
+    "Este link é torrent: configure o servidor do PC": "هذا الرابط تورنت: أعدّ خادم الكمبيوتر",
+    "Magnet inválido": "رابط magnet غير صالح",
+    "Tipo de link não suportado na TV": "نوع الرابط غير مدعوم على التلفاز"
+  };
+
   // src/js/lib/i18n.js
-  var lang = "pt";
+  var lang = "en";
+  var TABLES = {
+    en: EN,
+    ar: AR
+  };
   function detect() {
-    return "en";
+    var nav = window.navigator && (window.navigator.language || window.navigator.userLanguage) || "";
+    return /^ar/i.test(nav) ? "ar" : "en";
   }
   function init(setting) {
-    lang = setting === "pt" || setting === "en" ? setting : detect();
-    document.documentElement.setAttribute("lang", lang === "pt" ? "pt-BR" : "en");
+    lang = setting === "en" || setting === "ar" ? setting : detect();
+    var root = document.documentElement;
+    root.setAttribute("lang", lang);
+    root.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
     return lang;
   }
   function current() {
     return lang;
   }
   function apiLang() {
-    return lang === "pt" ? "pt-BR" : "en-US";
+    return lang === "ar" ? "ar-SA" : "en-US";
   }
   function t(text, params) {
-    var out = lang === "en" && EN[text] !== void 0 ? EN[text] : text;
+    var table = TABLES[lang];
+    var out = table[text] !== void 0 ? table[text] : EN[text] !== void 0 ? EN[text] : text;
     if (params) {
       Object.keys(params).forEach(function (k) {
         out = out.split("{" + k + "}").join(String(params[k]));
@@ -3666,11 +5685,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return out;
   }
+  function epLabel(season, episode) {
+    return lang === "ar" ? "م" + season + " ح" + episode : "S" + season + " E" + episode;
+  }
 
   // src/js/lib/http.js
   function request(method, url2, body, opts) {
     var o = opts || {};
-    return new Promise(function (resolve2, reject) {
+    return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
       xhr.open(method, url2, true);
       xhr.timeout = o.timeout || 2e4;
@@ -3678,9 +5700,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (o.headers) for (var k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
       xhr.onload = function () {
         if (xhr.status >= 200 && xhr.status < 300) {
-          if (o.raw) return resolve2(xhr.responseText);
+          if (o.raw) return resolve(xhr.responseText);
           try {
-            resolve2(xhr.responseText ? JSON.parse(xhr.responseText) : null);
+            resolve(xhr.responseText ? JSON.parse(xhr.responseText) : null);
           } catch (e) {
             reject(new Error(t("JSON inválido de {url}", {
               url: url2
@@ -3803,13 +5825,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       _loop2();
     }
   }
-  function kitsuSmall(info) {
-    var key = info.id + ":" + info.kind;
+  function kitsuSmall(info2) {
+    var key = info2.id + ":" + info2.kind;
     if (!kitsuCache[key]) {
-      kitsuCache[key] = new Promise(function (resolve2) {
-        (batch[info.id] = batch[info.id] || []).push({
-          kind: info.kind,
-          resolve: resolve2
+      kitsuCache[key] = new Promise(function (resolve) {
+        (batch[info2.id] = batch[info2.id] || []).push({
+          kind: info2.kind,
+          resolve: resolve
         });
         if (!batchTimer) batchTimer = setTimeout(flush2, 60);
       });
@@ -3819,10 +5841,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/dom.js
   function h(tag, props, children) {
-    var parts2 = tag.split(/(?=[.#])/);
-    var el = document.createElement(parts2[0] || "div");
-    for (var i = 1; i < parts2.length; i++) {
-      var p = parts2[i];
+    var parts = tag.split(/(?=[.#])/);
+    var el = document.createElement(parts[0] || "div");
+    for (var i = 1; i < parts.length; i++) {
+      var p = parts[i];
       if (p[0] === ".") el.classList.add(p.slice(1));else if (p[0] === "#") el.id = p.slice(1);
     }
     if (props) {
@@ -3931,7 +5953,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     DOWN: 40,
     ENTER: 13,
     IME_DONE: 65376,
+    // Samsung on-screen keyboard Done (not the remote's OK)
     IME_CANCEL: 65385,
+    // Samsung on-screen keyboard Cancel
     BACK: TIZEN ? 10009 : 461,
     // Samsung Return / LG Back
     ESC: 27,
@@ -4016,8 +6040,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function animateScroll(node, prop, target) {
     if (node.__anim) cancelAnimationFrame(node.__anim);
-    var start2 = node[prop];
-    var delta = target - start2;
+    var start3 = node[prop];
+    var delta = target - start3;
     if (!smooth || Math.abs(delta) < 2) {
       node[prop] = target;
       if (scrollHook) scrollHook(node);
@@ -4027,7 +6051,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var t0 = Date.now();
     var _step2 = function step() {
       var k = Math.min(1, (Date.now() - t0) / dur);
-      node[prop] = start2 + delta * (1 - Math.pow(1 - k, 3));
+      node[prop] = start3 + delta * (1 - Math.pow(1 - k, 3));
       if (k < 1) node.__anim = requestAnimationFrame(_step2);else {
         node.__anim = null;
         if (scrollHook) scrollHook(node);
@@ -4098,14 +6122,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       focusFirst();
       return true;
     }
-    var all = candidates(layer.root).filter(function (e) {
-      return e !== cur;
-    });
     var group = cur.closest("[data-group]");
     var horizontal = dir === "left" || dir === "right";
     if (group && horizontal === !group.hasAttribute("data-vertical")) {
-      var inGroup = all.filter(function (e) {
-        return group.contains(e);
+      var inGroup = candidates(group).filter(function (e) {
+        return e !== cur;
       });
       var g = pick(inGroup, cur, dir);
       if (g) {
@@ -4114,7 +6135,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       if (group.hasAttribute("data-trap")) return false;
     }
-    var best = pick(all, cur, dir);
+    var all2 = candidates(layer.root).filter(function (e) {
+      return e !== cur;
+    });
+    var best = pick(all2, cur, dir);
     if (!best) return false;
     var bg = best.closest("[data-group]");
     if (bg && bg !== group && bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
@@ -4341,7 +6365,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function set(key, value) {
     rawSet(profileKey(activeProfile().id, key), value);
   }
-  var DEVICE_KEYS = ["serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
+  var DEVICE_KEYS = ["serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "perfMode", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
   var DEFAULT_SETTINGS = {
     // TV
     serverUrl: "",
@@ -4349,16 +6373,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     mdblistKey: true ? "" : "",
     smoothScroll: false,
     // rolagem animada (mais bonita, mais pesada na TV)
+    perfMode: true,
+    // Performance mode: no animations, no New episodes row, no background sync
+    smartChoice: true,
+    // Watch picks the best source and plays it
+    theme: "purple",
+    // see lib/theme.js
     devlogUrl: true ? "" : "",
     language: "auto",
-    // 'auto' (idioma da TV) | 'pt' | 'en'
+    // 'auto' (TV language: Arabic or English) | 'en' | 'ar'
     askProfile: true,
     // "Quem está assistindo?" ao abrir, se houver mais de um perfil
     wizardDone: false,
     // Perfil
     heroSource: "cinemeta",
     oled: false,
-    subtitleLangs: ["pob", "por", "pt", "pt-br"],
+    subtitleLangs: ["eng", "en"],
     audioLangs: [],
     // vazio = mantém o áudio padrão do arquivo (geralmente o original)
     subtitleSize: 100,
@@ -4367,14 +6397,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     subtitleColor: "#ffffff",
     subtitleBold: true,
     subtitlePosition: "low",
-    skipMode: "prompt",
-    // prompt | auto | off
+    skipMode: "auto",
+    // auto (default) | prompt | off
     subtitlesAuto: true,
     localAddons: []
   };
   function settings() {
-    var base = Object.assign({}, DEFAULT_SETTINGS, current() === "en" ? {
-      subtitleLangs: ["eng", "en"]
+    var subs = {
+      en: ["eng", "en"],
+      ar: ["ara", "ar"]
+    }[current()];
+    var base = Object.assign({}, DEFAULT_SETTINGS, subs ? {
+      subtitleLangs: subs
     } : null);
     return Object.assign(base, rawGet("device", {}), get("settings", {}));
   }
@@ -4678,7 +6712,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return typeof window.PalmServiceBridge === "function";
   }
   function luna(service, method, params) {
-    return new Promise(function (resolve2, reject) {
+    return new Promise(function (resolve, reject) {
       if (!hasLuna()) return reject(new Error("Luna indisponível"));
       var bridge = new window.PalmServiceBridge();
       pending.add(bridge);
@@ -4694,7 +6728,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           var err = new Error(service + "/" + method + ": " + (res.errorText || res.errorCode || "falhou"));
           err.result = res;
           reject(err);
-        } else resolve2(res);
+        } else resolve(res);
       };
       bridge.call(service.replace(/\/$/, "") + "/" + method, JSON.stringify(params || {}));
     });
@@ -4742,7 +6776,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } catch (e) {}
     var RTC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
     if (!RTC) return Promise.reject(new Error("Sem IP"));
-    return new Promise(function (resolve2, reject) {
+    return new Promise(function (resolve, reject) {
       var pc = new RTC({
         iceServers: []
       });
@@ -4759,7 +6793,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var m = e && e.candidate && /(\d+\.\d+\.\d+\.\d+)/.exec(e.candidate.candidate);
         if (m && !/^(0\.|127\.)/.test(m[1])) {
           clearTimeout(timer);
-          done(resolve2, m[1]);
+          done(resolve, m[1]);
         }
       };
       pc.createDataChannel("ip");
@@ -4850,9 +6884,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var found = null;
       var done = 0;
       var batch2 = 24;
-      var _runBatch = function runBatch(start2) {
-        if (found || start2 >= hosts.length) return Promise.resolve(found);
-        var slice = hosts.slice(start2, start2 + batch2);
+      var _runBatch = function runBatch(start3) {
+        if (found || start3 >= hosts.length) return Promise.resolve(found);
+        var slice = hosts.slice(start3, start3 + batch2);
         return Promise.all(slice.map(function (h2) {
           return getJSON("http://" + h2 + ":11470/settings", {
             timeout: 1500,
@@ -4864,7 +6898,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (onProgress) onProgress(done, hosts.length);
           });
         })).then(function () {
-          return _runBatch(start2 + batch2);
+          return _runBatch(start3 + batch2);
         });
       };
       return _runBatch(0);
@@ -4914,12 +6948,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
     if (sources && sources.length) {
-      var all = ["dht:" + infoHash].concat(sources.map(function (s) {
+      var all2 = ["dht:" + infoHash].concat(sources.map(function (s) {
         return /^(tracker|dht):/.test(s) ? s : "tracker:" + s;
       }));
       body.peerSearch = {
-        sources: all.filter(function (s, i) {
-          return all.indexOf(s) === i;
+        sources: all2.filter(function (s, i) {
+          return all2.indexOf(s) === i;
         }),
         min: 40,
         max: 200
@@ -4939,14 +6973,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function proxyUrl(base, streamUrl, reqHeaders, resHeaders) {
     var m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
     if (!m) return streamUrl;
-    var parts2 = ["d=" + encodeURIComponent(m[1])];
+    var parts = ["d=" + encodeURIComponent(m[1])];
     Object.keys(reqHeaders || {}).forEach(function (k) {
-      return parts2.push("h=" + encodeURIComponent(k + ":" + reqHeaders[k]));
+      return parts.push("h=" + encodeURIComponent(k + ":" + reqHeaders[k]));
     });
     Object.keys(resHeaders || {}).forEach(function (k) {
-      return parts2.push("r=" + encodeURIComponent(k + ":" + resHeaders[k]));
+      return parts.push("r=" + encodeURIComponent(k + ":" + resHeaders[k]));
     });
-    return base + "proxy/" + parts2.join("&") + (m[2] || "/") + (m[3] || "");
+    return base + "proxy/" + parts.join("&") + (m[2] || "/") + (m[3] || "");
   }
   function corsProxyUrl(url2) {
     var base = isAvailable() ? baseUrl() : "";
@@ -5084,19 +7118,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function load(force) {
     if (addons && !force) return Promise.resolve(addons);
     if (isLoggedIn()) {
-      var cached = cachedAddons();
+      var cached2 = cachedAddons();
       var fresh = getAddonCollection().then(function (list2) {
         return addons = normalize(list2);
       });
-      if (cached && cached.length && !force) {
-        addons = normalize(cached);
+      if (cached2 && cached2.length && !force) {
+        addons = normalize(cached2);
         fresh.catch(function (e) {
           return log.warn("Addons: usando cache", e.message);
         });
         return Promise.resolve(addons);
       }
       return fresh.catch(function () {
-        addons = normalize(cached || []);
+        addons = normalize(cached2 || []);
         return addons;
       });
     }
@@ -5132,12 +7166,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function url(addon, resource, type, id, extra) {
     var path = "/" + resource + "/" + encodeURIComponent(type) + "/" + encodeURIComponent(id);
     if (extra) {
-      var parts2 = Object.keys(extra).filter(function (k) {
+      var parts = Object.keys(extra).filter(function (k) {
         return extra[k] !== void 0 && extra[k] !== null && extra[k] !== "";
       }).map(function (k) {
         return encodeURIComponent(k) + "=" + encodeURIComponent(extra[k]);
       });
-      if (parts2.length) path += "/" + parts2.join("&");
+      if (parts.length) path += "/" + parts.join("&");
     }
     return addon.base + path + ".json" + addon.query;
   }
@@ -5227,8 +7261,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (onAddon) onAddon(a, [], e);
         return [];
       });
-    })).then(function (all) {
-      return all.reduce(function (acc, x) {
+    })).then(function (all2) {
+      return all2.reduce(function (acc, x) {
         return acc.concat(x);
       }, []);
     });
@@ -5250,8 +7284,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (onAddon) onAddon(list2);
         return list2;
       });
-    })).then(function (all) {
-      return all.reduce(function (acc, x) {
+    })).then(function (all2) {
+      return all2.reduce(function (acc, x) {
         return acc.concat(x);
       }, []);
     });
@@ -5506,7 +7540,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     label: "Biblioteca"
   }, {
     id: "calendar",
-    label: "Animes"
+    label: "Calendário"
   }, {
     id: "settings",
     label: "Ajustes"
@@ -5760,6 +7794,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       quiet: true
     });
   }
+  function digitalReleases(ymd2, region) {
+    if (!tmdbKey()) return Promise.resolve(null);
+    return tmdb("discover/movie", {
+      with_release_type: 4,
+      "release_date.gte": ymd2,
+      "release_date.lte": ymd2,
+      region: region,
+      sort_by: "popularity.desc",
+      include_adult: "false",
+      language: apiLang()
+    }).then(function (r) {
+      return (r && r.results || []).map(function (m) {
+        return {
+          tmdb: m.id,
+          name: m.title,
+          poster: m.poster_path ? TMDB_IMG + "w342" + m.poster_path : null,
+          score: m.vote_average ? Math.round(m.vote_average * 10) : 0
+        };
+      });
+    });
+  }
   function tmdbFind(imdb) {
     if (!tmdbKey() || !imdb) return Promise.resolve(null);
     return tmdb("find/" + imdb, {
@@ -5779,7 +7834,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function pickLogo(logos) {
-    var pref = ["pt", "en", null];
+    var pref = current() === "ar" ? ["ar", "en", null] : ["en", null];
     var _loop3 = function _loop3(i) {
         var l = (logos || []).find(function (x) {
           return x.iso_639_1 === pref[i];
@@ -5802,7 +7857,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return tmdb(f.type + "/" + f.id, {
         language: apiLang(),
         append_to_response: "credits,images",
-        include_image_language: "pt,en,null"
+        include_image_language: "en,ar,null"
       }).then(function (d) {
         return {
           tmdbId: f.id,
@@ -5813,6 +7868,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           logo: pickLogo(d.images && d.images.logos),
           cast: (d.credits && d.credits.cast || []).slice(0, 14).map(function (c) {
             return {
+              id: c.id,
               name: c.name,
               character: c.character || "",
               photo: c.profile_path ? TMDB_IMG + "w185" + c.profile_path : null
@@ -5820,6 +7876,74 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           })
         };
       });
+    });
+  }
+  function person(id) {
+    return tmdb("person/" + id, {
+      language: apiLang(),
+      append_to_response: "combined_credits"
+    }).then(function (p) {
+      var bio = p.biography ? Promise.resolve(p.biography) : current() === "ar" ? tmdb("person/" + id, {
+        language: "en-US"
+      }).then(function (e) {
+        return e && e.biography || "";
+      }) : Promise.resolve("");
+      return bio.then(function (biography) {
+        var seen = {};
+        var credits = (p.combined_credits && p.combined_credits.cast || []).concat((p.combined_credits && p.combined_credits.crew || []).filter(function (c) {
+          return c.job === "Director";
+        })).filter(function (c) {
+          var key = c.media_type + c.id;
+          if (!c.poster_path || seen[key] || c.media_type !== "movie" && c.media_type !== "tv") return false;
+          if (c.media_type === "tv" && /^(Self|Himself|Herself|Host)/i.test(c.character || "")) return false;
+          seen[key] = true;
+          return true;
+        }).sort(function (a, b) {
+          return (b.popularity || 0) - (a.popularity || 0);
+        }).map(function (c) {
+          return {
+            tmdb: c.id,
+            type: c.media_type,
+            name: c.title || c.name,
+            poster: TMDB_IMG + "w342" + c.poster_path,
+            year: String(c.release_date || c.first_air_date || "").slice(0, 4),
+            role: c.character || c.job || ""
+          };
+        });
+        return {
+          name: p.name,
+          photo: p.profile_path ? TMDB_IMG + "h632" + p.profile_path : null,
+          birthday: p.birthday,
+          deathday: p.deathday,
+          place: p.place_of_birth || "",
+          department: p.known_for_department || "",
+          biography: biography,
+          credits: credits
+        };
+      });
+    });
+  }
+  function searchPeople(query) {
+    if (!tmdbKey()) return Promise.resolve([]);
+    return tmdb("search/person", {
+      query: query,
+      include_adult: "false",
+      language: apiLang()
+    }).then(function (r) {
+      return (r && r.results || []).filter(function (p) {
+        return p.profile_path && (p.known_for_department === "Acting" || p.known_for_department === "Directing") && p.popularity > 1;
+      }).slice(0, 12).map(function (p) {
+        return {
+          id: p.id,
+          name: p.name,
+          photo: TMDB_IMG + "w185" + p.profile_path
+        };
+      });
+    });
+  }
+  function tmdbImdb(type, id) {
+    return tmdb(type + "/" + id + "/external_ids", {}).then(function (r) {
+      return r && r.imdb_id || null;
     });
   }
   function seasonPt(tmdbId, season) {
@@ -6048,13 +8172,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var j = 0;
       while (j < lines.length && lines[j].indexOf("-->") < 0) j++;
       if (j >= lines.length) continue;
-      var parts2 = lines[j].split("-->");
-      var start2 = toSec(parts2[0]);
-      var end = toSec(parts2[1].trim().split(/\s+/)[0]);
-      if (!isFinite(start2) || !isFinite(end)) continue;
+      var parts = lines[j].split("-->");
+      var start3 = toSec(parts[0]);
+      var end = toSec(parts[1].trim().split(/\s+/)[0]);
+      if (!isFinite(start3) || !isFinite(end)) continue;
       var body = lines.slice(j + 1).join("\n").replace(/\{\\[^}]*\}/g, "").trim();
       if (body) cues.push({
-        start: start2,
+        start: start3,
         end: end,
         text: sanitize(body)
       });
@@ -6374,6 +8498,186 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/watched.js
+  var KEY2 = "watched";
+  var DONE = 0.9;
+  var MAX = 3e3;
+  var cache2 = null;
+  var cacheFor = null;
+  function all() {
+    var id = activeProfile().id;
+    if (cacheFor !== id) {
+      cache2 = get(KEY2, {}) || {};
+      cacheFor = id;
+    }
+    return cache2;
+  }
+  function record(videoId, fraction) {
+    if (!videoId || !(fraction > 0.02)) return;
+    var map = all();
+    delete map[videoId];
+    map[videoId] = fraction >= DONE ? 1 : Math.round(fraction * 1e3) / 1e3;
+    var keys = Object.keys(map);
+    for (var i = 0; i < keys.length - MAX; i++) delete map[keys[i]];
+    set(KEY2, map);
+  }
+  function isWatched(videoId) {
+    return all()[videoId] === 1;
+  }
+  function progress(videoId) {
+    var v = all()[videoId];
+    return v && v < 1 ? v : 0;
+  }
+
+  // src/js/lib/phone.js
+  var import_qrcode_generator = __toESM(require_qrcode(), 1);
+  var PORT = 8095;
+  var BASE = "http://127.0.0.1:" + PORT;
+  var ENTER = 13;
+  var last = 0;
+  var started = false;
+  function request2(url2, timeout) {
+    return new Promise(function (resolve, reject) {
+      var x = new XMLHttpRequest();
+      x.open("GET", url2);
+      x.timeout = timeout;
+      x.onload = function () {
+        try {
+          resolve(x.status === 200 ? JSON.parse(x.responseText) : null);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      x.onerror = x.ontimeout = function () {
+        return reject(new Error("remote service unreachable"));
+      };
+      x.send();
+    });
+  }
+  function fireKey(code) {
+    var e = document.createEvent("Event");
+    e.initEvent("keydown", true, true);
+    e.keyCode = code;
+    e.which = code;
+    (document.activeElement || document.body).dispatchEvent(e);
+  }
+  function typeText(text, submit) {
+    var el = document.activeElement;
+    if (!el || el.tagName !== "INPUT" && el.tagName !== "TEXTAREA") {
+      toast(t("Selecione um campo de texto na TV primeiro."), 4e3);
+      return;
+    }
+    el.value = text;
+    var ev = document.createEvent("Event");
+    ev.initEvent("input", true, true);
+    el.dispatchEvent(ev);
+    if (submit) fireKey(ENTER);
+  }
+  function nowPlaying(state) {
+    var x = new XMLHttpRequest();
+    x.open("POST", BASE + "/api/state");
+    x.onerror = function () {};
+    x.send(JSON.stringify(state || null));
+  }
+  function browse(data) {
+    var x = new XMLHttpRequest();
+    x.open("POST", BASE + "/api/browse");
+    x.onerror = function () {};
+    x.send(JSON.stringify(data));
+  }
+  var openHandler = null;
+  function onOpen(fn) {
+    openHandler = fn;
+  }
+  var seekHandler = null;
+  function onSeek(fn) {
+    seekHandler = fn;
+  }
+  var searchHandler = null;
+  function onSearch(fn) {
+    searchHandler = fn;
+  }
+  function handle(ev) {
+    if (ev.type === "key") fireKey(ev.code);else if (ev.type === "text") typeText(ev.text, ev.submit);else if (ev.type === "search" && searchHandler && ev.text) searchHandler(ev.text);else if (ev.type === "seek" && seekHandler) seekHandler(ev.to);else if (ev.type === "open" && openHandler && ev.item) openHandler(ev);
+  }
+  function poll(wait) {
+    setTimeout(function () {
+      request2(BASE + "/api/events?since=" + last, 35e3).then(function (r) {
+        if (r) {
+          (r.events || []).forEach(handle);
+          last = r.last || last;
+        }
+        poll(0);
+      }).catch(function () {
+        return poll(Math.min((wait || 2e3) * 2, 6e4));
+      });
+    }, wait);
+  }
+  function startService() {
+    var m = location.pathname.match(/\/module\/([^/]+)\//);
+    if (!m || typeof WebSocket === "undefined") return false;
+    try {
+      var ws = new WebSocket("ws://127.0.0.1:8081");
+      ws.onopen = function () {
+        ws.send(JSON.stringify({
+          type: 6,
+          payload: {
+            fullName: decodeURIComponent(m[1]),
+            serviceFile: "dist/remote-service.js"
+          }
+        }));
+        setTimeout(function () {
+          return ws.close();
+        }, 1e3);
+      };
+      ws.onerror = function () {};
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function start() {
+    if (started) return;
+    started = true;
+    request2(BASE + "/api/info", 3e3).then(function (r) {
+      if (r) last = r.last || 0;
+    }).catch(function () {
+      setTimeout(function () {
+        return request2(BASE + "/api/info", 4e3).catch(function () {
+          return startService();
+        });
+      }, 15e3);
+    }).then(function () {
+      return poll(0);
+    });
+  }
+  function info() {
+    var get2 = function get2() {
+      return request2(BASE + "/api/info", 4e3).then(function (r) {
+        return r && r.ip ? {
+          ip: r.ip,
+          port: r.port,
+          pin: r.pin,
+          url: "http://" + r.ip + ":" + r.port + "/#pin=" + r.pin
+        } : null;
+      }).catch(function () {
+        return null;
+      });
+    };
+    return get2().then(function (i) {
+      return i || !startService() ? i : new Promise(function (r) {
+        return setTimeout(r, 5e3);
+      }).then(get2);
+    });
+  }
+  function qrImage(text, size) {
+    var qr = (0, import_qrcode_generator.default)(0, "M");
+    qr.addData(text);
+    qr.make();
+    var cell = Math.max(2, Math.floor(size / (qr.getModuleCount() + 8)));
+    return qr.createDataURL(cell, cell * 4);
+  }
+
   // src/js/views/player.js
   var HIDE_MS = 5e3;
   var SAVE_MS = 15e3;
@@ -6484,7 +8788,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var skipBox = h("div.p-skip", null, [skipBtn, h("div.bar", null, skipFill)]);
     var overlay = h("div.p-overlay", null, [h("div.p-top", null, [titleEl, clockEl]), h("div.p-bottom", null, [bar, h("div.p-times", null, [curTimeEl, h("div.spacer"), durEl]), buttons])]);
-    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl]);
+    var upNextTitle = h("div.un-title");
+    var upNextCount = h("div.un-count");
+    var upNextPlay = h("div.btn.primary", {
+      focusable: true,
+      onSelect: function onSelect() {
+        return upNextGo();
+      }
+    }, [h("span.ico", {
+      text: "▶"
+    }), t("Assistir agora")]);
+    var upNextCancel = h("div.btn", {
+      focusable: true,
+      onSelect: function onSelect() {
+        return upNextStop(true);
+      }
+    }, t("Cancelar"));
+    var upNextBox = h("div.p-upnext", null, [h("div.un-label", {
+      text: t("A seguir")
+    }), upNextTitle, upNextCount, h("div.un-buttons", {
+      "data-group": ""
+    }, [upNextPlay, upNextCancel])]);
+    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, msgEl]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
     var alive = true;
@@ -6519,7 +8844,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(titleEl);
       titleEl.appendChild(document.createTextNode(meta.name || ""));
       if (opts.isSeries) titleEl.appendChild(h("small", {
-        text: "T" + video.season + " E" + video.episode + " · " + (video.name || video.title || "")
+        text: epLabel(video.season, video.episode) + " · " + (video.name || video.title || "")
       }));
       nextBtn.style.display = opts.isSeries && nextVideo() ? "" : "none";
     }
@@ -6537,7 +8862,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (nv.released && new Date(nv.released).getTime() > Date.now()) return null;
       return nv;
     }
-    function start2() {
+    function start3() {
       setTitle();
       showSpinner(true);
       message("");
@@ -6550,6 +8875,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       segments = [];
       segmentsLoaded = false;
+      if (typeof upNextStop === "function") upNextStop(false);
+      upNextCancelled = false;
       nativeOffDone = false;
       hideSkip();
       toPlayable(stream, seriesInfo()).then(function (res) {
@@ -6681,15 +9008,130 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       lastTick = now;
       renderer.update(videoEl.currentTime);
       if (controlsOn) updateTimes();
+      checkUpNext();
     });
     videoEl.addEventListener("ended", function () {
       saveProgress2(true);
-      if (opts.isSeries && nextVideo()) playNext();else pop();
+      record(video.id, 1);
+      if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();else pop();
     });
+    function sendNowPlaying() {
+      var d = videoEl.duration;
+      nowPlaying({
+        title: meta.name || "",
+        episode: opts.isSeries ? epLabel(video.season, video.episode) + (video.name || video.title ? " · " + (video.name || video.title) : "") : "",
+        poster: meta.poster || "",
+        position: Math.floor(videoEl.currentTime || 0),
+        duration: d > 0 && isFinite(d) ? Math.floor(d) : 0,
+        paused: videoEl.paused
+      });
+    }
+    onSeek(function (sec) {
+      if (!alive || !(videoEl.duration > 0)) return;
+      videoEl.currentTime = Math.max(0, Math.min(sec, videoEl.duration - 2));
+      showControls();
+      sendNowPlaying();
+    });
+    ["play", "pause", "seeked", "loadedmetadata"].forEach(function (ev) {
+      return videoEl.addEventListener(ev, sendNowPlaying);
+    });
+    var nowTimer = setInterval(function () {
+      return alive && !videoEl.paused && sendNowPlaying();
+    }, 15e3);
+    var UP_NEXT_SECONDS = 25;
+    var UP_NEXT_COUNT = 10;
+    var upNextTimer = null;
+    var upNextLeft = 0;
+    var upNextCancelled = false;
+    function upNextStart() {
+      var outro = segments.find(function (s) {
+        return s.type === "outro";
+      });
+      var d = videoEl.duration;
+      return outro ? outro.start : d - UP_NEXT_SECONDS;
+    }
+    function checkUpNext() {
+      if (upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
+      var d = videoEl.duration;
+      var nv = nextVideo();
+      if (!nv || !(d > 300) || !isFinite(d) || videoEl.currentTime < upNextStart()) return;
+      hideSkip();
+      upNextTitle.textContent = epLabel(nv.season, nv.episode) + (nv.name || nv.title ? " · " + (nv.name || nv.title) : "");
+      upNextLeft = UP_NEXT_COUNT;
+      upNextCount.textContent = t("Começa em {n}s", {
+        n: upNextLeft
+      });
+      upNextBox.classList.add("show");
+      focus(upNextPlay, {
+        noScroll: true
+      });
+      upNextTimer = setInterval(function () {
+        upNextLeft--;
+        upNextCount.textContent = t("Começa em {n}s", {
+          n: upNextLeft
+        });
+        if (upNextLeft <= 0) upNextGo();
+      }, 1e3);
+    }
+    function upNextStop(cancelled) {
+      clearInterval(upNextTimer);
+      upNextTimer = null;
+      upNextBox.classList.remove("show");
+      if (cancelled) {
+        upNextCancelled = true;
+        focus(bar, {
+          noScroll: true
+        });
+      }
+    }
+    function upNextGo() {
+      upNextStop(false);
+      record(video.id, 1);
+      upNextCancelled = false;
+      playNext();
+    }
+    var SUB_STEP = 0.25;
+    var SUB_DELAYS = "subDelays";
+    function savedDelay() {
+      return (get(SUB_DELAYS, {}) || {})[video.id] || 0;
+    }
+    function rememberDelay(v) {
+      var all2 = get(SUB_DELAYS, {}) || {};
+      delete all2[video.id];
+      if (v) all2[video.id] = v;
+      var keys = Object.keys(all2);
+      if (keys.length > 200) delete all2[keys[0]];
+      set(SUB_DELAYS, all2);
+    }
+    function setSubDelay(v) {
+      v = Math.round(Math.max(-30, Math.min(30, v)) * 100) / 100;
+      renderer.setOffset(v);
+      rememberDelay(v);
+      return v;
+    }
+    function nudgeSubs(dir) {
+      if (currentSub.kind === "off") return toast(t("Ligue uma legenda primeiro."));
+      if (currentSub.kind === "embedded") return toast(t("O ajuste funciona com legendas de addons (OpenSubtitles etc.)."), 4e3);
+      var v = setSubDelay(renderer.offset() + dir * SUB_STEP);
+      toast(t("Atraso da legenda: {n}s", {
+        n: (v > 0 ? "+" : "") + v.toFixed(2)
+      }) + "  ·  " + (v < 0 ? t("Legenda aparece antes") : v > 0 ? t("Legenda aparece depois") : t("Sem ajuste")), 1800);
+    }
     videoEl.addEventListener("error", function () {
       var err = videoEl.error;
       log.warn("Erro de vídeo", err && err.code, mediaUrl);
       if (!alive) return;
+      if (!hasPlayed && opts.fallbacks && opts.fallbacks.length) {
+        stream = opts.fallbacks.shift();
+        toast(t("Essa fonte não tocou. Tentando outra..."));
+        triedTranscode = false;
+        autoDone = {
+          sub: false,
+          audio: false
+        };
+        start3();
+        return;
+      }
       if (!triedTranscode && isAvailable()) {
         fail(t("A TV não conseguiu tocar este arquivo diretamente."), true);
       } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."));
@@ -6727,7 +9169,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (seg) activeSeg = null;
           return;
         }
-        if (settings().skipMode === "auto") {
+        if (settings().skipMode === "auto" && !(seg.type === "outro" && opts.isSeries && nextVideo())) {
           doSkip();
           return;
         }
@@ -7162,6 +9604,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         kind: "addon",
         id: s.id || s.url
       };
+      renderer.setOffset(savedDelay());
       load3(s.url, subtitlesProxy(s.url)).then(function (cues) {
         if (!alive || currentSub.id !== (s.id || s.url)) return;
         renderer.set(cues);
@@ -7297,7 +9740,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         };
       }), {
         onPick: function onPick(v) {
-          return renderer.setOffset(v);
+          return setSubDelay(v);
         }
       });
     }
@@ -7342,7 +9785,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start2();
+          start3();
         }
       });
     }
@@ -7368,7 +9811,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start2();
+          start3();
         } else {
           pop();
           openDetails(meta.type, meta.id, {
@@ -7384,12 +9827,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var delta = watchedDelta;
       watchedDelta = 0;
       if (meta.id === "dev") return;
+      record(video.id, videoEl.currentTime / d);
       var nv = final && meta.type === "series" ? nextVideoForResume() : null;
       saveProgress(meta, video.id, videoEl.currentTime * 1e3, d * 1e3, delta, !!final, nv ? nv.id : null);
     }
     function onKey(e) {
       var k = e.keyCode;
       var cur = current2();
+      if (upNextTimer && (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE)) {
+        upNextStop(true);
+        return true;
+      }
+      if (upNextTimer && cur && upNextBox.contains(cur)) return false;
+      if (k === KEY.CH_UP || k === KEY.YELLOW) {
+        nudgeSubs(1);
+        return true;
+      }
+      if (k === KEY.CH_DOWN || k === KEY.BLUE) {
+        nudgeSubs(-1);
+        return true;
+      }
       switch (k) {
         case KEY.PLAY:
           videoEl.play();
@@ -7452,7 +9909,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onKey: onKey,
       onShow: function onShow() {
         if (!ticker) {
-          start2();
+          start3();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
@@ -7477,6 +9934,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       destroy: function destroy() {
         if (alive) saveProgress2(true);
         alive = false;
+        clearInterval(nowTimer);
+        onSeek(null);
+        nowPlaying(null);
         clearInterval(ticker);
         clearInterval(saveTimer);
         clearInterval(watchTimer);
@@ -7489,6 +9949,204 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           videoEl.removeAttribute("src");
           videoEl.load();
         } catch (e) {}
+      }
+    };
+  }
+
+  // src/js/views/person.js
+  function age(birthday, deathday) {
+    var b = new Date(birthday);
+    if (isNaN(b.getTime())) return null;
+    var end = deathday ? new Date(deathday) : /* @__PURE__ */new Date();
+    var a = end.getFullYear() - b.getFullYear();
+    if (end.getMonth() < b.getMonth() || end.getMonth() === b.getMonth() && end.getDate() < b.getDate()) a--;
+    return a;
+  }
+  function longDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    try {
+      return d.toLocaleDateString(current() === "ar" ? "ar" : "en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+    } catch (e) {
+      return iso;
+    }
+  }
+  function PersonView(personId, name) {
+    var el = h("div.view");
+    var scroller = h("div.scroll-y", {
+      "data-scroll-y": ""
+    });
+    var head = h("div.person-head");
+    var grid = h("div.grid");
+    scroller.appendChild(head);
+    scroller.appendChild(grid);
+    el.appendChild(scroller);
+    head.appendChild(h("div.person-name", {
+      text: name || ""
+    }));
+    head.appendChild(spinnerLine(t("Carregando...")));
+    person(personId).then(function (p) {
+      clear(head);
+      if (p.photo) head.appendChild(h("img.person-photo", {
+        src: p.photo,
+        alt: ""
+      }));
+      var facts = [];
+      var years = age(p.birthday, p.deathday);
+      if (p.birthday) facts.push(t("Nascimento: {date}", {
+        date: longDate(p.birthday)
+      }) + (years !== null && !p.deathday ? " · " + t("{n} anos", {
+        n: years
+      }) : ""));
+      if (p.deathday) facts.push(t("Falecimento: {date}", {
+        date: longDate(p.deathday)
+      }) + (years !== null ? " · " + t("{n} anos", {
+        n: years
+      }) : ""));
+      if (p.place) facts.push(t("Local de nascimento: {place}", {
+        place: p.place
+      }));
+      head.appendChild(h("div.person-info", {
+        focusable: true
+      }, [h("div.person-name", {
+        text: p.name
+      }), p.department ? h("div.person-dept", {
+        text: t(p.department === "Directing" ? "Direção" : "Atuação")
+      }) : null, h("div.person-facts", null, facts.map(function (f) {
+        return h("div", {
+          text: f
+        });
+      })), p.biography ? h("div.person-bio", {
+        text: p.biography
+      }) : h("div.person-bio.empty", {
+        text: t("Sem biografia disponível.")
+      })]));
+      if (!p.credits.length) return;
+      scroller.insertBefore(h("div.row-title.person-credits", {
+        text: t("Filmes e séries")
+      }), grid);
+      p.credits.forEach(function (c) {
+        grid.appendChild(card({
+          name: c.name,
+          poster: c.poster
+        }, {
+          title: c.name + (c.year ? " (" + c.year + ")" : ""),
+          onSelect: function onSelect() {
+            toast(t("Abrindo {name}...", {
+              name: c.name
+            }), 2e3);
+            tmdbImdb(c.type, c.tmdb).then(function (imdb) {
+              if (!imdb) return toast(t("Esse título ainda não tem página no Stremio."), 4e3);
+              openDetails(c.type === "tv" ? "series" : "movie", imdb);
+            });
+          }
+        }));
+      });
+      loadVisibleImages(el, 600);
+    }).catch(function () {
+      clear(head);
+      head.appendChild(h("div.hint", {
+        text: t("Não foi possível carregar este perfil.")
+      }));
+    });
+    return {
+      el: el,
+      onShow: function onShow() {
+        return loadVisibleImages(el, 600);
+      }
+    };
+  }
+
+  // src/js/views/trailer.js
+  function trailerIds(meta) {
+    var ids = [];
+    (meta.trailerStreams || []).forEach(function (s) {
+      return s && s.ytId && ids.push(s.ytId);
+    });
+    (meta.trailers || []).forEach(function (tr) {
+      return tr && tr.source && (!tr.type || tr.type === "Trailer") && ids.push(tr.source);
+    });
+    return ids.filter(function (id, i) {
+      return /^[\w-]{11}$/.test(id) && ids.indexOf(id) === i;
+    });
+  }
+  function openTrailer(ids, title) {
+    push(TrailerView(ids, title));
+  }
+  function TrailerView(ids, title) {
+    var index = 0;
+    var playing = true;
+    var el = h("div.view.trailer");
+    var frame = h("iframe.trailer-frame", {
+      tabindex: "-1",
+      allow: "autoplay; encrypted-media",
+      allowfullscreen: "",
+      referrerpolicy: "origin"
+    });
+    var hint = h("div.trailer-hint", {
+      text: title + "  ·  " + t("Voltar fecha o trailer")
+    });
+    el.appendChild(frame);
+    el.appendChild(hint);
+    el.appendChild(h("div.trailer-focus", {
+      focusable: true
+    }));
+    function load5() {
+      var params = "autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&enablejsapi=1&hl=" + current();
+      frame.src = "https://www.youtube-nocookie.com/embed/" + ids[index] + "?" + params;
+      playing = true;
+    }
+    function command(func, args) {
+      try {
+        frame.contentWindow.postMessage(JSON.stringify({
+          event: "command",
+          func: func,
+          args: args || []
+        }), "*");
+      } catch (e) {}
+    }
+    var hintTimer = setTimeout(function () {
+      return hint.classList.add("faded");
+    }, 4e3);
+    function showHint() {
+      hint.classList.remove("faded");
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(function () {
+        return hint.classList.add("faded");
+      }, 3e3);
+    }
+    load5();
+    return {
+      el: el,
+      onKey: function onKey(e) {
+        var k = e.keyCode;
+        showHint();
+        if (k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE || k === KEY.ENTER) {
+          playing = k === KEY.PLAY ? true : k === KEY.PAUSE ? false : !playing;
+          command(playing ? "playVideo" : "pauseVideo");
+          return true;
+        }
+        if ((k === KEY.RIGHT || k === KEY.FF) && ids.length > 1) {
+          index = (index + 1) % ids.length;
+          load5();
+          return true;
+        }
+        if (k === KEY.LEFT || k === KEY.RW) {
+          if (ids.length > 1 && k === KEY.LEFT) {
+            index = (index - 1 + ids.length) % ids.length;
+            load5();
+          }
+          return true;
+        }
+        return k === KEY.UP || k === KEY.DOWN;
+      },
+      destroy: function destroy() {
+        clearTimeout(hintTimer);
+        frame.src = "about:blank";
       }
     };
   }
@@ -7506,16 +10164,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return sa - sb || (a.episode || 0) - (b.episode || 0);
     });
   }
+  var SMART_WAIT_MS = 1e4;
+  var SMART_FALLBACKS = 4;
   function DetailsView(type, id, opts) {
     var el = h("div.view");
     var bg = h("img.details-bg", {
       alt: ""
     });
-    var info = h("div.details-info", null, spinnerLine(t("Carregando...")));
+    var info2 = h("div.details-info", null, spinnerLine(t("Carregando...")));
     var panel = h("div.details-panel");
     el.appendChild(bg);
     el.appendChild(h("div.details-shade"));
-    el.appendChild(info);
+    el.appendChild(info2);
     el.appendChild(panel);
     var meta = null;
     var mode = "none";
@@ -7545,7 +10205,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       })[0] || vids[0];
     }
     function renderInfo() {
-      clear(info);
+      clear(info2);
       var logo2 = h("img.details-logo", {
         alt: ""
       });
@@ -7558,19 +10218,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title.style.display = "";
       };
       logo2.src = meta.logo || logo(meta.id);
-      var parts2 = [];
-      if (meta.releaseInfo || meta.year) parts2.push(meta.releaseInfo || meta.year);
-      if (meta.runtime) parts2.push(meta.runtime);
+      var parts = [];
+      if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
+      if (meta.runtime) parts.push(meta.runtime);
       if (isSeries()) {
         var seasons = uniqueSeasons().filter(function (s) {
           return s !== 0;
         });
-        if (seasons.length) parts2.push(t(seasons.length > 1 ? "{n} temporadas" : "{n} temporada", {
+        if (seasons.length) parts.push(t(seasons.length > 1 ? "{n} temporadas" : "{n} temporada", {
           n: seasons.length
         }));
       }
       var metaLine = h("div.details-meta", {
-        text: parts2.join("  ·  ")
+        text: parts.join("  ·  ")
       });
       var ratingsEl = h("div.ratings");
       renderRatings(ratingsEl, meta.imdbRating ? [{
@@ -7596,23 +10256,42 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       watchBtn = h("div.btn.primary", {
         focusable: true,
         "data-autofocus": "",
-        onSelect: onWatch
+        onSelect: function onSelect() {
+          return onWatch(smartOn());
+        }
       });
       libBtn = h("div.btn", {
         focusable: true,
         onSelect: toggleLibrary
       });
+      var sourcesBtn = smartOn() ? h("div.btn", {
+        focusable: true,
+        onSelect: function onSelect() {
+          return onWatch(false);
+        }
+      }, [h("span.ico", {
+        text: "☰"
+      }), t("Fontes")]) : null;
+      var trailers = trailerIds(meta);
+      var trailerBtn = trailers.length ? h("div.btn", {
+        focusable: true,
+        onSelect: function onSelect() {
+          return openTrailer(trailers, meta.name);
+        }
+      }, [h("span.ico", {
+        text: "🎬"
+      }), t("Trailer")]) : null;
       updateButtons();
-      info.appendChild(logo2);
-      info.appendChild(title);
-      info.appendChild(metaLine);
-      info.appendChild(ratingsEl);
-      info.appendChild(genres);
-      info.appendChild(desc);
-      info.appendChild(castLine);
-      info.appendChild(h("div.details-buttons", {
+      info2.appendChild(logo2);
+      info2.appendChild(title);
+      info2.appendChild(metaLine);
+      info2.appendChild(ratingsEl);
+      info2.appendChild(genres);
+      info2.appendChild(desc);
+      info2.appendChild(castLine);
+      info2.appendChild(h("div.details-buttons", {
         "data-group": ""
-      }, [watchBtn, libBtn]));
+      }, [watchBtn, sourcesBtn, trailerBtn, libBtn]));
       loadExtras({
         logo: logo2,
         title: title,
@@ -7648,8 +10327,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           ui.logo.src = loc.logo;
         }
         if (loc.cast.length) {
-          var row = h("div.cast-row", null, loc.cast.slice(0, 7).map(function (c) {
-            return h("div.cast", null, [h("div.ph", null, c.photo ? h("img", {
+          var row = h("div.cast-row", {
+            "data-group": ""
+          }, loc.cast.slice(0, 7).map(function (c) {
+            return h("div.cast", {
+              focusable: true,
+              onSelect: function onSelect() {
+                return push(PersonView(c.id, c.name));
+              }
+            }, [h("div.ph", null, c.photo ? h("img", {
               src: c.photo,
               alt: ""
             }) : null), h("div.nm", {
@@ -7683,20 +10369,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var ep = isSeries() ? sortedVideos(meta).find(function (v) {
           return v.id === li.state.video_id;
         }) : null;
-        label = t("Continuar") + (ep ? " T" + ep.season + "E" + ep.episode : "");
+        label = t("Continuar") + (ep ? " " + epLabel(ep.season, ep.episode) : "");
       }
       watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
       libBtn.innerHTML = isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t("Na biblioteca") : '<span class="ico">＋</span>' + t("Biblioteca");
     }
-    function onWatch() {
+    function smartOn() {
+      return settings().smartChoice !== false;
+    }
+    function onWatch(smart) {
       if (isSeries()) {
         var v = nextUpVideo();
-        if (v) showStreams(v, true);
+        if (v) showStreams(v, true, smart);
       } else {
         showStreams({
           id: movieVideoId(),
           title: meta.name
-        }, true);
+        }, true, smart);
       }
     }
     function toggleLibrary() {
@@ -7776,8 +10465,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (inProgress) sub += " · " + t("parou em {time}", {
           time: fmtTime(li.state.timeOffset / 1e3)
         });
+        var done = isWatched(v.id);
+        var part = done ? 0 : progress(v.id) || (inProgress && li.state.duration ? li.state.timeOffset / li.state.duration : 0);
+        if (done) thumb.appendChild(h("div.ep-watched", {
+          text: "✓"
+        }));else if (part > 0) thumb.appendChild(h("div.progress", null, h("i", {
+          style: {
+            width: Math.round(part * 100) + "%"
+          }
+        })));
         var row = h("div.episode", {
           focusable: true,
+          cls: done ? "watched" : "",
           onSelect: function onSelect() {
             return showStreams(v, true);
           }
@@ -7840,11 +10539,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       return out;
     }
-    function showStreams(video, focusFirst2) {
+    function showStreams(video, focusFirst2, smart) {
       mode = "streams";
       streamsVideo = video;
       clear(panel);
-      var head = isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.name || video.title || "") : t("Fontes");
+      var head = isSeries() ? epLabel(video.season, video.episode) + " · " + (video.name || video.title || "") : t("Fontes");
       var filterBtn = h("div.btn.small", {
         focusable: true,
         text: t("Todos ▾"),
@@ -7899,15 +10598,78 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       list2.appendChild(loadingLine);
       var filter = "all";
       var pendingCount = srcs.length;
-      var all = [];
+      var all2 = [];
       var autoFocused = null;
       var serverOk = isAvailable();
+      var smartActive = !!smart;
+      var smartTimer = smartActive ? setTimeout(function () {
+        return decideSmart(true);
+      }, SMART_WAIT_MS) : null;
+      function stopSmart() {
+        smartActive = false;
+        clearTimeout(smartTimer);
+      }
+      function smartCandidates() {
+        var out = [];
+        groups.forEach(function (g, gi) {
+          (g.streams || []).forEach(function (s, si) {
+            if (!isPlayableType(s)) return;
+            var needs = needsServer(s);
+            if (needs && !serverOk) return;
+            var badges = streamBadges(s);
+            var warn = badges.some(function (b) {
+              return b.warn;
+            });
+            var heavy = badges.some(function (b) {
+              return b.t === "4K" || b.t === "HDR";
+            });
+            out.push({
+              s: s,
+              key: [needs ? 1 : 0, warn ? 1 : 0, heavy ? 1 : 0, gi, si]
+            });
+          });
+        });
+        out.sort(function (x, y) {
+          for (var i = 0; i < 5; i++) if (x.key[i] !== y.key[i]) return x.key[i] - y.key[i];
+          return 0;
+        });
+        return out.map(function (c) {
+          return c.s;
+        });
+      }
+      function decideSmart(timedOut) {
+        if (!smartActive || !alive || streamsVideo !== video) return;
+        if (focusFirst2 && autoFocused && current2() !== autoFocused) return stopSmart();
+        var list3 = smartCandidates();
+        var debridPending = groups.some(function (g) {
+          return addonRank(g.addon) === 0 && !g.done;
+        });
+        var best = list3[0];
+        var clean = best && !needsServer(best) && !streamBadges(best).some(function (b) {
+          return b.warn;
+        });
+        if (!best) {
+          if (pendingCount <= 0 || timedOut) {
+            stopSmart();
+            if (pendingCount <= 0) toast(t("Escolha inteligente: nenhuma fonte que a TV toque. Escolha na lista."), 5e3);
+          }
+          return;
+        }
+        if (pendingCount > 0 && !timedOut && (debridPending || !clean)) return;
+        stopSmart();
+        play(video, best, all2, list3.slice(1, 1 + SMART_FALLBACKS));
+      }
       function status2() {
+        if (smartActive) {
+          sub.textContent = t("Escolha inteligente: procurando a melhor fonte...") + "  ·  " + t("aperte uma seta para escolher você");
+          barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
+          return;
+        }
         var srv = serverOk ? t("Servidor do PC conectado") : t("Servidor do PC não conectado: só links diretos");
         sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
         }) : "  ·  " + t("{n} fontes", {
-          n: all.length
+          n: all2.length
         }));
         barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
         var g = groups.find(function (x) {
@@ -7933,7 +10695,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var opts2 = [{
           label: t("Todos"),
           sub: t("{n} fontes", {
-            n: all.length
+            n: all2.length
           }),
           value: "all",
           checked: filter === "all"
@@ -7968,9 +10730,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             g.count = streams.length;
+            g.streams = streams;
             streams.forEach(function (s) {
-              all.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all));
+              all2.push(s);
+              g.el.appendChild(streamItem(s, video, serverOk, all2));
             });
           }
           if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
@@ -7982,15 +10745,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
           if (pendingCount <= 0) {
             if (loadingLine.parentNode) list2.removeChild(loadingLine);
-            if (!all.length) list2.appendChild(h("div.loading-line", {
+            if (!all2.length) list2.appendChild(h("div.loading-line", {
               text: t("Nenhuma fonte encontrada.")
             }));
           }
           status2();
+          decideSmart(false);
         });
       }).catch(function () {});
     }
-    function streamItem(s, video, serverOk, all) {
+    function streamItem(s, video, serverOk, all2) {
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var disabled = !playableType || needs && !serverOk;
@@ -8015,7 +10779,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
           if (needs && !serverOk) return toast(t("Torrent precisa do stremio-service rodando no PC. Configure em Ajustes."), 5e3);
-          play(video, s, all);
+          play(video, s, all2);
         }
       }, [h("div.s-addon", {
         text: (s.name || s.addon || "").trim()
@@ -8023,17 +10787,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: (s.title || s.description || "").trim()
       }), h("div.s-tags", null, tags)])]);
     }
-    function play(video, stream, all) {
+    function play(video, stream, all2, fallbacks) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-      var start2 = function start2(ms) {
+      var start3 = function start3(ms) {
         return openPlayer({
           meta: meta,
           video: video,
           stream: stream,
-          streams: all,
+          streams: all2,
           startTime: ms,
-          isSeries: isSeries()
+          isSeries: isSeries(),
+          fallbacks: fallbacks || []
         });
       };
       if (resumeMs > 3e4) {
@@ -8049,10 +10814,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }], {
           center: true,
           onPick: function onPick(v) {
-            return start2(v);
+            return start3(v);
           }
         });
-      } else start2(0);
+      } else start3(0);
     }
     function formatDate(iso) {
       var d = new Date(iso);
@@ -8096,14 +10861,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       if (!opts.autoStreams) focus(watchBtn);
     }).catch(function (e) {
-      clear(info);
-      info.appendChild(h("div.details-title", {
+      clear(info2);
+      info2.appendChild(h("div.details-title", {
         text: t("Não foi possível abrir")
       }));
-      info.appendChild(h("div.details-desc", {
+      info2.appendChild(h("div.details-desc", {
         text: e.message
       }));
-      info.appendChild(h("div.btn", {
+      info2.appendChild(h("div.btn", {
         focusable: true,
         "data-autofocus": "",
         text: t("Voltar"),
@@ -8133,6 +10898,149 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
+  // src/js/api/newEpisodes.js
+  var DAYS = 7;
+  var CHECK = 25;
+  var PARALLEL = 1;
+  function librarySeries() {
+    return cachedLibrary().filter(function (it) {
+      return it.type === "series" && (!it.removed || it.state && it.state.timeOffset > 0);
+    }).sort(function (a, b) {
+      return String(b._mtime || "").localeCompare(String(a._mtime || ""));
+    }).slice(0, CHECK);
+  }
+  function recent(meta, it) {
+    var now = Date.now();
+    var from = now - DAYS * 864e5;
+    return (meta.videos || []).filter(function (v) {
+      var t2 = Date.parse(v.released);
+      return v.id && v.season && t2 >= from && t2 <= now && !isWatched(v.id);
+    }).map(function (v) {
+      return {
+        seriesId: it._id,
+        type: "series",
+        name: meta.name || it.name,
+        poster: meta.poster || it.poster,
+        background: meta.background,
+        thumbnail: v.thumbnail,
+        videoId: v.id,
+        season: v.season,
+        episode: v.episode,
+        title: v.name || v.title || "",
+        released: Date.parse(v.released)
+      };
+    });
+  }
+  function cached() {
+    return (get("newEpisodes", []) || []).filter(function (e) {
+      return !isWatched(e.videoId) && Date.now() - e.released <= DAYS * 864e5;
+    });
+  }
+  var run = 0;
+  function load4() {
+    var my = ++run;
+    return load().then(function () {
+      return scan2(my);
+    }).then(function (list2) {
+      if (my !== run) throw new Error("stopped");
+      set("newEpisodes", list2.slice(0, 40));
+      return list2;
+    });
+  }
+  function stop() {
+    run++;
+  }
+  function scan2(my) {
+    var series = librarySeries();
+    var out = [];
+    var i = 0;
+    var _worker = function worker() {
+      if (i >= series.length || my !== run) return Promise.resolve();
+      var it = series[i++];
+      return fetchMeta("series", it._id).then(function (meta) {
+        recent(meta, it).forEach(function (e) {
+          return out.push(e);
+        });
+      }).catch(function () {}).then(_worker);
+    };
+    var workers = [];
+    for (var n = 0; n < PARALLEL; n++) workers.push(_worker());
+    return Promise.all(workers).then(function () {
+      return out.sort(function (a, b) {
+        return b.released - a.released;
+      });
+    });
+  }
+
+  // src/js/views/catalog.js
+  var PER_ROW = 7;
+  function canPage(entry) {
+    var c = entry.catalog;
+    return (c.extra || []).some(function (e) {
+      return e && e.name === "skip";
+    }) || (c.extraSupported || []).indexOf("skip") >= 0;
+  }
+  function CatalogView(entry) {
+    var el = h("div.view");
+    var scroller = h("div.scroll-y", {
+      "data-scroll-y": ""
+    });
+    var grid = h("div.grid");
+    var status2 = h("div.grid-status");
+    scroller.appendChild(h("div.row-title.catalog-title", {
+      text: catalogTitle(entry)
+    }));
+    scroller.appendChild(grid);
+    scroller.appendChild(status2);
+    el.appendChild(scroller);
+    var paging = canPage(entry);
+    var seen = {};
+    var count = 0;
+    var loading = false;
+    var done = false;
+    function add(metas) {
+      metas.forEach(function (m) {
+        if (!m || seen[m.id]) return;
+        seen[m.id] = true;
+        var index = count++;
+        grid.appendChild(card(m, {
+          onSelect: function onSelect() {
+            return openDetails(m.type || entry.catalog.type, m.id);
+          },
+          onFocus: function onFocus() {
+            if (count - index <= PER_ROW * 2) more();
+          }
+        }));
+      });
+      loadVisibleImages(el, 600);
+    }
+    function more() {
+      if (loading || done) return;
+      loading = true;
+      clear(status2);
+      status2.appendChild(spinnerLine(t("Carregando...")));
+      var before = count;
+      fetchCatalog(entry, count ? {
+        skip: count
+      } : null).then(function (metas) {
+        add(metas);
+        if (!paging || count === before) done = true;
+      }).catch(function () {
+        done = true;
+      }).then(function () {
+        loading = false;
+        clear(status2);
+        if (!count) status2.appendChild(h("div.hint", {
+          text: t("Nada por aqui.")
+        }));
+      });
+    }
+    more();
+    return {
+      el: el
+    };
+  }
+
   // src/js/views/home.js
   var ROTATE_MS = 8e3;
   function HomeView() {
@@ -8145,13 +11053,142 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var cwRow = h("div.row", {
       "data-anchor": "30"
     });
+    var neRow = h("div.row", {
+      "data-anchor": "30"
+    });
     var rows = h("div.rows");
     scroller.appendChild(bar);
     scroller.appendChild(heroUi.el);
     scroller.appendChild(cwRow);
+    scroller.appendChild(neRow);
     scroller.appendChild(rows);
     el.appendChild(scroller);
     var loadedBoard = false;
+    var lastSync = Date.now();
+    function syncContinue() {
+      if (!isLoggedIn() || Date.now() - lastSync < 6e4) return;
+      lastSync = Date.now();
+      var before = JSON.stringify(continueWatching().map(function (it) {
+        return [it._id, it.state.video_id, it.state.timeOffset];
+      }));
+      getLibrary().then(function () {
+        var after = JSON.stringify(continueWatching().map(function (it) {
+          return [it._id, it.state.video_id, it.state.timeOffset];
+        }));
+        if (after !== before) {
+          renderContinue();
+          loadNew(true);
+          publishBrowse();
+        }
+      }).catch(function () {});
+    }
+    var syncTimer = setInterval(function () {
+      if (!el.classList.contains("hidden") && !perf()) syncContinue();
+    }, 3e5);
+    var newList = perf() ? [] : cached();
+    var newLoadedAt = 0;
+    function loadNew(force) {
+      if (perf() || !force && Date.now() - newLoadedAt < 30 * 6e4) return;
+      newLoadedAt = Date.now();
+      load4().then(function (list2) {
+        newList = list2;
+        renderNew();
+        publishBrowse();
+      }).catch(function () {});
+    }
+    function renderNew() {
+      clear(neRow);
+      if (!newList.length) {
+        neRow.style.display = "none";
+        return;
+      }
+      neRow.style.display = "";
+      neRow.appendChild(h("div.row-title", null, [t("Novos episódios"), h("small", {
+        text: t("Séries da sua biblioteca, últimos 7 dias")
+      })]));
+      var track = h("div.row-track", {
+        "data-scroll-x": "",
+        "data-group": ""
+      });
+      newList.slice(0, 20).forEach(function (e) {
+        var c = card({
+          name: e.name,
+          poster: e.poster
+        }, {
+          wide: true,
+          image: e.thumbnail || e.background || e.poster,
+          title: e.name + " · " + epLabel(e.season, e.episode),
+          onSelect: function onSelect() {
+            return openDetails("series", e.seriesId, {
+              videoId: e.videoId,
+              autoStreams: true
+            });
+          }
+        });
+        c.querySelector(".poster-wrap").appendChild(h("div.badge.new-badge", {
+          text: dayLabel(e.released)
+        }));
+        track.appendChild(c);
+      });
+      neRow.appendChild(track);
+      loadVisibleImages(neRow);
+    }
+    function dayLabel(ms) {
+      var d = new Date(ms);
+      var today = /* @__PURE__ */new Date();
+      today.setHours(0, 0, 0, 0);
+      var day = new Date(d.getTime());
+      day.setHours(0, 0, 0, 0);
+      var diff = Math.round((today - day) / 864e5);
+      if (diff <= 0) return t("Hoje");
+      if (diff === 1) return t("Ontem");
+      return t(["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][d.getDay()]);
+    }
+    function publishBrowse() {
+      var cont = continueWatching().slice(0, 20).map(function (it) {
+        return {
+          type: it.type,
+          id: it._id,
+          video: it.state.video_id,
+          name: it.name,
+          sub: episodeLabel(it.state.video_id, it._id),
+          poster: it.poster,
+          progress: it.state.duration ? Math.round(it.state.timeOffset / it.state.duration * 100) / 100 : 0
+        };
+      });
+      var fresh = newList.slice(0, 20).map(function (e) {
+        return {
+          type: "series",
+          id: e.seriesId,
+          video: e.videoId,
+          name: e.name,
+          sub: epLabel(e.season, e.episode) + (e.title ? " · " + e.title : ""),
+          poster: e.poster
+        };
+      });
+      var lib = cachedLibrary().filter(function (it) {
+        return !it.removed && it.type !== "other" && it.poster;
+      }).sort(function (a, b) {
+        return String(b._mtime || "").localeCompare(String(a._mtime || ""));
+      }).slice(0, 60).map(function (it) {
+        return {
+          type: it.type,
+          id: it._id,
+          name: it.name,
+          poster: it.poster
+        };
+      });
+      browse({
+        continueWatching: cont,
+        newEpisodes: fresh,
+        library: lib,
+        labels: {
+          continueWatching: t("Continuar assistindo"),
+          newEpisodes: t("Novos episódios"),
+          library: t("Biblioteca")
+        }
+      });
+    }
     var cwKey = null;
     function cwSignature(items) {
       return items.map(function (it) {
@@ -8256,6 +11293,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el,
       onShow: function onShow() {
         renderContinue();
+        syncContinue();
+        renderNew();
+        loadNew(false);
+        publishBrowse();
         if (!loadedBoard) renderBoard();
         heroUi.resume();
         loadVisibleImages(el);
@@ -8268,6 +11309,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       // Chamado quando um vídeo começa: solta as fileiras (o catálogo volta do cache ao retornar).
       freeMemory: function freeMemory() {
+        stop();
+        newLoadedAt = 0;
         pending2 = [];
         clear(rows);
         loadedBoard = false;
@@ -8277,13 +11320,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       // Chamado quando a biblioteca da conta chega do servidor; só redesenha se mudou.
       refreshContinue: function refreshContinue() {
-        if (cwSignature(continueWatching().slice(0, 20)) !== cwKey) renderContinue();
+        if (cwSignature(continueWatching().slice(0, 20)) !== cwKey) {
+          renderContinue();
+          publishBrowse();
+        }
       },
       reload: function reload() {
         heroUi.load();
         renderBoard();
       },
       destroy: function destroy() {
+        clearInterval(syncTimer);
         heroUi.pause();
         if (bar.__destroy) bar.__destroy();
       }
@@ -8293,7 +11340,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function episodeLabel(videoId, metaId) {
     if (!videoId || videoId === metaId) return "";
     var m = String(videoId).match(/:(\d+):(\d+)$/);
-    return m ? "T" + m[1] + " E" + m[2] : "";
+    return m ? epLabel(m[1], m[2]) : "";
   }
   var ROW_LIMIT = 20;
   function buildRow(entry, parent) {
@@ -8310,7 +11357,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     row.appendChild(title);
     row.appendChild(track);
     parent.appendChild(row);
-    var load4 = function load4() {
+    var load5 = function load5() {
       return fetchCatalog(entry).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
@@ -8325,6 +11372,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             }
           }));
         });
+        if (metas.length > ROW_LIMIT || canPage(entry)) {
+          track.appendChild(h("div.card.see-all", {
+            focusable: true,
+            onSelect: function onSelect() {
+              return push(CatalogView(entry));
+            }
+          }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
+            text: "→"
+          }), t("Ver tudo")])), h("div.name", {
+            text: ""
+          })]));
+        }
         loadVisibleImages(row);
       }).catch(function () {
         if (row.parentNode) parent.removeChild(row);
@@ -8332,8 +11391,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     return {
       row: row,
-      load: load4
+      load: load5
     };
+  }
+  function perf() {
+    return settings().perfMode !== false;
   }
   function typeLabel(type) {
     return {
@@ -8417,11 +11479,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title.style.display = "";
       };
       logo2.src = it.logo;
-      var parts2 = [];
-      if (it.year) parts2.push(it.year);
-      if (it.runtime) parts2.push(it.runtime);
-      if (it.genres && it.genres.length) parts2.push(it.genres.slice(0, 3).join(", "));
-      meta.innerHTML = (it.rating ? '<span class="imdb">★ ' + escapeHtml(it.rating) + "</span> · " : "") + escapeHtml(parts2.join(" · "));
+      var parts = [];
+      if (it.year) parts.push(it.year);
+      if (it.runtime) parts.push(it.runtime);
+      if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).join(", "));
+      meta.innerHTML = (it.rating ? '<span class="imdb">★ ' + escapeHtml(it.rating) + "</span> · " : "") + escapeHtml(parts.join(" · "));
       desc.textContent = it.description || "";
       clear(dots);
       items.forEach(function (_, i) {
@@ -8434,10 +11496,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function schedule() {
       clearTimeout(timer);
-      if (paused || items.length < 2) return;
+      if (paused || items.length < 2 || perf()) return;
       timer = setTimeout(function () {
-        index = (index + 1) % items.length;
-        render();
+        if (el.getBoundingClientRect().bottom > 0) {
+          index = (index + 1) % items.length;
+          render();
+        }
         schedule();
       }, ROTATE_MS);
     }
@@ -8522,9 +11586,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     el.appendChild(scroller);
     var token = 0;
     input.__submit = function (q) {
-      return run(q);
+      return run2(q);
     };
-    function run(q) {
+    function run2(q) {
       var query = (q || "").trim();
       clear(results);
       if (query.length < 2) {
@@ -8537,9 +11601,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       results.appendChild(spinnerLine(t('Buscando "{q}"...', {
         q: query
       })));
+      var people = h("div.row.people-row", {
+        "data-anchor": "30"
+      });
+      searchPeople(query).then(function (list2) {
+        if (my !== token || !list2.length) return;
+        people.appendChild(h("div.row-title", {
+          text: t("Pessoas")
+        }));
+        people.appendChild(h("div.row-track", {
+          "data-scroll-x": "",
+          "data-group": ""
+        }, list2.map(function (p) {
+          return h("div.cast.person-card", {
+            focusable: true,
+            onSelect: function onSelect() {
+              return push(PersonView(p.id, p.name));
+            }
+          }, [h("div.ph", null, h("img", {
+            src: p.photo,
+            alt: ""
+          })), h("div.nm", {
+            text: p.name
+          })]);
+        })));
+        results.insertBefore(people, results.firstChild);
+      }).catch(function () {});
       load().then(function () {
         if (my !== token) return;
         clear(results);
+        if (people.firstChild) results.appendChild(people);
         var cats = searchCatalogs();
         if (!cats.length) results.appendChild(h("div.hint", {
           text: t("Nenhum addon com busca instalado.")
@@ -8583,7 +11674,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       });
     }
-    run("");
+    run2("");
     return {
       el: el,
       onShow: function onShow() {
@@ -8594,6 +11685,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       focusInput: function focusInput() {
         return focus(input);
+      },
+      // From the phone remote: fill the box and run the search.
+      search: function search(q) {
+        input.value = q;
+        run2(q);
       }
     };
   }
@@ -8626,9 +11722,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function byInfo(key, dir) {
-    return function (a, b, info) {
-      var va = info[a._id] ? info[a._id][key] : null;
-      var vb = info[b._id] ? info[b._id][key] : null;
+    return function (a, b, info2) {
+      var va = info2[a._id] ? info2[a._id][key] : null;
+      var vb = info2[b._id] ? info2[b._id][key] : null;
       if (va == null && vb == null) return lastWatchedCmp(a, b);
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -8710,7 +11806,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!SORTS.some(function (x) {
       return x.id === sortId;
     })) sortId = "lastWatched";
-    var info = get("libraryMetaInfo", {});
+    var info2 = get("libraryMetaInfo", {});
     var fetching = null;
     var alive = true;
     function currentSort() {
@@ -8744,7 +11840,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function ensureMeta() {
       if (!currentSort().needsMeta || fetching) return;
       var missing = visibleItems().filter(function (it) {
-        return !info[it._id] && it.type !== "other";
+        return !info2[it._id] && it.type !== "other";
       });
       if (!missing.length) return;
       fetching = {
@@ -8762,18 +11858,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return alive && renderGrid();
         }, 800);
       };
-      var _worker = function worker() {
+      var _worker2 = function worker() {
         if (!alive || idx >= missing.length) return Promise.resolve();
         var it = missing[idx++];
         return fetchMeta(it.type, it._id).then(function (meta) {
-          info[it._id] = metaSummary(meta);
+          info2[it._id] = metaSummary(meta);
         }).catch(function () {
           return null;
-        }).then(finishOne).then(_worker);
+        }).then(finishOne).then(_worker2);
       };
-      Promise.all([_worker(), _worker()]).then(function () {
+      Promise.all([_worker2(), _worker2()]).then(function () {
         fetching = null;
-        set("libraryMetaInfo", info);
+        set("libraryMetaInfo", info2);
         if (alive) {
           renderStatus();
           renderGrid();
@@ -8816,7 +11912,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(grid);
       var cmp = currentSort().cmp;
       var items = visibleItems().sort(function (a, b) {
-        return cmp(a, b, info);
+        return cmp(a, b, info2);
       });
       if (!items.length) {
         grid.appendChild(h("div.hint", {
@@ -8856,96 +11952,58 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/api/update.js
-  var REPO = "creachec/Stremio-Kai-Timeworn";
+  var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  function parts(v) {
-    return String(v || "0").replace(/^v/i, "").split(".").map(function (x) {
-      return parseInt(x, 10) || 0;
-    });
-  }
-  function isNewer(remote, local) {
-    var a = parts(remote);
-    var b = parts(local);
-    for (var i = 0; i < Math.max(a.length, b.length); i++) {
-      if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0);
-    }
-    return false;
-  }
+  var BUILD = "2026-11-05T07:54:18.595Z";
+  var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
+  var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
+  var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
   function latest() {
-    return getJSON("https://api.github.com/repos/" + REPO + "/releases/latest", {
+    var bust = "?t=" + Date.now();
+    return Promise.all([getJSON(RAW + "dist/build.json" + bust, {
       timeout: 15e3,
       quiet: true
-    }).then(function (rel) {
-      var assets = rel && rel.assets || [];
-      var manifest = assets.find(function (a) {
-        return /\.manifest\.json$/.test(a.name);
-      });
-      var ipk = assets.find(function (a) {
-        return /\.ipk$/.test(a.name);
-      });
-      if (!manifest || !ipk) return null;
-      return getJSON(manifest.browser_download_url, {
-        timeout: 15e3,
-        quiet: true
-      }).then(function (m) {
-        return {
-          version: m.version || rel.tag_name,
-          notes: rel.body || "",
-          ipkUrl: m.ipkUrl || ipk.browser_download_url,
-          sha256: m.ipkHash && m.ipkHash.sha256,
-          pageUrl: rel.html_url || REPO_URL + "/releases"
-        };
-      });
+    }), getJSON("https://api.github.com/repos/" + REPO + "/commits?per_page=1", {
+      timeout: 15e3,
+      quiet: true
+    }).catch(function () {
+      return null;
+    })]).then(function (r) {
+      var b = r[0] || {};
+      var c = r[1] && r[1][0] && r[1][0].commit;
+      return {
+        build: b.build,
+        version: b.version || VERSION,
+        message: c ? String(c.message).split("\n")[0] : "",
+        date: c && c.committer && c.committer.date || b.build
+      };
     });
   }
   function check2() {
-    if (isTizen()) return Promise.resolve(null);
-    return latest().then(function (info) {
+    return latest().then(function (info2) {
       saveSettings({
         lastUpdateCheck: Date.now()
       });
-      return info && isNewer(info.version, VERSION) ? info : null;
+      return info2.build && info2.build !== BUILD && Date.parse(info2.build) > Date.parse(BUILD) ? info2 : null;
     });
   }
-  function canSelfUpdate() {
-    if (!hasLuna()) return Promise.resolve(false);
-    return luna("luna://org.webosbrew.hbchannel.service", "getConfiguration", {}).then(function () {
+  function apply2() {
+    return Promise.all(FILES.map(function (f) {
+      return getJSON(PURGE + f, {
+        timeout: 8e3,
+        quiet: true
+      }).catch(function () {
+        return null;
+      });
+    })).then(function () {
+      window.location.reload();
       return true;
-    }).catch(function () {
-      return false;
-    });
-  }
-  function install2(info, onStatus) {
-    return new Promise(function (resolve2, reject) {
-      if (!info.sha256) return reject(new Error(t("Release sem hash SHA-256")));
-      var bridge = new window.PalmServiceBridge();
-      bridge.onservicecallback = function (msg) {
-        var r = {};
-        try {
-          r = JSON.parse(msg);
-        } catch (e) {
-          return;
-        }
-        if (r.returnValue === false) return reject(new Error(r.errorText || t("Falha na instalação")));
-        var st = String(r.statusText || "");
-        if (onStatus) {
-          if (/Download/i.test(st)) onStatus(t("Baixando") + (isFinite(r.progress) ? " " + Math.round(r.progress) + "%" : "..."));else if (/Verif/i.test(st)) onStatus(t("Conferindo o arquivo..."));else if (/Install/i.test(st)) onStatus(t("Instalando..."));
-        }
-        if (r.finished || /succeeded|Nothing changed/i.test(st)) resolve2(st);
-      };
-      window.__kaiUpdateBridge = bridge;
-      bridge.call("luna://org.webosbrew.hbchannel.service/install", JSON.stringify({
-        id: "com.kai.stremio",
-        ipkUrl: info.ipkUrl,
-        ipkHash: info.sha256,
-        subscribe: true
-      }));
     });
   }
   function shouldAutoCheck() {
-    var last = settings().lastUpdateCheck || 0;
-    return Date.now() - last > 24 * 3600 * 1e3;
+    var last2 = settings().lastUpdateCheck || 0;
+    return Date.now() - last2 > 24 * 3600 * 1e3;
   }
 
   // src/js/views/login.js
@@ -9014,12 +12072,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         codeEl.textContent = r.code;
         qr.src = r.qrcode;
         codeStatus.textContent = t("Aguardando confirmação...");
-        poll(0);
+        poll2(0);
       }).catch(function () {
         codeStatus.textContent = t("Não foi possível gerar o código. Use o e-mail ao lado.");
       });
     }
-    function poll(n) {
+    function poll2(n) {
       clearTimeout(pollTimer);
       if (!alive) return;
       if (n > 100) {
@@ -9028,9 +12086,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       pollTimer = setTimeout(function () {
         readLinkCode(code).then(function (ok) {
-          return ok ? done() : poll(n + 1);
+          return ok ? done() : poll2(n + 1);
         }).catch(function () {
-          return poll(n + 1);
+          return poll2(n + 1);
         });
       }, 3e3);
     }
@@ -9064,13 +12122,82 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
+  // src/js/lib/theme.js
+  var THEMES = [{
+    id: "purple",
+    label: "Roxo",
+    main: "#7b5bf5",
+    light: "#9d85ff",
+    pale: "#c9bbff"
+  }, {
+    id: "gold",
+    label: "Dourado",
+    main: "#c9961a",
+    light: "#e0b54a",
+    pale: "#f2dca0"
+  }, {
+    id: "teal",
+    label: "Verde-água",
+    main: "#14958c",
+    light: "#3fc9bf",
+    pale: "#a8ebe6"
+  }, {
+    id: "red",
+    label: "Vermelho",
+    main: "#d6334a",
+    light: "#f0596c",
+    pale: "#f7b8c1"
+  }, {
+    id: "blue",
+    label: "Azul",
+    main: "#2f6fe0",
+    light: "#5b93f5",
+    pale: "#b9d0fb"
+  }, {
+    id: "green",
+    label: "Verde",
+    main: "#2e9e57",
+    light: "#4fc27a",
+    pale: "#b6e8c8"
+  }];
+  var BASE2 = THEMES[0];
+  function rgb(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255].join(",");
+  }
+  function recolor(css, th) {
+    var swap = [[BASE2.main, th.main], [BASE2.light, th.light], [BASE2.pale, th.pale], ["rgba(" + rgb(BASE2.main) + ",", "rgba(" + rgb(th.main) + ","], ["rgba(" + rgb(BASE2.light) + ",", "rgba(" + rgb(th.light) + ","], ["#b9a8ff", th.pale]];
+    swap.forEach(function (p) {
+      css = css.split(p[0]).join(p[1]).split(p[0].toUpperCase()).join(p[1]);
+    });
+    return css;
+  }
+  function apply3(id) {
+    var old = document.getElementById("theme-css");
+    if (old) old.parentNode.removeChild(old);
+    var th = THEMES.find(function (x2) {
+      return x2.id === id;
+    });
+    if (!th || th === BASE2) return;
+    var x = new XMLHttpRequest();
+    x.open("GET", (window.__KAI_BASE__ || "") + "app.css");
+    x.onload = function () {
+      if (x.status !== 200) return;
+      var style = document.createElement("style");
+      style.id = "theme-css";
+      style.textContent = recolor(x.responseText, th);
+      document.head.appendChild(style);
+    };
+    x.send();
+  }
+
   // src/js/views/settings.js
   var SUB_LANGS = [{
-    label: "Português (BR) e Português",
-    value: ["pob", "por", "pt", "pt-br"]
-  }, {
     label: "Inglês",
     value: ["eng", "en"]
+  }, {
+    label: "Árabe",
+    value: ["ara", "ar"]
   }, {
     label: "Espanhol",
     value: ["spa", "es"]
@@ -9082,11 +12209,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     label: "Original do arquivo",
     value: []
   }, {
-    label: "Português (dublado) quando houver",
-    value: ["por", "pt", "pob"]
-  }, {
     label: "Inglês quando houver",
     value: ["eng", "en"]
+  }, {
+    label: "Árabe quando houver",
+    value: ["ara", "ar"]
   }, {
     label: "Japonês quando houver",
     value: ["jpn", "ja"]
@@ -9128,37 +12255,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function checkForUpdate() {
       toast(t("Procurando atualização..."));
-      check2().then(function (info) {
-        if (!info) return toast(t("Você já está na versão mais nova (v{v}).", {
-          v: VERSION
-        }));
-        return canSelfUpdate().then(function (can) {
-          if (!can) {
-            menu(t("Versão {v} disponível", {
-              v: info.version
-            }), [{
-              label: t("Como atualizar"),
-              sub: t("No PC: webOS Dev Manager → instalar o .ipk da release")
-            }, {
-              label: info.pageUrl,
-              sub: t("Página da release")
-            }], {
-              center: true
-            });
-            return;
-          }
-          confirmDialog(t("Instalar a versão {v}? O app vai fechar e reabrir.", {
-            v: info.version
-          }), t("Atualizar"), function () {
-            install2(info, function (st) {
-              return toast(st, 8e3);
-            }).then(function () {
-              return toast(t("Atualizado! Reabrindo..."));
-            }).catch(function (e) {
-              return toast(t("Não foi possível atualizar: {msg}", {
-                msg: e.message
-              }), 6e3);
-            });
+      check2().then(function (info2) {
+        if (!info2) return toast(t("Você já tem a versão mais nova."));
+        confirmDialog(t("Atualização disponível ({date}): {msg}", {
+          date: shortDate(info2.date),
+          msg: info2.message || ""
+        }), t("Atualizar agora"), function () {
+          toast(t("Atualizando... o app vai recarregar."), 6e4);
+          apply2(info2).then(function (ok) {
+            if (!ok) toast(t("A atualização ainda está chegando. Tente de novo em alguns minutos."), 6e3);
           });
         });
       }).catch(function (e) {
@@ -9166,6 +12271,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           msg: e.message
         }), 5e3);
       });
+    }
+    function shortDate(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
     }
     function installFromUrl(url2, name) {
       if (!isLoggedIn()) return toast(t("Entre na conta primeiro"));
@@ -9204,19 +12314,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         id: "auto",
         label: t("Automático (idioma da TV)")
       }, {
-        id: "pt",
-        label: "Português"
-      }, {
         id: "en",
         label: "English"
+      }, {
+        id: "ar",
+        label: "العربية"
       }];
       body.appendChild(h("div.set-section", {
-        text: "Idioma / Language"
+        text: "Language / اللغة"
       }));
-      body.appendChild(row("Idioma / Language", "", (LANGS.find(function (l) {
+      body.appendChild(row("Language / اللغة", "", (LANGS.find(function (l) {
         return l.id === s.language;
       }) || LANGS[0]).label, function () {
-        return menu("Idioma / Language", LANGS.map(function (l) {
+        return menu("Language / اللغة", LANGS.map(function (l) {
           return {
             label: l.label,
             value: l.id,
@@ -9353,6 +12463,39 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
       }
       body.appendChild(h("div.set-section", {
+        text: t("Controle pelo celular")
+      }));
+      var phoneBox = h("div.set-row.phone-remote", {
+        focusable: true
+      }, h("div.phone-sub", {
+        text: t("Carregando...")
+      }));
+      body.appendChild(phoneBox);
+      info().then(function (i) {
+        clear(phoneBox);
+        if (!i) {
+          phoneBox.appendChild(h("div.phone-sub", {
+            text: t("O controle pelo celular não está rodando. Feche o app e abra de novo pelo TizenBrew.")
+          }));
+          return;
+        }
+        phoneBox.appendChild(h("img.phone-qr", {
+          src: qrImage(i.url, 300),
+          alt: ""
+        }));
+        phoneBox.appendChild(h("div.phone-text", null, [h("div.phone-title", {
+          text: t("Aponte a câmera do celular para o código")
+        }), h("div.phone-sub", {
+          text: t("Ou abra no navegador do celular (mesmo Wi-Fi):")
+        }), h("div.phone-url", {
+          text: "http://" + i.ip + ":" + i.port
+        }), h("div.phone-sub", {
+          text: t("PIN: {pin}", {
+            pin: i.pin
+          })
+        })]));
+      });
+      body.appendChild(h("div.set-section", {
         text: t("Servidor de streaming (PC)")
       }));
       var st = lastStatus();
@@ -9433,6 +12576,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       }));
+      var curTheme = THEMES.find(function (x) {
+        return x.id === s.theme;
+      }) || THEMES[0];
+      body.appendChild(row(t("Tema de cores"), t("Cor de destaque do app"), t(curTheme.label), function () {
+        return menu(t("Tema de cores"), THEMES.map(function (x) {
+          return {
+            label: t(x.label),
+            value: x.id,
+            checked: x.id === curTheme.id
+          };
+        }), {
+          onPick: function onPick(v) {
+            saveSettings({
+              theme: v
+            });
+            apply3(v);
+            render();
+          }
+        });
+      }));
       body.appendChild(row(t("Tema OLED (preto puro)"), t("Fundo totalmente preto"), "", function () {
         var on = !settings().oled;
         saveSettings({
@@ -9441,6 +12604,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         document.body.classList.toggle("oled", on);
         render();
       }, toggle(s.oled)));
+      body.appendChild(row(t("Escolha inteligente"), t("Assistir já toca a melhor fonte; o botão Fontes mostra a lista"), "", function () {
+        saveSettings({
+          smartChoice: settings().smartChoice === false
+        });
+        render();
+      }, toggle(s.smartChoice !== false)));
+      body.appendChild(row(t("Modo desempenho"), t("Mais rápido na TV: sem animações, sem Novos episódios e sem sincronizar em segundo plano"), "", function () {
+        var on = settings().perfMode === false;
+        saveSettings({
+          perfMode: on
+        });
+        document.body.classList.toggle("perf", on);
+        dropTab("home");
+        render();
+      }, toggle(settings().perfMode !== false)));
       body.appendChild(row(t("Rolagem animada"), t("Mais bonita, porém mais pesada na TV"), "", function () {
         var on = !settings().smoothScroll;
         saveSettings({
@@ -9551,11 +12729,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("Player")
       }));
       choose(t("Pular abertura e encerramento"), t("IntroDB (séries e filmes) e AniSkip (animes)"), [{
-        id: "prompt",
-        label: t('Mostrar botão "Pular"')
-      }, {
         id: "auto",
         label: t("Pular automaticamente")
+      }, {
+        id: "prompt",
+        label: t('Mostrar botão "Pular"')
       }, {
         id: "off",
         label: t("Desligado")
@@ -9563,7 +12741,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         prompt: t("Mostrar botão"),
         auto: t("Automático"),
         off: t("Desligado")
-      }[s.skipMode] || t("Mostrar botão"));
+      }[s.skipMode] || t("Automático"));
       body.appendChild(h("div.set-section", {
         text: t("Metadados extras (opcional)")
       }));
@@ -9589,7 +12767,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: sub
         })]), input]));
       };
-      keyRow(t("Chave TMDB"), t("Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)"), "tmdbKey", "API key (v3)");
+      keyRow(t("Chave TMDB"), t("Descrições em árabe, perfis de atores, calendário de filmes, logos e elenco com fotos (grátis em themoviedb.org)"), "tmdbKey", "API key (v3)");
       keyRow(t("Chave MDBList"), t("Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)"), "mdblistKey", "API key");
       body.appendChild(h("div.set-section", {
         text: t("Addons")
@@ -9666,7 +12844,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, [h("div.label", null, [t("Log remoto"), h("small", {
         text: t("npm run logs no PC")
       })]), logInput]));
-      body.appendChild(row(t("Versão"), device || "Stremio Kai Timeworn", "v" + VERSION, null));
+      body.appendChild(h("div.set-section", {
+        text: t("Atualizações")
+      }));
+      body.appendChild(row(t("Versão instalada"), device || "Stremio Kai", shortDate(BUILD), null));
+      var latestRow = row(t("Versão mais nova no GitHub"), REPO, t("Verificando..."), function () {
+        return checkForUpdate();
+      });
+      body.appendChild(latestRow);
+      latest().then(function (info2) {
+        var v = latestRow.querySelector(".value");
+        if (!v) return;
+        var newer = info2.build && info2.build !== BUILD && Date.parse(info2.build) > Date.parse(BUILD);
+        v.textContent = shortDate(info2.date) + (newer ? "  ·  " + t("nova!") : "  ·  " + t("em dia"));
+        if (info2.message) latestRow.querySelector(".label small").textContent = info2.message;
+      }).catch(function () {
+        var v = latestRow.querySelector(".value");
+        if (v) v.textContent = t("sem conexão");
+      });
       body.appendChild(row(t("Procurar atualização"), t("Baixa a versão nova do GitHub ({repo})", {
         repo: REPO
       }), "", function () {
@@ -9691,20 +12886,40 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/views/calendar.js
   var WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-  var QUERY = "query($from:Int,$to:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$from,airingAt_lesser:$to,sort:TIME){episode airingAt media{id idMal isAdult format countryOfOrigin title{romaji english} coverImage{large} averageScore}}}}";
+  var MODES = [{
+    id: "anime",
+    label: "Animes"
+  }, {
+    id: "series",
+    label: "Séries"
+  }, {
+    id: "movies",
+    label: "Filmes"
+  }];
+  var MOVIE_REGION = "US";
+  var NOT_SERIES = /^(Talk Show|News|Game Show|Variety|Sports|Award Show|Panel Show)$/;
+  var COUNTRY_TAG = {
+    CN: "CN",
+    KR: "KR",
+    TW: "TW"
+  };
+  var ANIME_QUERY = "query($from:Int,$to:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$from,airingAt_lesser:$to,sort:TIME){episode airingAt media{id idMal isAdult format countryOfOrigin title{romaji english} coverImage{large} averageScore}}}}";
   function dayStart(offset) {
     var d = /* @__PURE__ */new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() + offset);
     return d;
   }
-  function fetchDay(offset) {
+  function ymd(d) {
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function animeDay(offset) {
     var from = Math.floor(dayStart(offset).getTime() / 1e3) - 1;
     var to = from + 86400 + 1;
-    var all = [];
+    var all2 = [];
     var _page = function page(p) {
       return postJSON("https://graphql.anilist.co", {
-        query: QUERY,
+        query: ANIME_QUERY,
         variables: {
           from: from,
           to: to,
@@ -9714,16 +12929,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         timeout: 15e3
       }).then(function (r) {
         var pg = r && r.data && r.data.Page;
-        if (!pg) return all;
+        if (!pg) return all2;
         pg.airingSchedules.forEach(function (s) {
-          if (s.media && !s.media.isAdult && s.media.countryOfOrigin === "JP") all.push(s);
+          if (s.media && !s.media.isAdult) all2.push(s);
         });
-        return pg.pageInfo.hasNextPage && p < 4 ? _page(p + 1) : all;
+        return pg.pageInfo.hasNextPage && p < 10 ? _page(p + 1) : all2;
       });
     };
-    return _page(1);
+    return _page(1).then(function (list2) {
+      return list2.map(function (s) {
+        var m = s.media;
+        var name = m.title && (m.title.english || m.title.romaji) || "";
+        return {
+          name: name,
+          poster: m.coverImage && m.coverImage.large,
+          at: s.airingAt * 1e3,
+          slot: timeHM(new Date(s.airingAt * 1e3)) + " · Ep " + s.episode,
+          score: m.averageScore,
+          tag: COUNTRY_TAG[m.countryOfOrigin],
+          open: function open() {
+            return resolveAnime(m).then(function (r) {
+              return r ? openDetails(r.type, r.id) : notFound(t("Esse anime não foi encontrado nos seus addons (instale o Anime Kitsu)."));
+            });
+          }
+        };
+      });
+    });
   }
-  function resolve(media) {
+  function resolveAnime(media) {
     return getJSON("https://arm.haglund.dev/api/v2/ids?source=anilist&id=" + media.id, {
       quiet: true
     }).catch(function () {
@@ -9757,21 +12990,90 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return _next2();
     });
   }
+  function seriesDay(offset) {
+    var date = ymd(dayStart(offset));
+    var opt = {
+      timeout: 15e3,
+      quiet: true
+    };
+    return Promise.all([getJSON("https://api.tvmaze.com/schedule/web?date=" + date, opt).catch(function () {
+      return [];
+    }), getJSON("https://api.tvmaze.com/schedule?country=US&date=" + date, opt).catch(function () {
+      return [];
+    })]).then(function (lists) {
+      var seen = {};
+      var out = [];
+      lists[0].concat(lists[1]).forEach(function (e) {
+        var show2 = e.show || e._embedded && e._embedded.show;
+        if (!show2 || !show2.externals || !show2.externals.imdb || NOT_SERIES.test(show2.type || "")) return;
+        var key = show2.id + ":" + e.season + ":" + e.number;
+        if (seen[key]) return;
+        seen[key] = true;
+        var network = show2.webChannel && show2.webChannel.name || show2.network && show2.network.name || "";
+        var at = e.airstamp ? Date.parse(e.airstamp) : 0;
+        out.push({
+          name: show2.name,
+          poster: show2.image && (show2.image.original || show2.image.medium),
+          at: at,
+          slot: (at ? timeHM(new Date(at)) + " · " : "") + "S" + e.season + " E" + (e.number || "?"),
+          score: show2.rating && show2.rating.average ? Math.round(show2.rating.average * 10) : 0,
+          tag: network,
+          open: function open() {
+            return openDetails("series", show2.externals.imdb);
+          }
+        });
+      });
+      return out.sort(function (a, b) {
+        return a.at - b.at;
+      });
+    });
+  }
+  function moviesDay(offset) {
+    return digitalReleases(ymd(dayStart(offset)), MOVIE_REGION).then(function (list2) {
+      if (list2 === null) return null;
+      return list2.map(function (m) {
+        return {
+          name: m.name,
+          poster: m.poster,
+          slot: t("Streaming"),
+          score: m.score,
+          open: function open() {
+            return tmdbImdb("movie", m.tmdb).then(function (imdb) {
+              return imdb ? openDetails("movie", imdb) : notFound(t("Esse filme ainda não tem página no Stremio."));
+            });
+          }
+        };
+      });
+    });
+  }
+  function notFound(msg) {
+    toast(msg, 5e3);
+  }
+  var FETCH = {
+    anime: animeDay,
+    series: seriesDay,
+    movies: moviesDay
+  };
   function CalendarView() {
     var el = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
     var bar = topbar("calendar", goTab);
+    var modes = h("div.cal-days.cal-modes", {
+      "data-group": ""
+    });
     var days = h("div.cal-days", {
       "data-group": "",
       "data-scroll-x": ""
     });
     var grid = h("div.grid");
     scroller.appendChild(bar);
+    scroller.appendChild(modes);
     scroller.appendChild(days);
     scroller.appendChild(grid);
     el.appendChild(scroller);
+    var mode = "anime";
     var current3 = 0;
     var token = 0;
     function label(offset) {
@@ -9779,6 +13081,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (offset === 1) return t("Amanhã");
       if (offset === -1) return t("Ontem");
       return t(WEEKDAYS[dayStart(offset).getDay()]);
+    }
+    function renderModes() {
+      clear(modes);
+      MODES.forEach(function (m, i) {
+        return modes.appendChild(h("div.chip", {
+          focusable: true,
+          cls: m.id === mode ? "active" : "",
+          text: t(m.label),
+          onSelect: function onSelect() {
+            mode = m.id;
+            renderModes();
+            focus(modes.children[i]);
+            load5();
+          }
+        }));
+      });
     }
     function renderDays() {
       clear(days);
@@ -9793,7 +13111,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             current3 = off;
             renderDays();
             focus(days.children[off + 1]);
-            load4();
+            load5();
           }
         }));
       };
@@ -9802,45 +13120,49 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       days.__last = days.children[current3 + 1];
     }
-    function load4() {
+    function load5() {
       var my = ++token;
       clear(grid);
       grid.appendChild(spinnerLine(t("Buscando lançamentos...")));
-      fetchDay(current3).then(function (list2) {
+      FETCH[mode](current3).then(function (list2) {
         if (my !== token) return;
         clear(grid);
-        if (!list2.length) {
+        if (list2 === null) {
           grid.appendChild(h("div.hint", {
-            text: t("Nenhum episódio neste dia.")
+            text: t("As datas de streaming dos filmes vêm do TMDB: coloque sua chave grátis do TMDB em Ajustes.")
           }));
           return;
         }
-        var now = Date.now() / 1e3;
-        list2.forEach(function (s) {
-          var m = s.media;
-          var name = m.title && (m.title.english || m.title.romaji) || "";
+        if (!list2.length) {
+          grid.appendChild(h("div.hint", {
+            text: mode === "movies" ? t("Nenhum filme chega ao streaming neste dia.") : t("Nenhum episódio neste dia.")
+          }));
+          return;
+        }
+        var now = Date.now();
+        list2.forEach(function (it) {
           var c = card({
-            name: name,
-            poster: m.coverImage && m.coverImage.large
+            name: it.name,
+            poster: it.poster
           }, {
-            title: name,
+            title: it.name,
             onSelect: function onSelect() {
               toast(t("Abrindo {name}...", {
-                name: name
+                name: it.name
               }), 2e3);
-              resolve(m).then(function (r) {
-                if (!r) return toast(t("Esse anime não foi encontrado nos seus addons (instale o Anime Kitsu)."), 5e3);
-                openDetails(r.type, r.id);
-              });
+              it.open();
             }
           });
-          var time = timeHM(new Date(s.airingAt * 1e3));
-          c.querySelector(".poster-wrap").appendChild(h("div.cal-slot", {
-            cls: s.airingAt < now ? "aired" : "",
-            text: time + " · Ep " + s.episode
+          var wrap = c.querySelector(".poster-wrap");
+          wrap.appendChild(h("div.cal-slot", {
+            cls: it.at && it.at < now ? "aired" : "",
+            text: it.slot
           }));
-          if (m.averageScore) c.querySelector(".poster-wrap").appendChild(h("div.badge", {
-            text: m.averageScore + "%"
+          if (it.score) wrap.appendChild(h("div.badge.cal-score", {
+            text: it.score + "%"
+          }));
+          if (it.tag) wrap.appendChild(h("div.cal-tag", {
+            text: it.tag
           }));
           grid.appendChild(c);
         });
@@ -9855,8 +13177,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
       });
     }
+    renderModes();
     renderDays();
-    load4();
+    load5();
     return {
       el: el,
       onShow: function onShow() {
@@ -10018,15 +13341,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       card2.appendChild(h("p", {
         text: t("Em qual idioma o app deve ligar a legenda sozinho quando o áudio não for no seu idioma?")
       }));
-      var pt = {
-        label: t("Português (BR)"),
-        value: ["pob", "por", "pt", "pt-br"]
+      var ar = {
+        label: t("Árabe"),
+        value: ["ara", "ar"]
       };
       var en = {
         label: t("Inglês"),
         value: ["eng", "en"]
       };
-      var choices = (current() === "en" ? [en, pt] : [pt, en]).concat([{
+      var choices = (current() === "ar" ? [ar, en] : [en, ar]).concat([{
         label: t("Não ligar sozinho"),
         value: []
       }]);
@@ -10067,6 +13390,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (s.devlogUrl) log.setRemote(s.devlogUrl);
     log.info("Iniciando", navigator.userAgent);
     registerTizenKeys();
+    start();
+    onOpen(function (ev) {
+      goTab("home");
+      openDetails(ev.kind, ev.item, ev.video ? {
+        videoId: ev.video,
+        autoStreams: true
+      } : {});
+    });
+    onSearch(function (q) {
+      goTab("search");
+      var view = currentView();
+      if (view && view.search) view.search(q);
+    });
     install();
     setSmooth(s.smoothScroll);
     var scrollTimer = null;
@@ -10088,9 +13424,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (bootEl) bootEl.style.display = "none";
       showPicker(function () {
         if (bootEl) bootEl.style.display = "";
-        start();
+        start2();
       });
-    } else start();
+    } else start2();
     document.addEventListener("webOSRelaunch", function () {
       check();
       devLaunch();
@@ -10099,10 +13435,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!document.hidden) check();
     });
   }
-  function start() {
+  function start2() {
     reloadProfile();
     var s = settings();
     document.body.classList.toggle("oled", !!s.oled);
+    apply3(s.theme);
+    document.body.classList.toggle("perf", s.perfMode !== false);
     log.info("Perfil", activeProfile().name);
     if (isLoggedIn()) {
       refreshUser().catch(function () {});
@@ -10129,10 +13467,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       devLaunch();
       if (shouldAutoCheck()) {
         setTimeout(function () {
-          check2().then(function (info) {
-            return info && toast(t("Versão {v} disponível: Ajustes → Procurar atualização", {
-              v: info.version
-            }), 7e3);
+          check2().then(function (info2) {
+            return info2 && toast(t("Atualização disponível: Ajustes → Procurar atualização"), 7e3);
           }).catch(function () {});
         }, 8e3);
       }
