@@ -344,7 +344,7 @@ function DetailsView(type, id, opts) {
     const head = isSeries() ? epLabel(video.season, video.episode) + ' · ' + (video.name || video.title || '') : t('Fontes');
     const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
     panel.appendChild(h('div.panel-head', { 'data-group': '' }, [h('h2', { text: head }), filterBtn]));
-    const sub = h('div.panel-sub');
+    const sub = h('div.panel-sub.details-sources-status');
     const barFill = h('i');
     panel.appendChild(sub);
     panel.appendChild(h('div.load-bar', null, barFill));
@@ -400,6 +400,7 @@ function DetailsView(type, id, opts) {
     let serverOk = server.isAvailable();
     let tvOk = tvproxy.isAvailable();
     let torrentOk = tvproxy.isTorrentAvailable();
+    let lastTorrentError = '';
     // Smart Choice: picks a source once the debrid add-ons answer (or after SMART_WAIT_MS),
     // unless the user moves the focus first.
     let smartActive = !!smart;
@@ -465,7 +466,7 @@ function DetailsView(type, id, opts) {
         ? t('TV torrent player ready')
         : t('TV torrent player unavailable; torrent sources hidden');
       const proxyStatus = tvOk ? t('TV proxy available') : serverOk ? t('PC proxy available') : t('Direct links only');
-      sub.textContent = srv + '  ·  ' + proxyStatus + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
+      sub.textContent = srv + '  ·  ' + proxyStatus + (lastTorrentError ? '  ·  ' + lastTorrentError : '') + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
       const g = groups.find((x) => x.addon.transportUrl === filter);
       filterBtn.textContent = (g ? g.addon.manifest.name : t('Todos')) + ' ▾';
@@ -598,7 +599,12 @@ function DetailsView(type, id, opts) {
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
           if (torrent && !torrentOk) return toast(t('TV torrent player unavailable.'), 5000);
-          play(video, s, all);
+          play(video, s, all, null, (error) => {
+            if (!error || !error.torrentOpen) return;
+            lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
+            const currentStatus = el.querySelector('.details-sources-status');
+            if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
+          });
         },
       },
       [
@@ -612,11 +618,11 @@ function DetailsView(type, id, opts) {
     );
   }
 
-  function play(video, stream, all, fallbacks) {
+  function play(video, stream, all, fallbacks, onError) {
     const li = stremio.libraryItem(meta.id);
     const resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
     const start = (ms) =>
-      openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries(), fallbacks: fallbacks || [] });
+      openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries(), fallbacks: fallbacks || [], onError: onError });
     if (resumeMs > 30000) {
       menu(
         t('Continuar de onde parou?'),

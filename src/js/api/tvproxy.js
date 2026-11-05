@@ -155,7 +155,11 @@ export function openTorrent(args) {
         let result;
         try { result = JSON.parse(x.responseText); } catch (e) { result = null; }
         if (x.status === 200 && result && result.url) resolve(result);
-        else reject(new Error(result && result.error || 'Could not open TV torrent'));
+        else {
+          const error = new Error(result && result.error || 'Could not open TV torrent');
+          error.torrentOpen = true;
+          reject(error);
+        }
       };
       const disconnected = (message) => {
         status = { ok: false, torrent: false, checkedAt: 0 };

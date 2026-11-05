@@ -236,6 +236,8 @@ export const AR = {
   'Torrent · via PC': 'تورنت · عبر الكمبيوتر',
   'Torrent · via TV': 'تورنت · عبر التلفاز',
   'Torrent player unavailable': 'مشغل التورنت على التلفاز غير متاح',
+  'Torrent metadata hatası: {msg}': 'خطأ في بيانات التورنت: {msg}',
+  'Bu tanı TV torrent servisinden geldi.': 'هذا التشخيص صادر من خدمة التورنت على التلفاز.',
   'TV torrent player ready': 'مشغل التورنت على التلفاز جاهز',
   'TV torrent player unavailable; torrent sources hidden': 'مشغل التورنت على التلفاز غير متاح؛ مصادر التورنت مخفية',
   'TV proxy available': 'وسيط التلفاز متاح',

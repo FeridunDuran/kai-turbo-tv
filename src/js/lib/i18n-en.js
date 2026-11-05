@@ -253,6 +253,8 @@ export const EN = {
   'Torrent · via PC': 'Torrent · via PC',
   'Torrent · via TV': 'Torrent · via TV',
   'Torrent player unavailable': 'TV torrent player unavailable',
+  'Torrent metadata hatası: {msg}': 'Torrent metadata error: {msg}',
+  'Bu tanı TV torrent servisinden geldi.': 'This diagnosis came from the TV torrent service.',
   'TV torrent player ready': 'TV torrent player ready',
   'TV torrent player unavailable; torrent sources hidden': 'TV torrent player unavailable; torrent sources hidden',
   'TV proxy available': 'TV proxy available',
