@@ -10111,10 +10111,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).catch(function (e) {
         if (!alive || attempt !== startGeneration) return;
         clearStartup();
-        if (e.torrentOpen) {
-          var detailView = tabView("details") || currentView();
-          if (detailView && detailView.reportTorrentError) detailView.reportTorrentError(e);
-        }
+        if (e.torrentOpen && opts.onError) opts.onError(e);
         if (!tryFallback()) fail(e.message, e.torrentOpen ? t("Bu tanı TV torrent servisinden geldi.") : null);
       });
     }
@@ -12063,7 +12060,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
           if (torrent && !torrentOk) return toast(t("TV torrent player unavailable."), 5e3);
-          play(video, s, all2);
+          play(video, s, all2, null, function (error) {
+            if (!error || !error.torrentOpen) return;
+            lastTorrentError = t("Torrent metadata hatası: {msg}", {
+              msg: error.message
+            });
+            var currentStatus = el.querySelector(".details-sources-status");
+            if (currentStatus) currentStatus.textContent += "  ·  " + lastTorrentError;
+          });
         }
       }, [h("div.s-addon", {
         text: addonName
@@ -12167,14 +12171,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     return {
       el: el,
-      reportTorrentError: function reportTorrentError(error) {
-        if (!error || !error.torrentOpen) return;
-        lastTorrentError = t("Torrent metadata hatası: {msg}", {
-          msg: error.message
-        });
-        var currentStatus = el.querySelector(".details-sources-status");
-        if (currentStatus) currentStatus.textContent += "  ·  " + lastTorrentError;
-      },
       onShow: function onShow() {
         if (meta && watchBtn) updateButtons();
         loadVisibleImages(panel, 300);
@@ -13280,7 +13276,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T13:40:52.691Z";
+  var BUILD = "2026-11-05T13:42:23.180Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

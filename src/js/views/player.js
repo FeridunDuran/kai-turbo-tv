@@ -209,10 +209,7 @@ function PlayerView(opts) {
       .catch((e) => {
         if (!alive || attempt !== startGeneration) return;
         clearStartup();
-        if (e.torrentOpen) {
-          const detailView = router.tabView('details') || router.currentView();
-          if (detailView && detailView.reportTorrentError) detailView.reportTorrentError(e);
-        }
+        if (e.torrentOpen && opts.onError) opts.onError(e);
         if (!tryFallback()) fail(e.message, e.torrentOpen ? t('Bu tanı TV torrent servisinden geldi.') : null);
       });
   }

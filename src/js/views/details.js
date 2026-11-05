@@ -599,7 +599,12 @@ function DetailsView(type, id, opts) {
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
           if (torrent && !torrentOk) return toast(t('TV torrent player unavailable.'), 5000);
-          play(video, s, all);
+          play(video, s, all, null, (error) => {
+            if (!error || !error.torrentOpen) return;
+            lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
+            const currentStatus = el.querySelector('.details-sources-status');
+            if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
+          });
         },
       },
       [
@@ -678,12 +683,6 @@ function DetailsView(type, id, opts) {
 
   return {
     el: el,
-    reportTorrentError: (error) => {
-      if (!error || !error.torrentOpen) return;
-      lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
-      const currentStatus = el.querySelector('.details-sources-status');
-      if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
-    },
     onShow: () => {
       if (meta && watchBtn) updateButtons();
       loadVisibleImages(panel, 300);

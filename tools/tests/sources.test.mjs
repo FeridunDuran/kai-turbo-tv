@@ -88,7 +88,13 @@ async function sourceFixture(ready = true, initialStreams = null) {
   });
   ctx.openDetails('series', 'tt0460649', { videoId: 'tt0460649:1:1', autoStreams: true });
   await new Promise(setImmediate);
-  return { root: view.el, addonApi, get played() { return played; }, view, selectTorrent: () => view.el.querySelectorAll('.stream')[0].__select() };
+  return { root: view.el, addonApi, get played() { return played; }, view, selectTorrent: () => {
+    const torrentChip = view.el.querySelectorAll('.chip').find((chip) => /^Torrent/.test(chip.textContent));
+    torrentChip.__select();
+    const torrent = view.el.querySelectorAll('.stream')[0];
+    torrent.parentNode.style.display = '';
+    torrent.__select();
+  } };
 }
 
 test('ready TV engine retains Torrentio infoHash/magnet and Comet sources in closed groups', async () => {
@@ -121,7 +127,9 @@ test('unavailable TV engine hides torrent rows but retains direct sources', asyn
 
 test('torrent metadata error is stored by details and survives a source status refresh', async () => {
   const f = await sourceFixture();
-  f.view.reportTorrentError(Object.assign(new Error('torrent metadata timeout after 120 seconds: peers connected but did not supply complete metadata'), { torrentOpen: true }));
+  f.selectTorrent();
+  assert.equal(typeof f.played.onError, 'function');
+  f.played.onError(Object.assign(new Error('torrent metadata timeout after 120 seconds: peers connected but did not supply complete metadata'), { torrentOpen: true }));
   assert.match(f.root.textContent, /torrent metadata timeout after 120 seconds/);
   const status = f.root.querySelector('.details-sources-status');
   assert.ok(status);
