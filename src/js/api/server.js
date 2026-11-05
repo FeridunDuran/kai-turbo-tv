@@ -1,7 +1,6 @@
-// Servidor de streaming do Stremio (stremio-service) rodando num PC da rede, porta 11470.
-// Ele baixa torrents e entrega à TV por HTTP; também expõe /tracks para as faixas embutidas.
-// Links que só precisam de cabeçalhos usam o proxy local da TV (tvproxy.js) quando o PC não está.
-import { getJSON, postJSON } from '../lib/http.js';
+// Optional stremio-service on port 11470 provides a PC proxy and embedded-track metadata.
+// Torrents always run through the TV engine; header-dependent links can use the TV proxy.
+import { getJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getTvIp } from '../lib/luna.js';
 import { t } from '../lib/i18n.js';
@@ -104,32 +103,6 @@ function base32ToHex(s) {
   return hex;
 }
 
-function torrentUrl(base, infoHash, fileIdx, sources) {
-  let u = base + encodeURIComponent(infoHash) + '/' + encodeURIComponent(fileIdx);
-  if (sources && sources.length) {
-    u += '?' + sources.map((s) => 'tr=' + encodeURIComponent(s)).join('&');
-  }
-  return u;
-}
-
-function createTorrent(base, infoHash, fileIdx, sources, seriesInfo) {
-  const hasIdx = fileIdx !== null && fileIdx !== undefined && isFinite(fileIdx);
-  if ((!sources || !sources.length) && hasIdx) return Promise.resolve(torrentUrl(base, infoHash, fileIdx, []));
-  const body = { torrent: { infoHash: infoHash } };
-  if (sources && sources.length) {
-    const all = ['dht:' + infoHash].concat(sources.map((s) => (/^(tracker|dht):/.test(s) ? s : 'tracker:' + s)));
-    body.peerSearch = { sources: all.filter((s, i) => all.indexOf(s) === i), min: 40, max: 200 };
-  }
-  if (!hasIdx) {
-    body.guessFileIdx = {};
-    if (seriesInfo && isFinite(seriesInfo.season)) body.guessFileIdx.season = seriesInfo.season;
-    if (seriesInfo && isFinite(seriesInfo.episode)) body.guessFileIdx.episode = seriesInfo.episode;
-  } else body.guessFileIdx = false;
-  return postJSON(base + encodeURIComponent(infoHash) + '/create', body, { timeout: 30000 }).then((r) =>
-    torrentUrl(base, infoHash, hasIdx ? fileIdx : r && r.guessedFileIdx, body.peerSearch ? body.peerSearch.sources : [])
-  );
-}
-
 function proxyUrl(base, streamUrl, reqHeaders, resHeaders) {
   // Sem new URL(): o do Chromium 38 é incompleto e o polyfill pesa demais.
   const m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
@@ -157,7 +130,7 @@ export function getJSONViaProxy(url, opts) {
   });
 }
 
-// Torrent: só toca pelo servidor do PC.
+// Recognize magnet and infoHash streams handled by the TV torrent engine.
 export function isTorrent(stream) {
   if (typeof stream.url === 'string') return stream.url.indexOf('magnet:') === 0;
   return typeof stream.infoHash === 'string';
@@ -173,7 +146,7 @@ export function needsHeaders(stream) {
   return Object.keys(req).some((k) => req[k] != null && String(req[k]).trim() !== '');
 }
 
-// Diz se o stream prefere o servidor no PC (torrent ou cabeçalhos) ou toca direto (HTTP/debrid).
+// Indicates a torrent source or an HTTP source with request headers that need a proxy.
 export function needsServer(stream) {
   return isTorrent(stream) || needsHeaders(stream);
 }
@@ -194,14 +167,12 @@ export function toPlayable(stream, seriesInfo) {
     if (stream.url.indexOf('magnet:') === 0) {
       const mg = parseMagnet(stream.url);
       if (!mg) return Promise.reject(new Error(t('Magnet inválido')));
-      if (isAvailable()) return createTorrent(base, mg.infoHash, null, mg.sources, seriesInfo).then((u) => ({ url: u, viaServer: true }));
       return tvproxy.openTorrent({ infoHash: mg.infoHash, name: mg.name, sources: mg.sources,
         season: seriesInfo && seriesInfo.season, episode: seriesInfo && seriesInfo.episode });
     }
     const ph = stream.behaviorHints && stream.behaviorHints.proxyHeaders;
     if (ph && needsHeaders(stream)) {
-      // PC server first (it also handles torrents and embedded tracks). Offline or absent:
-      // use the header proxy that runs in the TV service, no PC required.
+      // Keep the existing PC proxy path for header-dependent HTTP links; otherwise use TV proxy.
       if (isAvailable()) {
         return Promise.resolve({ url: proxyUrl(base, stream.url, ph.request, ph.response), viaServer: true });
       }
@@ -214,9 +185,6 @@ export function toPlayable(stream, seriesInfo) {
     return Promise.resolve({ url: stream.url, viaServer: false });
   }
   if (typeof stream.infoHash === 'string') {
-    if (isAvailable()) return createTorrent(base, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then((u) => ({
-      url: u, viaServer: true,
-    }));
     return tvproxy.openTorrent({ infoHash: stream.infoHash.toLowerCase(), fileIdx: stream.fileIdx,
       name: stream.name, sources: stream.sources || [], season: seriesInfo && seriesInfo.season,
       episode: seriesInfo && seriesInfo.episode });
@@ -237,7 +205,7 @@ export function tracks(mediaUrl) {
   });
 }
 
-// Quanto do arquivo do torrent já está no PC (0–1). Links diretos (debrid/HTTP) não têm: null.
+// Quanto do arquivo do torrent já está no PC (0–1). TV torrent URLs do not expose this statistic.
 export function streamProgress(mediaUrl) {
   const m = String(mediaUrl || '').match(/\/([a-f0-9]{40})\/(\d+)/i);
   const base = baseUrl();

@@ -1,11 +1,11 @@
 // Header proxy that runs on the TV itself, inside the TizenBrew service
-// (service/remote-service.js, port 8095). The TV's <video> element cannot send
+// (service/remote-service.js, ports 8095/8096/8097). The TV's <video> element cannot send
 // Referer/User-Agent/Cookie, so the service fetches the stream and adds them.
 // Nothing runs on a PC and no separate proxy app is needed.
 import { log } from '../lib/log.js';
 
 const TTL_MS = 30000;
-let base = 'http://127.0.0.1:8096';
+let base = 'http://127.0.0.1:8097';
 let checking = null;
 let launch = null;
 
@@ -50,6 +50,18 @@ function probe(port) {
   return request(url + '/api/info', 600).then((r) => r && r.proxy ? { url, torrent: !!r.torrent } : null).catch(() => null);
 }
 
+function waitForTorrent(fallback) {
+  const startedAt = Date.now();
+  function poll() {
+    return probe(8097).then((result) => {
+      if (result && result.torrent) return result;
+      if (Date.now() - startedAt >= 10000) return result || fallback;
+      return new Promise((resolve) => setTimeout(resolve, 500)).then(poll);
+    });
+  }
+  return poll();
+}
+
 // Pin the service to the SAME commit as app.js, bypassing TizenBrew's stale
 // unversioned service cache. This is a local TizenBrew command, never a PC service.
 function startPlayerService() {
@@ -84,12 +96,14 @@ function startPlayerService() {
 export function check(force) {
   if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5000)) return Promise.resolve(status);
   if (checking) return checking;
-  checking = Promise.all([probe(8096), probe(8095)]).then((urls) => {
+  checking = Promise.all([probe(8097), probe(8096), probe(8095)]).then((urls) => {
     if (urls[0] && urls[0].torrent) return urls[0];
+    const fallback = urls[0] || urls[1] || urls[2];
     return startPlayerService().then((started) => {
-      if (!started) return urls[0] || urls[1];
-      // One bounded startup grace period; no repeated launch/retry loop.
-      return new Promise((resolve) => setTimeout(resolve, 1800)).then(() => probe(8096)).then((url) => url || urls[0] || urls[1]);
+      if (!started) return fallback;
+      // The bundled engine takes longer to download and start than the proxy-only service.
+      // Poll the new, version-isolated port for one bounded startup window.
+      return waitForTorrent(fallback);
     });
   }).then((url) => {
     if (url) base = url.url;

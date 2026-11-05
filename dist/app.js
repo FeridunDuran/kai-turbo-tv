@@ -55,7 +55,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/global-this.js
   var require_global_this = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/global-this.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_globalThisJs(exports, module) {
+    "node_modules/core-js/internals/global-this.js": function node_modules_coreJs_internals_globalThisJs(exports, module) {
       "use strict";
 
       var check4 = function check4(it) {
@@ -76,7 +76,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/fails.js
   var require_fails = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/fails.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_failsJs(exports, module) {
+    "node_modules/core-js/internals/fails.js": function node_modules_coreJs_internals_failsJs(exports, module) {
       "use strict";
 
       module.exports = function (exec) {
@@ -91,7 +91,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/descriptors.js
   var require_descriptors = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/descriptors.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_descriptorsJs(exports, module) {
+    "node_modules/core-js/internals/descriptors.js": function node_modules_coreJs_internals_descriptorsJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -107,7 +107,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-bind-native.js
   var require_function_bind_native = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-bind-native.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionBindNativeJs(exports, module) {
+    "node_modules/core-js/internals/function-bind-native.js": function node_modules_coreJs_internals_functionBindNativeJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -120,7 +120,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-call.js
   var require_function_call = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-call.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionCallJs(exports, module) {
+    "node_modules/core-js/internals/function-call.js": function node_modules_coreJs_internals_functionCallJs(exports, module) {
       "use strict";
 
       var NATIVE_BIND = require_function_bind_native();
@@ -133,7 +133,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-property-is-enumerable.js
   var require_object_property_is_enumerable = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-property-is-enumerable.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectPropertyIsEnumerableJs(exports) {
+    "node_modules/core-js/internals/object-property-is-enumerable.js": function node_modules_coreJs_internals_objectPropertyIsEnumerableJs(exports) {
       "use strict";
 
       var $propertyIsEnumerable = {}.propertyIsEnumerable;
@@ -150,7 +150,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/create-property-descriptor.js
   var require_create_property_descriptor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/create-property-descriptor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_createPropertyDescriptorJs(exports, module) {
+    "node_modules/core-js/internals/create-property-descriptor.js": function node_modules_coreJs_internals_createPropertyDescriptorJs(exports, module) {
       "use strict";
 
       module.exports = function (bitmap, value) {
@@ -166,7 +166,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-uncurry-this.js
   var require_function_uncurry_this = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-uncurry-this.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionUncurryThisJs(exports, module) {
+    "node_modules/core-js/internals/function-uncurry-this.js": function node_modules_coreJs_internals_functionUncurryThisJs(exports, module) {
       "use strict";
 
       var NATIVE_BIND = require_function_bind_native();
@@ -183,7 +183,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/classof-raw.js
   var require_classof_raw = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/classof-raw.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_classofRawJs(exports, module) {
+    "node_modules/core-js/internals/classof-raw.js": function node_modules_coreJs_internals_classofRawJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -197,7 +197,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/indexed-object.js
   var require_indexed_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/indexed-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_indexedObjectJs(exports, module) {
+    "node_modules/core-js/internals/indexed-object.js": function node_modules_coreJs_internals_indexedObjectJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -215,7 +215,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-null-or-undefined.js
   var require_is_null_or_undefined = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-null-or-undefined.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isNullOrUndefinedJs(exports, module) {
+    "node_modules/core-js/internals/is-null-or-undefined.js": function node_modules_coreJs_internals_isNullOrUndefinedJs(exports, module) {
       "use strict";
 
       module.exports = function (it) {
@@ -226,7 +226,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/require-object-coercible.js
   var require_require_object_coercible = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/require-object-coercible.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_requireObjectCoercibleJs(exports, module) {
+    "node_modules/core-js/internals/require-object-coercible.js": function node_modules_coreJs_internals_requireObjectCoercibleJs(exports, module) {
       "use strict";
 
       var isNullOrUndefined = require_is_null_or_undefined();
@@ -240,7 +240,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-indexed-object.js
   var require_to_indexed_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-indexed-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toIndexedObjectJs(exports, module) {
+    "node_modules/core-js/internals/to-indexed-object.js": function node_modules_coreJs_internals_toIndexedObjectJs(exports, module) {
       "use strict";
 
       var IndexedObject = require_indexed_object();
@@ -253,7 +253,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-callable.js
   var require_is_callable = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-callable.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isCallableJs(exports, module) {
+    "node_modules/core-js/internals/is-callable.js": function node_modules_coreJs_internals_isCallableJs(exports, module) {
       "use strict";
 
       var documentAll = (typeof document === "undefined" ? "undefined" : _typeof(document)) == "object" && document.all;
@@ -267,7 +267,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-object.js
   var require_is_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isObjectJs(exports, module) {
+    "node_modules/core-js/internals/is-object.js": function node_modules_coreJs_internals_isObjectJs(exports, module) {
       "use strict";
 
       var isCallable = require_is_callable();
@@ -279,7 +279,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/get-built-in.js
   var require_get_built_in = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/get-built-in.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_getBuiltInJs(exports, module) {
+    "node_modules/core-js/internals/get-built-in.js": function node_modules_coreJs_internals_getBuiltInJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -295,7 +295,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-is-prototype-of.js
   var require_object_is_prototype_of = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-is-prototype-of.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectIsPrototypeOfJs(exports, module) {
+    "node_modules/core-js/internals/object-is-prototype-of.js": function node_modules_coreJs_internals_objectIsPrototypeOfJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -305,7 +305,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/environment-user-agent.js
   var require_environment_user_agent = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/environment-user-agent.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_environmentUserAgentJs(exports, module) {
+    "node_modules/core-js/internals/environment-user-agent.js": function node_modules_coreJs_internals_environmentUserAgentJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -317,7 +317,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/environment-v8-version.js
   var require_environment_v8_version = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/environment-v8-version.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_environmentV8VersionJs(exports, module) {
+    "node_modules/core-js/internals/environment-v8-version.js": function node_modules_coreJs_internals_environmentV8VersionJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -345,7 +345,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/symbol-constructor-detection.js
   var require_symbol_constructor_detection = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/symbol-constructor-detection.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_symbolConstructorDetectionJs(exports, module) {
+    "node_modules/core-js/internals/symbol-constructor-detection.js": function node_modules_coreJs_internals_symbolConstructorDetectionJs(exports, module) {
       "use strict";
 
       var V8_VERSION = require_environment_v8_version();
@@ -363,7 +363,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/use-symbol-as-uid.js
   var require_use_symbol_as_uid = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/use-symbol-as-uid.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_useSymbolAsUidJs(exports, module) {
+    "node_modules/core-js/internals/use-symbol-as-uid.js": function node_modules_coreJs_internals_useSymbolAsUidJs(exports, module) {
       "use strict";
 
       var NATIVE_SYMBOL = require_symbol_constructor_detection();
@@ -373,7 +373,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-symbol.js
   var require_is_symbol = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-symbol.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isSymbolJs(exports, module) {
+    "node_modules/core-js/internals/is-symbol.js": function node_modules_coreJs_internals_isSymbolJs(exports, module) {
       "use strict";
 
       var getBuiltIn = require_get_built_in();
@@ -392,7 +392,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/try-to-string.js
   var require_try_to_string = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/try-to-string.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_tryToStringJs(exports, module) {
+    "node_modules/core-js/internals/try-to-string.js": function node_modules_coreJs_internals_tryToStringJs(exports, module) {
       "use strict";
 
       var $String = String;
@@ -408,7 +408,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/a-callable.js
   var require_a_callable = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/a-callable.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_aCallableJs(exports, module) {
+    "node_modules/core-js/internals/a-callable.js": function node_modules_coreJs_internals_aCallableJs(exports, module) {
       "use strict";
 
       var isCallable = require_is_callable();
@@ -423,7 +423,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/get-method.js
   var require_get_method = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/get-method.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_getMethodJs(exports, module) {
+    "node_modules/core-js/internals/get-method.js": function node_modules_coreJs_internals_getMethodJs(exports, module) {
       "use strict";
 
       var aCallable = require_a_callable();
@@ -437,7 +437,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/ordinary-to-primitive.js
   var require_ordinary_to_primitive = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/ordinary-to-primitive.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_ordinaryToPrimitiveJs(exports, module) {
+    "node_modules/core-js/internals/ordinary-to-primitive.js": function node_modules_coreJs_internals_ordinaryToPrimitiveJs(exports, module) {
       "use strict";
 
       var call2 = require_function_call();
@@ -456,7 +456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-pure.js
   var require_is_pure = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-pure.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isPureJs(exports, module) {
+    "node_modules/core-js/internals/is-pure.js": function node_modules_coreJs_internals_isPureJs(exports, module) {
       "use strict";
 
       module.exports = false;
@@ -465,7 +465,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/define-global-property.js
   var require_define_global_property = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/define-global-property.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_defineGlobalPropertyJs(exports, module) {
+    "node_modules/core-js/internals/define-global-property.js": function node_modules_coreJs_internals_defineGlobalPropertyJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -487,7 +487,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/shared-store.js
   var require_shared_store = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/shared-store.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_sharedStoreJs(exports, module) {
+    "node_modules/core-js/internals/shared-store.js": function node_modules_coreJs_internals_sharedStoreJs(exports, module) {
       "use strict";
 
       var IS_PURE = require_is_pure();
@@ -507,7 +507,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/shared.js
   var require_shared = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/shared.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_sharedJs(exports, module) {
+    "node_modules/core-js/internals/shared.js": function node_modules_coreJs_internals_sharedJs(exports, module) {
       "use strict";
 
       var store = require_shared_store();
@@ -520,7 +520,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-object.js
   var require_to_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toObjectJs(exports, module) {
+    "node_modules/core-js/internals/to-object.js": function node_modules_coreJs_internals_toObjectJs(exports, module) {
       "use strict";
 
       var requireObjectCoercible = require_require_object_coercible();
@@ -533,7 +533,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/has-own-property.js
   var require_has_own_property = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/has-own-property.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_hasOwnPropertyJs(exports, module) {
+    "node_modules/core-js/internals/has-own-property.js": function node_modules_coreJs_internals_hasOwnPropertyJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -547,7 +547,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/uid.js
   var require_uid = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/uid.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_uidJs(exports, module) {
+    "node_modules/core-js/internals/uid.js": function node_modules_coreJs_internals_uidJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -562,7 +562,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/well-known-symbol.js
   var require_well_known_symbol = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/well-known-symbol.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_wellKnownSymbolJs(exports, module) {
+    "node_modules/core-js/internals/well-known-symbol.js": function node_modules_coreJs_internals_wellKnownSymbolJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -585,7 +585,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-primitive.js
   var require_to_primitive = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-primitive.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toPrimitiveJs(exports, module) {
+    "node_modules/core-js/internals/to-primitive.js": function node_modules_coreJs_internals_toPrimitiveJs(exports, module) {
       "use strict";
 
       var call2 = require_function_call();
@@ -614,7 +614,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-property-key.js
   var require_to_property_key = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-property-key.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toPropertyKeyJs(exports, module) {
+    "node_modules/core-js/internals/to-property-key.js": function node_modules_coreJs_internals_toPropertyKeyJs(exports, module) {
       "use strict";
 
       var toPrimitive = require_to_primitive();
@@ -628,7 +628,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/document-create-element.js
   var require_document_create_element = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/document-create-element.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_documentCreateElementJs(exports, module) {
+    "node_modules/core-js/internals/document-create-element.js": function node_modules_coreJs_internals_documentCreateElementJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -643,7 +643,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/ie8-dom-define.js
   var require_ie8_dom_define = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/ie8-dom-define.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_ie8DomDefineJs(exports, module) {
+    "node_modules/core-js/internals/ie8-dom-define.js": function node_modules_coreJs_internals_ie8DomDefineJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -661,7 +661,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-get-own-property-descriptor.js
   var require_object_get_own_property_descriptor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-get-own-property-descriptor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectGetOwnPropertyDescriptorJs(exports) {
+    "node_modules/core-js/internals/object-get-own-property-descriptor.js": function node_modules_coreJs_internals_objectGetOwnPropertyDescriptorJs(exports) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -686,7 +686,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/v8-prototype-define-bug.js
   var require_v8_prototype_define_bug = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/v8-prototype-define-bug.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_v8PrototypeDefineBugJs(exports, module) {
+    "node_modules/core-js/internals/v8-prototype-define-bug.js": function node_modules_coreJs_internals_v8PrototypeDefineBugJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -702,7 +702,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/an-object.js
   var require_an_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/an-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_anObjectJs(exports, module) {
+    "node_modules/core-js/internals/an-object.js": function node_modules_coreJs_internals_anObjectJs(exports, module) {
       "use strict";
 
       var isObject = require_is_object();
@@ -717,7 +717,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-define-property.js
   var require_object_define_property = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-define-property.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectDefinePropertyJs(exports) {
+    "node_modules/core-js/internals/object-define-property.js": function node_modules_coreJs_internals_objectDefinePropertyJs(exports) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -763,7 +763,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/create-non-enumerable-property.js
   var require_create_non_enumerable_property = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/create-non-enumerable-property.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_createNonEnumerablePropertyJs(exports, module) {
+    "node_modules/core-js/internals/create-non-enumerable-property.js": function node_modules_coreJs_internals_createNonEnumerablePropertyJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -780,7 +780,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-name.js
   var require_function_name = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-name.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionNameJs(exports, module) {
+    "node_modules/core-js/internals/function-name.js": function node_modules_coreJs_internals_functionNameJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -800,7 +800,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/inspect-source.js
   var require_inspect_source = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/inspect-source.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_inspectSourceJs(exports, module) {
+    "node_modules/core-js/internals/inspect-source.js": function node_modules_coreJs_internals_inspectSourceJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -818,7 +818,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/weak-map-basic-detection.js
   var require_weak_map_basic_detection = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/weak-map-basic-detection.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_weakMapBasicDetectionJs(exports, module) {
+    "node_modules/core-js/internals/weak-map-basic-detection.js": function node_modules_coreJs_internals_weakMapBasicDetectionJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -830,7 +830,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/shared-key.js
   var require_shared_key = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/shared-key.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_sharedKeyJs(exports, module) {
+    "node_modules/core-js/internals/shared-key.js": function node_modules_coreJs_internals_sharedKeyJs(exports, module) {
       "use strict";
 
       var shared = require_shared();
@@ -844,7 +844,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/hidden-keys.js
   var require_hidden_keys = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/hidden-keys.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_hiddenKeysJs(exports, module) {
+    "node_modules/core-js/internals/hidden-keys.js": function node_modules_coreJs_internals_hiddenKeysJs(exports, module) {
       "use strict";
 
       module.exports = {};
@@ -853,7 +853,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/internal-state.js
   var require_internal_state = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/internal-state.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_internalStateJs(exports, module) {
+    "node_modules/core-js/internals/internal-state.js": function node_modules_coreJs_internals_internalStateJs(exports, module) {
       "use strict";
 
       var NATIVE_WEAK_MAP = require_weak_map_basic_detection();
@@ -929,7 +929,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/make-built-in.js
   var require_make_built_in = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/make-built-in.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_makeBuiltInJs(exports, module) {
+    "node_modules/core-js/internals/make-built-in.js": function node_modules_coreJs_internals_makeBuiltInJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -991,7 +991,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/define-built-in.js
   var require_define_built_in = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/define-built-in.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_defineBuiltInJs(exports, module) {
+    "node_modules/core-js/internals/define-built-in.js": function node_modules_coreJs_internals_defineBuiltInJs(exports, module) {
       "use strict";
 
       var isCallable = require_is_callable();
@@ -1023,7 +1023,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/math-trunc.js
   var require_math_trunc = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/math-trunc.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_mathTruncJs(exports, module) {
+    "node_modules/core-js/internals/math-trunc.js": function node_modules_coreJs_internals_mathTruncJs(exports, module) {
       "use strict";
 
       var ceil = Math.ceil;
@@ -1037,7 +1037,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-integer-or-infinity.js
   var require_to_integer_or_infinity = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-integer-or-infinity.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toIntegerOrInfinityJs(exports, module) {
+    "node_modules/core-js/internals/to-integer-or-infinity.js": function node_modules_coreJs_internals_toIntegerOrInfinityJs(exports, module) {
       "use strict";
 
       var trunc = require_math_trunc();
@@ -1050,7 +1050,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-absolute-index.js
   var require_to_absolute_index = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-absolute-index.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toAbsoluteIndexJs(exports, module) {
+    "node_modules/core-js/internals/to-absolute-index.js": function node_modules_coreJs_internals_toAbsoluteIndexJs(exports, module) {
       "use strict";
 
       var toIntegerOrInfinity = require_to_integer_or_infinity();
@@ -1065,7 +1065,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-length.js
   var require_to_length = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-length.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toLengthJs(exports, module) {
+    "node_modules/core-js/internals/to-length.js": function node_modules_coreJs_internals_toLengthJs(exports, module) {
       "use strict";
 
       var toIntegerOrInfinity = require_to_integer_or_infinity();
@@ -1079,7 +1079,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/length-of-array-like.js
   var require_length_of_array_like = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/length-of-array-like.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_lengthOfArrayLikeJs(exports, module) {
+    "node_modules/core-js/internals/length-of-array-like.js": function node_modules_coreJs_internals_lengthOfArrayLikeJs(exports, module) {
       "use strict";
 
       var toLength = require_to_length();
@@ -1091,7 +1091,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-includes.js
   var require_array_includes = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-includes.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arrayIncludesJs(exports, module) {
+    "node_modules/core-js/internals/array-includes.js": function node_modules_coreJs_internals_arrayIncludesJs(exports, module) {
       "use strict";
 
       var toIndexedObject = require_to_indexed_object();
@@ -1126,7 +1126,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-keys-internal.js
   var require_object_keys_internal = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-keys-internal.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectKeysInternalJs(exports, module) {
+    "node_modules/core-js/internals/object-keys-internal.js": function node_modules_coreJs_internals_objectKeysInternalJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -1151,7 +1151,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/enum-bug-keys.js
   var require_enum_bug_keys = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/enum-bug-keys.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_enumBugKeysJs(exports, module) {
+    "node_modules/core-js/internals/enum-bug-keys.js": function node_modules_coreJs_internals_enumBugKeysJs(exports, module) {
       "use strict";
 
       module.exports = ["constructor", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf"];
@@ -1160,7 +1160,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-get-own-property-names.js
   var require_object_get_own_property_names = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-get-own-property-names.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectGetOwnPropertyNamesJs(exports) {
+    "node_modules/core-js/internals/object-get-own-property-names.js": function node_modules_coreJs_internals_objectGetOwnPropertyNamesJs(exports) {
       "use strict";
 
       var internalObjectKeys = require_object_keys_internal();
@@ -1174,7 +1174,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-get-own-property-symbols.js
   var require_object_get_own_property_symbols = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-get-own-property-symbols.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectGetOwnPropertySymbolsJs(exports) {
+    "node_modules/core-js/internals/object-get-own-property-symbols.js": function node_modules_coreJs_internals_objectGetOwnPropertySymbolsJs(exports) {
       "use strict";
 
       exports.f = Object.getOwnPropertySymbols;
@@ -1183,7 +1183,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/own-keys.js
   var require_own_keys = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/own-keys.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_ownKeysJs(exports, module) {
+    "node_modules/core-js/internals/own-keys.js": function node_modules_coreJs_internals_ownKeysJs(exports, module) {
       "use strict";
 
       var getBuiltIn = require_get_built_in();
@@ -1202,7 +1202,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/copy-constructor-properties.js
   var require_copy_constructor_properties = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/copy-constructor-properties.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_copyConstructorPropertiesJs(exports, module) {
+    "node_modules/core-js/internals/copy-constructor-properties.js": function node_modules_coreJs_internals_copyConstructorPropertiesJs(exports, module) {
       "use strict";
 
       var hasOwn = require_has_own_property();
@@ -1225,7 +1225,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-forced.js
   var require_is_forced = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-forced.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isForcedJs(exports, module) {
+    "node_modules/core-js/internals/is-forced.js": function node_modules_coreJs_internals_isForcedJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -1247,7 +1247,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/export.js
   var require_export = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/export.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_exportJs(exports, module) {
+    "node_modules/core-js/internals/export.js": function node_modules_coreJs_internals_exportJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -1291,7 +1291,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-keys.js
   var require_object_keys = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-keys.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectKeysJs(exports, module) {
+    "node_modules/core-js/internals/object-keys.js": function node_modules_coreJs_internals_objectKeysJs(exports, module) {
       "use strict";
 
       var internalObjectKeys = require_object_keys_internal();
@@ -1304,7 +1304,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-assign.js
   var require_object_assign = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-assign.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectAssignJs(exports, module) {
+    "node_modules/core-js/internals/object-assign.js": function node_modules_coreJs_internals_objectAssignJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -1366,7 +1366,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.object.assign.js
   var require_es_object_assign = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.object.assign.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esObjectAssignJs() {
+    "node_modules/core-js/modules/es.object.assign.js": function node_modules_coreJs_modules_esObjectAssignJs() {
       "use strict";
 
       var $ = require_export();
@@ -1384,7 +1384,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/path.js
   var require_path = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/path.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_pathJs(exports, module) {
+    "node_modules/core-js/internals/path.js": function node_modules_coreJs_internals_pathJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -1394,7 +1394,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/object/assign.js
   var require_assign = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/object/assign.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_object_assignJs(exports, module) {
+    "node_modules/core-js/es/object/assign.js": function node_modules_coreJs_es_object_assignJs(exports, module) {
       "use strict";
 
       require_es_object_assign();
@@ -1405,7 +1405,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/correct-prototype-getter.js
   var require_correct_prototype_getter = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/correct-prototype-getter.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_correctPrototypeGetterJs(exports, module) {
+    "node_modules/core-js/internals/correct-prototype-getter.js": function node_modules_coreJs_internals_correctPrototypeGetterJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -1419,7 +1419,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-get-prototype-of.js
   var require_object_get_prototype_of = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-get-prototype-of.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectGetPrototypeOfJs(exports, module) {
+    "node_modules/core-js/internals/object-get-prototype-of.js": function node_modules_coreJs_internals_objectGetPrototypeOfJs(exports, module) {
       "use strict";
 
       var hasOwn = require_has_own_property();
@@ -1444,7 +1444,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-to-array.js
   var require_object_to_array = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-to-array.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectToArrayJs(exports, module) {
+    "node_modules/core-js/internals/object-to-array.js": function node_modules_coreJs_internals_objectToArrayJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -1492,7 +1492,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.object.entries.js
   var require_es_object_entries = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.object.entries.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esObjectEntriesJs() {
+    "node_modules/core-js/modules/es.object.entries.js": function node_modules_coreJs_modules_esObjectEntriesJs() {
       "use strict";
 
       var $ = require_export();
@@ -1510,7 +1510,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/object/entries.js
   var require_entries = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/object/entries.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_object_entriesJs(exports, module) {
+    "node_modules/core-js/es/object/entries.js": function node_modules_coreJs_es_object_entriesJs(exports, module) {
       "use strict";
 
       require_es_object_entries();
@@ -1521,7 +1521,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.object.values.js
   var require_es_object_values = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.object.values.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esObjectValuesJs() {
+    "node_modules/core-js/modules/es.object.values.js": function node_modules_coreJs_modules_esObjectValuesJs() {
       "use strict";
 
       var $ = require_export();
@@ -1539,7 +1539,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/object/values.js
   var require_values = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/object/values.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_object_valuesJs(exports, module) {
+    "node_modules/core-js/es/object/values.js": function node_modules_coreJs_es_object_valuesJs(exports, module) {
       "use strict";
 
       require_es_object_values();
@@ -1550,7 +1550,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-string-tag-support.js
   var require_to_string_tag_support = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-string-tag-support.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toStringTagSupportJs(exports, module) {
+    "node_modules/core-js/internals/to-string-tag-support.js": function node_modules_coreJs_internals_toStringTagSupportJs(exports, module) {
       "use strict";
 
       var wellKnownSymbol = require_well_known_symbol();
@@ -1563,7 +1563,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/classof.js
   var require_classof = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/classof.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_classofJs(exports, module) {
+    "node_modules/core-js/internals/classof.js": function node_modules_coreJs_internals_classofJs(exports, module) {
       "use strict";
 
       var TO_STRING_TAG_SUPPORT = require_to_string_tag_support();
@@ -1589,7 +1589,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/to-string.js
   var require_to_string = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/to-string.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_toStringJs(exports, module) {
+    "node_modules/core-js/internals/to-string.js": function node_modules_coreJs_internals_toStringJs(exports, module) {
       "use strict";
 
       var classof = require_classof();
@@ -1603,7 +1603,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/string-multibyte.js
   var require_string_multibyte = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/string-multibyte.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_stringMultibyteJs(exports, module) {
+    "node_modules/core-js/internals/string-multibyte.js": function node_modules_coreJs_internals_stringMultibyteJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -1637,7 +1637,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-define-properties.js
   var require_object_define_properties = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-define-properties.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectDefinePropertiesJs(exports) {
+    "node_modules/core-js/internals/object-define-properties.js": function node_modules_coreJs_internals_objectDefinePropertiesJs(exports) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -1661,7 +1661,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/html.js
   var require_html = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/html.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_htmlJs(exports, module) {
+    "node_modules/core-js/internals/html.js": function node_modules_coreJs_internals_htmlJs(exports, module) {
       "use strict";
 
       var getBuiltIn = require_get_built_in();
@@ -1671,7 +1671,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-create.js
   var require_object_create = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-create.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectCreateJs(exports, module) {
+    "node_modules/core-js/internals/object-create.js": function node_modules_coreJs_internals_objectCreateJs(exports, module) {
       "use strict";
 
       var anObject = require_an_object();
@@ -1736,7 +1736,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/iterators-core.js
   var require_iterators_core = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/iterators-core.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_iteratorsCoreJs(exports, module) {
+    "node_modules/core-js/internals/iterators-core.js": function node_modules_coreJs_internals_iteratorsCoreJs(exports, module) {
       "use strict";
 
       var fails = require_fails();
@@ -1778,7 +1778,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/set-to-string-tag.js
   var require_set_to_string_tag = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/set-to-string-tag.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_setToStringTagJs(exports, module) {
+    "node_modules/core-js/internals/set-to-string-tag.js": function node_modules_coreJs_internals_setToStringTagJs(exports, module) {
       "use strict";
 
       var defineProperty = require_object_define_property().f;
@@ -1799,7 +1799,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/iterators.js
   var require_iterators = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/iterators.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_iteratorsJs(exports, module) {
+    "node_modules/core-js/internals/iterators.js": function node_modules_coreJs_internals_iteratorsJs(exports, module) {
       "use strict";
 
       module.exports = Object.create ? /* @__PURE__ */Object.create(null) : {};
@@ -1808,7 +1808,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/iterator-create-constructor.js
   var require_iterator_create_constructor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/iterator-create-constructor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_iteratorCreateConstructorJs(exports, module) {
+    "node_modules/core-js/internals/iterator-create-constructor.js": function node_modules_coreJs_internals_iteratorCreateConstructorJs(exports, module) {
       "use strict";
 
       var IteratorPrototype = require_iterators_core().IteratorPrototype;
@@ -1833,7 +1833,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-uncurry-this-accessor.js
   var require_function_uncurry_this_accessor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-uncurry-this-accessor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionUncurryThisAccessorJs(exports, module) {
+    "node_modules/core-js/internals/function-uncurry-this-accessor.js": function node_modules_coreJs_internals_functionUncurryThisAccessorJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -1848,7 +1848,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-possible-prototype.js
   var require_is_possible_prototype = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-possible-prototype.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isPossiblePrototypeJs(exports, module) {
+    "node_modules/core-js/internals/is-possible-prototype.js": function node_modules_coreJs_internals_isPossiblePrototypeJs(exports, module) {
       "use strict";
 
       var isObject = require_is_object();
@@ -1860,7 +1860,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/a-possible-prototype.js
   var require_a_possible_prototype = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/a-possible-prototype.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_aPossiblePrototypeJs(exports, module) {
+    "node_modules/core-js/internals/a-possible-prototype.js": function node_modules_coreJs_internals_aPossiblePrototypeJs(exports, module) {
       "use strict";
 
       var isPossiblePrototype = require_is_possible_prototype();
@@ -1875,7 +1875,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/object-set-prototype-of.js
   var require_object_set_prototype_of = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/object-set-prototype-of.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_objectSetPrototypeOfJs(exports, module) {
+    "node_modules/core-js/internals/object-set-prototype-of.js": function node_modules_coreJs_internals_objectSetPrototypeOfJs(exports, module) {
       "use strict";
 
       var uncurryThisAccessor = require_function_uncurry_this_accessor();
@@ -1904,7 +1904,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/iterator-define.js
   var require_iterator_define = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/iterator-define.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_iteratorDefineJs(exports, module) {
+    "node_modules/core-js/internals/iterator-define.js": function node_modules_coreJs_internals_iteratorDefineJs(exports, module) {
       "use strict";
 
       var $ = require_export();
@@ -2015,7 +2015,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/create-iter-result-object.js
   var require_create_iter_result_object = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/create-iter-result-object.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_createIterResultObjectJs(exports, module) {
+    "node_modules/core-js/internals/create-iter-result-object.js": function node_modules_coreJs_internals_createIterResultObjectJs(exports, module) {
       "use strict";
 
       module.exports = function (value, done) {
@@ -2029,7 +2029,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.iterator.js
   var require_es_string_iterator = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.iterator.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringIteratorJs() {
+    "node_modules/core-js/modules/es.string.iterator.js": function node_modules_coreJs_modules_esStringIteratorJs() {
       "use strict";
 
       var charAt = require_string_multibyte().charAt;
@@ -2061,7 +2061,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-uncurry-this-clause.js
   var require_function_uncurry_this_clause = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-uncurry-this-clause.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionUncurryThisClauseJs(exports, module) {
+    "node_modules/core-js/internals/function-uncurry-this-clause.js": function node_modules_coreJs_internals_functionUncurryThisClauseJs(exports, module) {
       "use strict";
 
       var classofRaw = require_classof_raw();
@@ -2074,7 +2074,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/function-bind-context.js
   var require_function_bind_context = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/function-bind-context.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_functionBindContextJs(exports, module) {
+    "node_modules/core-js/internals/function-bind-context.js": function node_modules_coreJs_internals_functionBindContextJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this_clause();
@@ -2092,7 +2092,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/iterator-close.js
   var require_iterator_close = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/iterator-close.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_iteratorCloseJs(exports, module) {
+    "node_modules/core-js/internals/iterator-close.js": function node_modules_coreJs_internals_iteratorCloseJs(exports, module) {
       "use strict";
 
       var call2 = require_function_call();
@@ -2122,7 +2122,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/call-with-safe-iteration-closing.js
   var require_call_with_safe_iteration_closing = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/call-with-safe-iteration-closing.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_callWithSafeIterationClosingJs(exports, module) {
+    "node_modules/core-js/internals/call-with-safe-iteration-closing.js": function node_modules_coreJs_internals_callWithSafeIterationClosingJs(exports, module) {
       "use strict";
 
       var anObject = require_an_object();
@@ -2139,7 +2139,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-array-iterator-method.js
   var require_is_array_iterator_method = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-array-iterator-method.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isArrayIteratorMethodJs(exports, module) {
+    "node_modules/core-js/internals/is-array-iterator-method.js": function node_modules_coreJs_internals_isArrayIteratorMethodJs(exports, module) {
       "use strict";
 
       var wellKnownSymbol = require_well_known_symbol();
@@ -2154,7 +2154,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-constructor.js
   var require_is_constructor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-constructor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isConstructorJs(exports, module) {
+    "node_modules/core-js/internals/is-constructor.js": function node_modules_coreJs_internals_isConstructorJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -2203,7 +2203,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/create-property.js
   var require_create_property = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/create-property.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_createPropertyJs(exports, module) {
+    "node_modules/core-js/internals/create-property.js": function node_modules_coreJs_internals_createPropertyJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -2217,7 +2217,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-array.js
   var require_is_array = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-array.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isArrayJs(exports, module) {
+    "node_modules/core-js/internals/is-array.js": function node_modules_coreJs_internals_isArrayJs(exports, module) {
       "use strict";
 
       var classof = require_classof_raw();
@@ -2229,7 +2229,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-set-length.js
   var require_array_set_length = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-set-length.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arraySetLengthJs(exports, module) {
+    "node_modules/core-js/internals/array-set-length.js": function node_modules_coreJs_internals_arraySetLengthJs(exports, module) {
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
@@ -2259,7 +2259,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/get-iterator-method-internal.js
   var require_get_iterator_method_internal = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/get-iterator-method-internal.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_getIteratorMethodInternalJs(exports, module) {
+    "node_modules/core-js/internals/get-iterator-method-internal.js": function node_modules_coreJs_internals_getIteratorMethodInternalJs(exports, module) {
       "use strict";
 
       var classof = require_classof_raw();
@@ -2276,7 +2276,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/get-iterator-internal.js
   var require_get_iterator_internal = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/get-iterator-internal.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_getIteratorInternalJs(exports, module) {
+    "node_modules/core-js/internals/get-iterator-internal.js": function node_modules_coreJs_internals_getIteratorInternalJs(exports, module) {
       "use strict";
 
       var call2 = require_function_call();
@@ -2295,7 +2295,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/does-not-exceed-safe-integer.js
   var require_does_not_exceed_safe_integer = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/does-not-exceed-safe-integer.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_doesNotExceedSafeIntegerJs(exports, module) {
+    "node_modules/core-js/internals/does-not-exceed-safe-integer.js": function node_modules_coreJs_internals_doesNotExceedSafeIntegerJs(exports, module) {
       "use strict";
 
       var $TypeError = TypeError;
@@ -2309,7 +2309,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-from.js
   var require_array_from = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-from.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arrayFromJs(exports, module) {
+    "node_modules/core-js/internals/array-from.js": function node_modules_coreJs_internals_arrayFromJs(exports, module) {
       "use strict";
 
       var bind = require_function_bind_context();
@@ -2369,7 +2369,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/check-correctness-of-iteration.js
   var require_check_correctness_of_iteration = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/check-correctness-of-iteration.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_checkCorrectnessOfIterationJs(exports, module) {
+    "node_modules/core-js/internals/check-correctness-of-iteration.js": function node_modules_coreJs_internals_checkCorrectnessOfIterationJs(exports, module) {
       "use strict";
 
       var wellKnownSymbol = require_well_known_symbol();
@@ -2423,7 +2423,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.array.from.js
   var require_es_array_from = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.array.from.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esArrayFromJs() {
+    "node_modules/core-js/modules/es.array.from.js": function node_modules_coreJs_modules_esArrayFromJs() {
       "use strict";
 
       var $ = require_export();
@@ -2444,7 +2444,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/array/from.js
   var require_from = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/array/from.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_array_fromJs(exports, module) {
+    "node_modules/core-js/es/array/from.js": function node_modules_coreJs_es_array_fromJs(exports, module) {
       "use strict";
 
       require_es_string_iterator();
@@ -2456,7 +2456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-species-constructor.js
   var require_array_species_constructor = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-species-constructor.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arraySpeciesConstructorJs(exports, module) {
+    "node_modules/core-js/internals/array-species-constructor.js": function node_modules_coreJs_internals_arraySpeciesConstructorJs(exports, module) {
       "use strict";
 
       var isArray = require_is_array();
@@ -2481,7 +2481,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-species-create.js
   var require_array_species_create = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-species-create.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arraySpeciesCreateJs(exports, module) {
+    "node_modules/core-js/internals/array-species-create.js": function node_modules_coreJs_internals_arraySpeciesCreateJs(exports, module) {
       "use strict";
 
       var arraySpeciesConstructor = require_array_species_constructor();
@@ -2493,7 +2493,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-iteration.js
   var require_array_iteration = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-iteration.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arrayIterationJs(exports, module) {
+    "node_modules/core-js/internals/array-iteration.js": function node_modules_coreJs_internals_arrayIterationJs(exports, module) {
       "use strict";
 
       var bind = require_function_bind_context();
@@ -2578,7 +2578,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/add-to-unscopables.js
   var require_add_to_unscopables = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/add-to-unscopables.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_addToUnscopablesJs(exports, module) {
+    "node_modules/core-js/internals/add-to-unscopables.js": function node_modules_coreJs_internals_addToUnscopablesJs(exports, module) {
       "use strict";
 
       var wellKnownSymbol = require_well_known_symbol();
@@ -2600,7 +2600,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.array.find.js
   var require_es_array_find = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.array.find.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esArrayFindJs() {
+    "node_modules/core-js/modules/es.array.find.js": function node_modules_coreJs_modules_esArrayFindJs() {
       "use strict";
 
       var $ = require_export();
@@ -2626,7 +2626,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/entry-unbind.js
   var require_entry_unbind = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/entry-unbind.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_entryUnbindJs(exports, module) {
+    "node_modules/core-js/internals/entry-unbind.js": function node_modules_coreJs_internals_entryUnbindJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -2639,7 +2639,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/array/find.js
   var require_find = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/array/find.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_array_findJs(exports, module) {
+    "node_modules/core-js/es/array/find.js": function node_modules_coreJs_es_array_findJs(exports, module) {
       "use strict";
 
       require_es_array_find();
@@ -2650,7 +2650,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.array.find-index.js
   var require_es_array_find_index = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.array.find-index.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esArrayFindIndexJs() {
+    "node_modules/core-js/modules/es.array.find-index.js": function node_modules_coreJs_modules_esArrayFindIndexJs() {
       "use strict";
 
       var $ = require_export();
@@ -2676,7 +2676,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/array/find-index.js
   var require_find_index = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/array/find-index.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_array_findIndexJs(exports, module) {
+    "node_modules/core-js/es/array/find-index.js": function node_modules_coreJs_es_array_findIndexJs(exports, module) {
       "use strict";
 
       require_es_array_find_index();
@@ -2687,7 +2687,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.array.includes.js
   var require_es_array_includes = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.array.includes.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esArrayIncludesJs() {
+    "node_modules/core-js/modules/es.array.includes.js": function node_modules_coreJs_modules_esArrayIncludesJs() {
       "use strict";
 
       var $ = require_export();
@@ -2715,7 +2715,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/array/includes.js
   var require_includes = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/array/includes.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_array_includesJs(exports, module) {
+    "node_modules/core-js/es/array/includes.js": function node_modules_coreJs_es_array_includesJs(exports, module) {
       "use strict";
 
       require_es_array_includes();
@@ -2726,7 +2726,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/array-fill.js
   var require_array_fill = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/array-fill.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_arrayFillJs(exports, module) {
+    "node_modules/core-js/internals/array-fill.js": function node_modules_coreJs_internals_arrayFillJs(exports, module) {
       "use strict";
 
       var toObject = require_to_object();
@@ -2747,7 +2747,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.array.fill.js
   var require_es_array_fill = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.array.fill.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esArrayFillJs() {
+    "node_modules/core-js/modules/es.array.fill.js": function node_modules_coreJs_modules_esArrayFillJs() {
       "use strict";
 
       var $ = require_export();
@@ -2765,7 +2765,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/array/fill.js
   var require_fill = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/array/fill.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_array_fillJs(exports, module) {
+    "node_modules/core-js/es/array/fill.js": function node_modules_coreJs_es_array_fillJs(exports, module) {
       "use strict";
 
       require_es_array_fill();
@@ -2776,7 +2776,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/is-regexp.js
   var require_is_regexp = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/is-regexp.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_isRegexpJs(exports, module) {
+    "node_modules/core-js/internals/is-regexp.js": function node_modules_coreJs_internals_isRegexpJs(exports, module) {
       "use strict";
 
       var isObject = require_is_object();
@@ -2792,7 +2792,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/not-a-regexp.js
   var require_not_a_regexp = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/not-a-regexp.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_notARegexpJs(exports, module) {
+    "node_modules/core-js/internals/not-a-regexp.js": function node_modules_coreJs_internals_notARegexpJs(exports, module) {
       "use strict";
 
       var isRegExp = require_is_regexp();
@@ -2808,7 +2808,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/correct-is-regexp-logic.js
   var require_correct_is_regexp_logic = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/correct-is-regexp-logic.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_correctIsRegexpLogicJs(exports, module) {
+    "node_modules/core-js/internals/correct-is-regexp-logic.js": function node_modules_coreJs_internals_correctIsRegexpLogicJs(exports, module) {
       "use strict";
 
       var wellKnownSymbol = require_well_known_symbol();
@@ -2830,7 +2830,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.includes.js
   var require_es_string_includes = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.includes.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringIncludesJs() {
+    "node_modules/core-js/modules/es.string.includes.js": function node_modules_coreJs_modules_esStringIncludesJs() {
       "use strict";
 
       var $ = require_export();
@@ -2854,7 +2854,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/string/includes.js
   var require_includes2 = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/string/includes.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_string_includesJs(exports, module) {
+    "node_modules/core-js/es/string/includes.js": function node_modules_coreJs_es_string_includesJs(exports, module) {
       "use strict";
 
       require_es_string_includes();
@@ -2865,7 +2865,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.starts-with.js
   var require_es_string_starts_with = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.starts-with.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringStartsWithJs() {
+    "node_modules/core-js/modules/es.string.starts-with.js": function node_modules_coreJs_modules_esStringStartsWithJs() {
       "use strict";
 
       var $ = require_export();
@@ -2902,7 +2902,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/string/starts-with.js
   var require_starts_with = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/string/starts-with.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_string_startsWithJs(exports, module) {
+    "node_modules/core-js/es/string/starts-with.js": function node_modules_coreJs_es_string_startsWithJs(exports, module) {
       "use strict";
 
       require_es_string_starts_with();
@@ -2913,7 +2913,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.ends-with.js
   var require_es_string_ends_with = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.ends-with.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringEndsWithJs() {
+    "node_modules/core-js/modules/es.string.ends-with.js": function node_modules_coreJs_modules_esStringEndsWithJs() {
       "use strict";
 
       var $ = require_export();
@@ -2952,7 +2952,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/string/ends-with.js
   var require_ends_with = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/string/ends-with.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_string_endsWithJs(exports, module) {
+    "node_modules/core-js/es/string/ends-with.js": function node_modules_coreJs_es_string_endsWithJs(exports, module) {
       "use strict";
 
       require_es_string_ends_with();
@@ -2963,7 +2963,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/string-repeat.js
   var require_string_repeat = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/string-repeat.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_stringRepeatJs(exports, module) {
+    "node_modules/core-js/internals/string-repeat.js": function node_modules_coreJs_internals_stringRepeatJs(exports, module) {
       "use strict";
 
       var toIntegerOrInfinity = require_to_integer_or_infinity();
@@ -2984,7 +2984,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/string-pad.js
   var require_string_pad = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/string-pad.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_stringPadJs(exports, module) {
+    "node_modules/core-js/internals/string-pad.js": function node_modules_coreJs_internals_stringPadJs(exports, module) {
       "use strict";
 
       var uncurryThis = require_function_uncurry_this();
@@ -3023,7 +3023,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/string-pad-webkit-bug.js
   var require_string_pad_webkit_bug = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/string-pad-webkit-bug.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_stringPadWebkitBugJs(exports, module) {
+    "node_modules/core-js/internals/string-pad-webkit-bug.js": function node_modules_coreJs_internals_stringPadWebkitBugJs(exports, module) {
       "use strict";
 
       var userAgent = require_environment_user_agent();
@@ -3033,7 +3033,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.pad-start.js
   var require_es_string_pad_start = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.pad-start.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringPadStartJs() {
+    "node_modules/core-js/modules/es.string.pad-start.js": function node_modules_coreJs_modules_esStringPadStartJs() {
       "use strict";
 
       var $ = require_export();
@@ -3053,7 +3053,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/string/pad-start.js
   var require_pad_start = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/string/pad-start.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_string_padStartJs(exports, module) {
+    "node_modules/core-js/es/string/pad-start.js": function node_modules_coreJs_es_string_padStartJs(exports, module) {
       "use strict";
 
       require_es_string_pad_start();
@@ -3064,7 +3064,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.string.repeat.js
   var require_es_string_repeat = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.string.repeat.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esStringRepeatJs() {
+    "node_modules/core-js/modules/es.string.repeat.js": function node_modules_coreJs_modules_esStringRepeatJs() {
       "use strict";
 
       var $ = require_export();
@@ -3080,7 +3080,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/string/repeat.js
   var require_repeat = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/string/repeat.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_string_repeatJs(exports, module) {
+    "node_modules/core-js/es/string/repeat.js": function node_modules_coreJs_es_string_repeatJs(exports, module) {
       "use strict";
 
       require_es_string_repeat();
@@ -3091,7 +3091,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/internals/number-is-finite.js
   var require_number_is_finite = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/internals/number-is-finite.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_internals_numberIsFiniteJs(exports, module) {
+    "node_modules/core-js/internals/number-is-finite.js": function node_modules_coreJs_internals_numberIsFiniteJs(exports, module) {
       "use strict";
 
       var globalThis2 = require_global_this();
@@ -3104,7 +3104,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.number.is-finite.js
   var require_es_number_is_finite = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.number.is-finite.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esNumberIsFiniteJs() {
+    "node_modules/core-js/modules/es.number.is-finite.js": function node_modules_coreJs_modules_esNumberIsFiniteJs() {
       "use strict";
 
       var $ = require_export();
@@ -3120,7 +3120,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/number/is-finite.js
   var require_is_finite = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/number/is-finite.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_number_isFiniteJs(exports, module) {
+    "node_modules/core-js/es/number/is-finite.js": function node_modules_coreJs_es_number_isFiniteJs(exports, module) {
       "use strict";
 
       require_es_number_is_finite();
@@ -3131,7 +3131,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/modules/es.number.is-nan.js
   var require_es_number_is_nan = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/modules/es.number.is-nan.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_modules_esNumberIsNanJs() {
+    "node_modules/core-js/modules/es.number.is-nan.js": function node_modules_coreJs_modules_esNumberIsNanJs() {
       "use strict";
 
       var $ = require_export();
@@ -3148,7 +3148,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/core-js/es/number/is-nan.js
   var require_is_nan = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/core-js/es/number/is-nan.js": function ____Desktop_stremioKaiTizen_node_modules_coreJs_es_number_isNanJs(exports, module) {
+    "node_modules/core-js/es/number/is-nan.js": function node_modules_coreJs_es_number_isNanJs(exports, module) {
       "use strict";
 
       require_es_number_is_nan();
@@ -3159,7 +3159,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // node_modules/qrcode-generator/qrcode.js
   var require_qrcode = __commonJS({
-    "../../../../Desktop/stremio-kai-tizen/node_modules/qrcode-generator/qrcode.js": function ____Desktop_stremioKaiTizen_node_modules_qrcodeGenerator_qrcodeJs(exports, module) {
+    "node_modules/qrcode-generator/qrcode.js": function node_modules_qrcodeGenerator_qrcodeJs(exports, module) {
       var qrcode2 = function () {
         var qrcode3 = function qrcode3(typeNumber, errorCorrectionLevel) {
           var PAD0 = 236;
@@ -4891,6 +4891,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Você já está conectado à sua conta Stremio. Seus addons e sua biblioteca já estão aqui.": "You're already signed in to Stremio. Your add-ons and library are here.",
     "Entre com a sua conta Stremio para trazer seus addons (Torrentio, debrid, Anime Kitsu...) e a biblioteca.": "Sign in with your Stremio account to bring your add-ons (Torrentio, debrid, Anime Kitsu...) and library.",
     "Entrar na conta": "Sign in",
+    "Torrent playback on the TV": "Torrent playback on the TV",
+    "The TV has its own torrent player and does not need a PC server.": "The TV has its own torrent player and does not need a PC server.",
     "Servidor de torrents no PC": "Torrent server on a PC",
     "Servidor conectado em {url}. Torrents liberados.": "Server connected at {url}. Torrents enabled.",
     "Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.": "To play torrents, keep stremio-service running on a PC on your network. Debrid links work without it.",
@@ -5013,6 +5015,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Não suportado na TV": "Not supported on TV",
     "Torrent · via PC": "Torrent · via PC",
     "Torrent · via TV": "Torrent · via TV",
+    "Torrent player unavailable": "TV torrent player unavailable",
+    "TV torrent player ready": "TV torrent player ready",
+    "TV torrent player unavailable; torrent sources hidden": "TV torrent player unavailable; torrent sources hidden",
+    "TV proxy available": "TV proxy available",
+    "PC proxy available": "PC proxy available",
+    "Direct links only": "Direct links only",
+    "{name}: {n} torrent sources hidden (TV torrent player unavailable)": "{name}: {n} torrent sources hidden (TV torrent player unavailable)",
+    "TV torrent player unavailable.": "TV torrent player is unavailable. Restart the app and try again.",
     "Torrent · precisa do PC": "Torrent · needs PC",
     "Sem servidor do PC: proxy e torrents na TV": "No PC server: TV proxy and torrent playback",
     "Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV.": "Torrent playback needs an active engine on the PC or TV.",
@@ -5386,6 +5396,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Você já está conectado à sua conta Stremio. Seus addons e sua biblioteca já estão aqui.": "أنت مسجّل الدخول إلى Stremio بالفعل. إضافاتك ومكتبتك موجودة هنا.",
     "Entre com a sua conta Stremio para trazer seus addons (Torrentio, debrid, Anime Kitsu...) e a biblioteca.": "سجّل الدخول بحساب Stremio لجلب إضافاتك (Torrentio، debrid، Anime Kitsu...) ومكتبتك.",
     "Entrar na conta": "تسجيل الدخول",
+    "Torrent playback on the TV": "تشغيل التورنت على التلفاز",
+    "The TV has its own torrent player and does not need a PC server.": "يحتوي التلفاز على مشغل تورنت خاص به ولا يحتاج إلى خادم كمبيوتر.",
     "Servidor de torrents no PC": "خادم التورنت على الكمبيوتر",
     "Servidor conectado em {url}. Torrents liberados.": "الخادم متصل على {url}. تم تفعيل التورنت.",
     "Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.": "لتشغيل التورنت، أبقِ stremio-service يعمل على كمبيوتر في شبكتك. روابط debrid تعمل بدونه.",
@@ -5494,6 +5506,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Não suportado na TV": "غير مدعوم على التلفاز",
     "Torrent · via PC": "تورنت · عبر الكمبيوتر",
     "Torrent · via TV": "تورنت · عبر التلفاز",
+    "Torrent player unavailable": "مشغل التورنت على التلفاز غير متاح",
+    "TV torrent player ready": "مشغل التورنت على التلفاز جاهز",
+    "TV torrent player unavailable; torrent sources hidden": "مشغل التورنت على التلفاز غير متاح؛ مصادر التورنت مخفية",
+    "TV proxy available": "وسيط التلفاز متاح",
+    "PC proxy available": "وسيط الكمبيوتر متاح",
+    "Direct links only": "الروابط المباشرة فقط",
+    "{name}: {n} torrent sources hidden (TV torrent player unavailable)": "{name}: {n} من مصادر التورنت مخفية (مشغل التورنت على التلفاز غير متاح)",
+    "TV torrent player unavailable.": "مشغل التورنت على التلفاز غير متاح. أعد تشغيل التطبيق وحاول مجددًا.",
     "Torrent · precisa do PC": "تورنت · يحتاج الكمبيوتر",
     "Sem servidor do PC: proxy e torrents na TV": "لا يوجد خادم كمبيوتر: وسيط وتشغيل تورنت على التلفاز",
     "Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV.": "يحتاج تشغيل التورنت إلى محرك نشط على الكمبيوتر أو التلفاز.",
@@ -6936,7 +6956,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/api/tvproxy.js
   var TTL_MS = 3e4;
-  var base = "http://127.0.0.1:8096";
+  var base = "http://127.0.0.1:8097";
   var checking = null;
   var launch = null;
   var status = {
@@ -6986,6 +7006,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return null;
     });
   }
+  function waitForTorrent(fallback) {
+    var startedAt = Date.now();
+    function poll2() {
+      return probe(8097).then(function (result) {
+        if (result && result.torrent) return result;
+        if (Date.now() - startedAt >= 1e4) return result || fallback;
+        return new Promise(function (resolve) {
+          return setTimeout(resolve, 500);
+        }).then(poll2);
+      });
+    }
+    return poll2();
+  }
   function startPlayerService() {
     if (launch) return launch;
     var m = (window.__KAI_BASE__ || "").match(/\/gh\/(FeridunDuran\/stremio-kai-tizen)@([a-f0-9]{40})\/dist\/$/);
@@ -7032,17 +7065,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function check(force) {
     if (!force && status.checkedAt && Date.now() - status.checkedAt < (status.ok ? TTL_MS : 5e3)) return Promise.resolve(status);
     if (checking) return checking;
-    checking = Promise.all([probe(8096), probe(8095)]).then(function (urls) {
+    checking = Promise.all([probe(8097), probe(8096), probe(8095)]).then(function (urls) {
       if (urls[0] && urls[0].torrent) return urls[0];
+      var fallback = urls[0] || urls[1] || urls[2];
       return startPlayerService().then(function (started2) {
-        if (!started2) return urls[0] || urls[1];
-        return new Promise(function (resolve) {
-          return setTimeout(resolve, 1800);
-        }).then(function () {
-          return probe(8096);
-        }).then(function (url2) {
-          return url2 || urls[0] || urls[1];
-        });
+        if (!started2) return fallback;
+        return waitForTorrent(fallback);
       });
     }).then(function (url2) {
       if (url2) base = url2.url;
@@ -7232,46 +7260,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     for (var i = 0; i + 4 <= bits.length; i += 4) hex += parseInt(bits.substr(i, 4), 2).toString(16);
     return hex;
   }
-  function torrentUrl(base2, infoHash, fileIdx, sources) {
-    var u = base2 + encodeURIComponent(infoHash) + "/" + encodeURIComponent(fileIdx);
-    if (sources && sources.length) {
-      u += "?" + sources.map(function (s) {
-        return "tr=" + encodeURIComponent(s);
-      }).join("&");
-    }
-    return u;
-  }
-  function createTorrent(base2, infoHash, fileIdx, sources, seriesInfo) {
-    var hasIdx = fileIdx !== null && fileIdx !== void 0 && isFinite(fileIdx);
-    if ((!sources || !sources.length) && hasIdx) return Promise.resolve(torrentUrl(base2, infoHash, fileIdx, []));
-    var body = {
-      torrent: {
-        infoHash: infoHash
-      }
-    };
-    if (sources && sources.length) {
-      var all2 = ["dht:" + infoHash].concat(sources.map(function (s) {
-        return /^(tracker|dht):/.test(s) ? s : "tracker:" + s;
-      }));
-      body.peerSearch = {
-        sources: all2.filter(function (s, i) {
-          return all2.indexOf(s) === i;
-        }),
-        min: 40,
-        max: 200
-      };
-    }
-    if (!hasIdx) {
-      body.guessFileIdx = {};
-      if (seriesInfo && isFinite(seriesInfo.season)) body.guessFileIdx.season = seriesInfo.season;
-      if (seriesInfo && isFinite(seriesInfo.episode)) body.guessFileIdx.episode = seriesInfo.episode;
-    } else body.guessFileIdx = false;
-    return postJSON(base2 + encodeURIComponent(infoHash) + "/create", body, {
-      timeout: 3e4
-    }).then(function (r) {
-      return torrentUrl(base2, infoHash, hasIdx ? fileIdx : r && r.guessedFileIdx, body.peerSearch ? body.peerSearch.sources : []);
-    });
-  }
   function proxyUrl2(base2, streamUrl, reqHeaders, resHeaders) {
     var m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
     if (!m) return streamUrl;
@@ -7329,12 +7317,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (stream.url.indexOf("magnet:") === 0) {
         var mg = parseMagnet(stream.url);
         if (!mg) return Promise.reject(new Error(t("Magnet inválido")));
-        if (isAvailable2()) return createTorrent(base2, mg.infoHash, null, mg.sources, seriesInfo).then(function (u) {
-          return {
-            url: u,
-            viaServer: true
-          };
-        });
         return openTorrent({
           infoHash: mg.infoHash,
           name: mg.name,
@@ -7370,12 +7352,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     if (typeof stream.infoHash === "string") {
-      if (isAvailable2()) return createTorrent(base2, stream.infoHash.toLowerCase(), stream.fileIdx, stream.sources || [], seriesInfo).then(function (u) {
-        return {
-          url: u,
-          viaServer: true
-        };
-      });
       return openTorrent({
         infoHash: stream.infoHash.toLowerCase(),
         fileIdx: stream.fileIdx,
@@ -10834,7 +10810,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onPick: function onPick(i) {
           var s = opts.streams[i];
           if (!s || s === stream) return;
-          if (isTorrent(s) && !isAvailable2() && !isTorrentAvailable()) return toast(t("Essa fonte precisa do servidor do PC ou do mecanismo de torrent da TV."));
+          if (isTorrent(s) && !isTorrentAvailable()) return toast(t("TV torrent player unavailable."));
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
@@ -10859,7 +10835,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var match = group ? list2.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group;
         }) : null;
-        if (match && (!isTorrent(match) || isAvailable2() || isTorrentAvailable())) {
+        if (match && (!isTorrent(match) || isTorrentAvailable())) {
           video = nv;
           stream = match;
           opts.streams = list2;
@@ -11677,7 +11653,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         groups.forEach(function (g, gi) {
           (g.streams || []).forEach(function (s, si) {
             if (!isPlayableType(s)) return;
-            if (isTorrent(s) && !(serverOk || torrentOk2)) return;
+            if (isTorrent(s) && !torrentOk2) return;
             var needs = isTorrent(s) || needsHeaders(s) && !(serverOk || tvOk);
             var badges = streamBadges(s);
             var warn = badges.some(function (b) {
@@ -11729,8 +11705,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
           return;
         }
-        var srv = serverOk ? t("Servidor do PC conectado") : tvOk ? t(torrentOk2 ? "Sem servidor do PC: proxy e torrents na TV" : "Sem servidor do PC: links diretos e proxy da TV") : t("Servidor do PC não conectado: só links diretos");
-        sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
+        var srv = torrentOk2 ? t("TV torrent player ready") : t("TV torrent player unavailable; torrent sources hidden");
+        var proxyStatus = tvOk ? t("TV proxy available") : serverOk ? t("PC proxy available") : t("Direct links only");
+        sub.textContent = srv + "  ·  " + proxyStatus + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
         }) : "  ·  " + t("{n} fontes", {
           n: all2.length
@@ -11784,7 +11761,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       (serverOk ? Promise.resolve() : check2().then(function (r) {
         return serverOk = r.ok;
       })).then(function () {
-        if (serverOk || tvOk && torrentOk2) return null;
+        if (tvOk && torrentOk2) return null;
         return check(!torrentOk2).then(function (r) {
           tvOk = r.ok;
           torrentOk2 = r.torrent;
@@ -11800,7 +11777,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             var shown = streams.filter(function (s) {
-              return isPlayableType(s) && (serverOk || torrentOk2 || canTryDirect(s));
+              return isPlayableType(s) && (isTorrent(s) ? torrentOk2 : canTryDirect(s));
             });
             var hidden = streams.length - shown.length;
             g.count = shown.length;
@@ -11810,7 +11787,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               g.el.appendChild(streamItem(s, video, serverOk, tvOk, all2));
             });
             if (hidden) g.el.appendChild(h("div.loading-line", {
-              text: t("{name}: {n} fontes ocultas (precisam de torrent no PC ou na TV)", {
+              text: t("{name}: {n} torrent sources hidden (TV torrent player unavailable)", {
                 name: addon.manifest.name || addon.manifest.id,
                 n: hidden
               })
@@ -11838,14 +11815,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var playableType = isPlayableType(s);
       var needs = needsServer(s);
       var torrent = isTorrent(s);
-      var disabled = !playableType || torrent && !(serverOk || torrentOk);
+      var disabled = !playableType || torrent && !torrentOk;
       var tags = [];
       if (!playableType) tags.push(h("span.s-tag.warn", {
         text: t("Não suportado na TV")
       }));else if (needs) {
-        var label = torrent ? serverOk ? "Torrent · via PC" : torrentOk ? "Torrent · via TV" : "Torrent · precisa do PC" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
+        var label = torrent ? torrentOk ? "Torrent · via TV" : "Torrent player unavailable" : serverOk ? "Via PC" : tvOk ? "Via TV" : "Direto · pode falhar";
         tags.push(h("span.s-tag", {
-          cls: torrent ? serverOk || torrentOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
+          cls: torrent ? torrentOk ? "" : "warn" : serverOk || tvOk ? "" : "warn",
           text: t(label)
         }));
       } else tags.push(h("span.s-tag.ok", {
@@ -11862,7 +11839,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         cls: disabled ? "disabled" : "",
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
-          if (torrent && !(serverOk || torrentOk)) return toast(t("Torrent precisa de um mecanismo de reprodução ativo no PC ou na TV."), 5e3);
+          if (torrent && !torrentOk) return toast(t("TV torrent player unavailable."), 5e3);
           play(video, s, all2);
         }
       }, [h("div.s-addon", {
@@ -13041,7 +13018,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T11:32:35.212Z";
+  var BUILD = "2026-11-05T11:45:57.511Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js"];
@@ -14491,38 +14468,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function stepServer() {
       card2.appendChild(h("h1", {
-        text: t("Servidor de torrents no PC")
+        text: t("Torrent playback on the TV")
       }));
-      var status3 = h("p", {
-        text: isAvailable2() ? t("Servidor conectado em {url}. Torrents liberados.", {
-          url: baseUrl()
-        }) : t("Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.")
-      });
-      card2.appendChild(status3);
+      card2.appendChild(h("p", {
+        text: t("The TV has its own torrent player and does not need a PC server.")
+      }));
       card2.appendChild(h("div.actions", {
         "data-group": ""
-      }, [btn(t("Procurar na rede"), true, function () {
-        status3.textContent = t("Procurando o servidor na rede...");
-        scan(function (done, total) {
-          return status3.textContent = t("Procurando o servidor na rede...") + " " + Math.round(done / total * 100) + "%";
-        }).then(function (ip) {
-          if (!ip) {
-            status3.textContent = t("Nenhum servidor encontrado. Você pode configurar depois em Ajustes.");
-            return;
-          }
-          saveSettings({
-            serverUrl: ip
-          });
-          return check2().then(function () {
-            status3.textContent = t("Servidor encontrado em {ip}", {
-              ip: ip
-            }) + "!";
-            toast(t("Servidor do PC conectado"));
-          });
-        }).catch(function () {
-          return status3.textContent = t("Não foi possível procurar. Configure depois em Ajustes.");
-        });
-      }), btn(isAvailable2() ? t("Continuar") : t("Pular"), false, next)]));
+      }, [btn(t("Continuar"), true, next)]));
     }
     function stepSubs() {
       card2.appendChild(h("h1", {

@@ -1,11 +1,10 @@
-// Assistente da primeira execução (como o welcome-wizard do Kai): conta, servidor do PC e legendas.
+// Assistente da primeira execução (como o welcome-wizard do Kai): conta, torrent na TV e legendas.
 import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import * as stremio from '../api/stremio.js';
-import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
-import { toast, refreshProfileChips } from '../ui.js';
+import { refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { t, current as currentLang } from '../lib/i18n.js';
@@ -97,35 +96,9 @@ function WizardView() {
   }
 
   function stepServer() {
-    card.appendChild(h('h1', { text: t('Servidor de torrents no PC') }));
-    const status = h('p', {
-      text: server.isAvailable()
-        ? t('Servidor conectado em {url}. Torrents liberados.', { url: server.baseUrl() })
-        : t('Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.'),
-    });
-    card.appendChild(status);
-    card.appendChild(
-      h('div.actions', { 'data-group': '' }, [
-        btn(t('Procurar na rede'), true, () => {
-          status.textContent = t('Procurando o servidor na rede...');
-          server
-            .scan((done, total) => (status.textContent = t('Procurando o servidor na rede...') + ' ' + Math.round((done / total) * 100) + '%'))
-            .then((ip) => {
-              if (!ip) {
-                status.textContent = t('Nenhum servidor encontrado. Você pode configurar depois em Ajustes.');
-                return;
-              }
-              store.saveSettings({ serverUrl: ip });
-              return server.check().then(() => {
-                status.textContent = t('Servidor encontrado em {ip}', { ip: ip }) + '!';
-                toast(t('Servidor do PC conectado'));
-              });
-            })
-            .catch(() => (status.textContent = t('Não foi possível procurar. Configure depois em Ajustes.')));
-        }),
-        btn(server.isAvailable() ? t('Continuar') : t('Pular'), false, next),
-      ])
-    );
+    card.appendChild(h('h1', { text: t('Torrent playback on the TV') }));
+    card.appendChild(h('p', { text: t('The TV has its own torrent player and does not need a PC server.') }));
+    card.appendChild(h('div.actions', { 'data-group': '' }, [btn(t('Continuar'), true, next)]));
   }
 
   function stepSubs() {

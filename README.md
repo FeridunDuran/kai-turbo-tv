@@ -46,9 +46,9 @@ Without this, rows follow the order of the add-ons on your account (the newest a
 which you can also change at web.stremio.com → Add-ons.
 
 ### Only sources the TV can play
-Torrents play on the TV through a bundled Node 4 engine and rolling RAM cache, so a PC server is
-optional. When both are available the PC server is preferred; without either, torrent sources
-are hidden with a count per add-on.
+Torrents play on the TV through its built-in engine and rolling RAM cache. Torrent playback does
+not use a PC server. If the TV engine is unavailable, torrent sources are hidden with a count per
+add-on.
 
 The TV keeps a moving window of torrent pieces in memory instead of saving the whole video to
 internal storage. Seeking outside that window fetches the needed pieces again.
@@ -197,8 +197,8 @@ Purple, gold, teal, red, blue or green: **Settings → Colour theme** recolours 
 - For playback, **one** of:
   - a **debrid** service (Real-Debrid, AllDebrid, etc.) in your Stremio add-ons: plays directly
     on the TV, no PC needed;
-  - the app's built-in TV torrent engine (no PC required), or [stremio-service](https://github.com/Stremio/stremio-service/releases)
-    running on a PC on the same network. The PC server is preferred when configured and reachable.
+  - torrent add-ons such as Torrentio or Comet: the app runs their torrent streams on the TV,
+    without stremio-service on a PC.
 - Links that only need request headers (Referer/User-Agent/Cookie) need neither: the app's
   TizenBrew service fetches them on the TV itself.
 
@@ -280,9 +280,7 @@ Leave Developer Mode on from now on, or TizenBrew won't open.
 
 ### 6. First launch
 
-1. The setup asks for a **torrent server**. The TV can play torrents by itself. If you already
-   run [stremio-service](https://github.com/Stremio/stremio-service/releases) on a PC on the
-   same network, choose **Scan network** to use it first; otherwise choose **Skip**.
+1. The setup explains that torrent playback runs on the TV and does not need a PC server.
 2. Sign in to your Stremio account: go to **link.stremio.com** on your phone and enter the code
    shown on the TV, or sign in with email.
 3. Your add-ons and library load from your account. Pick something and play.
@@ -300,8 +298,8 @@ installed and newest version and can update from there too.
   **127.0.0.1**. A TV firmware update or factory reset turns it off.
 - **The installer can't find the TV:** make sure the Host PC IP in step 1 is the PC's current IP,
   the TV was restarted afterwards, and both are on the same network (not a guest network).
-- **A video won't play:** try a debrid (direct) source, or check that the TV torrent service or
-  PC stremio-service is available for torrent sources. Header links should be tagged **Via TV**; if they say
+- **A video won't play:** try a debrid (direct) source, or check that the TV torrent player is
+  ready for torrent sources. Header links should be tagged **Via TV**; if they say
   **Direct · may fail**, neither the TV header proxy nor the PC proxy was detected. The app
   tries to start its own loopback proxy using the same commit as the running app, even when
   TizenBrew has an older phone service cached. HTTP sources stop waiting after 120 seconds;
@@ -310,8 +308,8 @@ installed and newest version and can update from there too.
   source did not label the language; it does not mean that the file contains no sound.
   TizenBrew HLS playback uses a bundled HLS.js player through MediaSource. It reports multiplexed audio codecs and supports alternate audio tracks when provided. Installed Samsung apps can use AVPlay when available.
   Silent or unsupported source audio cannot be repaired by adding request headers alone.
-- **Few or no sources:** torrents are hidden when neither the TV engine nor a PC server is
-  available; each add-on shows how many were hidden. Header links are no longer hidden.
+- **Few or no sources:** torrents are hidden while the TV torrent player is unavailable; each
+  add-on shows how many were hidden. Header links are no longer hidden.
 - **The Library tab or a new feature doesn't appear:** the TV is still running the old version;
   restart it fully (see Updating).
 

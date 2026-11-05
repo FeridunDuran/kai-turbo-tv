@@ -17971,7 +17971,7 @@ var TV_TORRENT = (function () {
       if (order.length > MAX_SESSIONS) destroySession(order[0]);
       cb(null, {
         id: session.id,
-      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8096' : '8095') + '/torrent/' + session.id,
+      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8097' : '8095') + '/torrent/' + session.id,
         name: file.name,
         length: file.length,
         fileIdx: fileIdx
@@ -18083,8 +18083,8 @@ var urlLib = require('url');
 
 // The on-demand player service uses a separate loopback port so an old, healthy
 // phone service kept alive by TizenBrew cannot prevent the new proxy starting.
-var PORT = typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? 8096 : 8095;
-var BIND = PORT === 8096 ? '127.0.0.1' : '0.0.0.0';
+var PORT = typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? 8097 : 8095;
+var BIND = PORT === 8097 ? '127.0.0.1' : '0.0.0.0';
 var HOLD_MS = 25000; // long-poll hold time
 var KEEP = 50; // events kept for late pollers
 var PIN = String(1000 + Math.floor(Math.random() * 9000));
@@ -18472,7 +18472,7 @@ function handle(req, res) {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
     return send(res, 200, {
       ip: tvIp(), port: PORT, pin: PIN, last: nextId - 1, version: 3, proxy: 1,
-      torrent: PORT === 8096 && typeof TV_TORRENT !== 'undefined' && TV_TORRENT.supported() ? 1 : 0
+      torrent: PORT === 8097 && typeof TV_TORRENT !== 'undefined' && TV_TORRENT.supported() ? 1 : 0
     });
   }
   if (url.pathname === '/torrent/open' && req.method === 'POST') {

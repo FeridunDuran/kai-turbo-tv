@@ -160,20 +160,23 @@ test('Smart Choice startup timeout advances once and rejects the previous attemp
 
 test('proxy bootstrap pins the app revision and coalesces concurrent checks', async () => {
   const commands = [];
-  let running = false, probes = 0;
+  let running = false, probes = 0, engineProbes = 0;
   const context = {
     Promise, Date, encodeURIComponent, log: { info() {} },
     window: { __KAI_BASE__: 'https://cdn.jsdelivr.net/gh/FeridunDuran/stremio-kai-tizen@' + 'a'.repeat(40) + '/dist/' },
     location: { pathname: '/module/gh%2FFeridunDuran%2Fstremio-kai-tizen/dist/index.html' },
-    setTimeout: (fn, ms) => setTimeout(fn, ms === 1800 ? 0 : ms), clearTimeout,
+    setTimeout: (fn, ms) => setTimeout(fn, ms === 500 ? 0 : ms), clearTimeout,
     XMLHttpRequest: class {
       open(method, url) { this.url = url; }
       send() {
         probes++;
         queueMicrotask(() => {
           this.status = 200;
-          // Simulate the old phone service still running, without a proxy.
-          this.responseText = JSON.stringify({ proxy: running && this.url.includes(':8096') ? 1 : 0 });
+          // The old proxy still answers on 8096; the new torrent player starts later on 8097.
+          const playerPort = this.url.includes(':8097');
+          if (playerPort) engineProbes++;
+          const ready = playerPort ? running && engineProbes > 1 : this.url.includes(':8096');
+          this.responseText = JSON.stringify({ proxy: ready ? 1 : 0, torrent: ready && playerPort ? 1 : 0 });
           this.onload();
         });
       }
@@ -190,13 +193,14 @@ test('proxy bootstrap pins the app revision and coalesces concurrent checks', as
   const a = context.check(), b = context.check();
   assert.equal(a, b);
   assert.equal((await a).ok, true);
+  assert.equal((await context.lastStatus()).torrent, true);
   assert.equal(commands.length, 1);
   assert.equal(commands[0].payload.fullName, 'gh/FeridunDuran/stremio-kai-tizen@' + 'a'.repeat(40));
   assert.equal(commands[0].payload.serviceFile, 'dist/player-service.js');
-  assert.equal(probes, 3);
+  assert.equal(probes, 4);
   await context.ensure();
-  assert.equal(probes, 3);
-  assert.match(context.proxyUrl('https://test.invalid/video', { Referer: 'https://test.invalid/' }), /^http:\/\/127\.0\.0\.1:8096\/proxy/);
+  assert.equal(probes, 4);
+  assert.match(context.proxyUrl('https://test.invalid/video', { Referer: 'https://test.invalid/' }), /^http:\/\/127\.0\.0\.1:8097\/proxy/);
 });
 
 test('real local proxy preserves HLS audio/key/map headers even on ranged manifests', async () => {
@@ -226,12 +230,12 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
   try {
     if (!proxy.listening) await once(proxy, 'listening');
     const root = `http://127.0.0.1:${upstream.address().port}/`;
-    const url = 'http://127.0.0.1:8096/proxy/stream.m3u8?u=' + encodeURIComponent(root + 'master.m3u8') + '&h=' + encodeURIComponent(JSON.stringify({ Referer: 'https://required.test/' }));
+    const url = 'http://127.0.0.1:8097/proxy/stream.m3u8?u=' + encodeURIComponent(root + 'master.m3u8') + '&h=' + encodeURIComponent(JSON.stringify({ Referer: 'https://required.test/' }));
     const master = await (await fetch(url, { headers: { Range: 'bytes=0-100' } })).text();
     assert.match(master, /#EXT-X-STREAM-INF/);
     assert.equal(requests[0].headers.range, undefined);
     const audio = master.match(/URI="([^"]+)"/)[1];
-    assert.match(audio, /^http:\/\/127\.0\.0\.1:8096\/proxy\/stream\.m3u8\?/);
+    assert.match(audio, /^http:\/\/127\.0\.0\.1:8097\/proxy\/stream\.m3u8\?/);
     const playlist = await (await fetch(audio, { headers: { Range: 'bytes=0-100' } })).text();
     const key = playlist.match(/URI="([^"]+)"/)[1];
     const segment = playlist.trim().split('\n').at(-1);
@@ -241,7 +245,7 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
     assert.ok(requests.every((r) => r.headers.referer === 'https://required.test/'));
     // Media must be delivered immediately, without buffering an entire segment
     // in the TV proxy. Only the small manifest needs a complete body for rewriting.
-    const slowURL = 'http://127.0.0.1:8096/proxy?u=' + encodeURIComponent(root + 'slow.ts') + '&h=' + encodeURIComponent(JSON.stringify({ Referer: 'https://required.test/' }));
+    const slowURL = 'http://127.0.0.1:8097/proxy?u=' + encodeURIComponent(root + 'slow.ts') + '&h=' + encodeURIComponent(JSON.stringify({ Referer: 'https://required.test/' }));
     const response = await fetch(slowURL);
     const reader = response.body.getReader();
     const first = await reader.read();

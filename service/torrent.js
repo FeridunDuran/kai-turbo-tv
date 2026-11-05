@@ -414,7 +414,7 @@ var TV_TORRENT = (function () {
       if (order.length > MAX_SESSIONS) destroySession(order[0]);
       cb(null, {
         id: session.id,
-      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8096' : '8095') + '/torrent/' + session.id,
+      url: 'http://127.0.0.1:' + (typeof PLAYER_SERVICE !== 'undefined' && PLAYER_SERVICE ? '8097' : '8095') + '/torrent/' + session.id,
         name: file.name,
         length: file.length,
         fileIdx: fileIdx
