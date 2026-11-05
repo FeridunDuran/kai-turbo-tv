@@ -17157,6 +17157,7 @@ var TorrentEngine = function () {
           }));
           engine.torrent = torrent;
           engine.bitfield = bitfield(torrent.pieces.length);
+          var requestedAt = engine.pieceRequestedAt = {};
           var pieceLength = torrent.pieceLength;
           var pieceRemainder = torrent.length % pieceLength || pieceLength;
           var pieces = torrent.pieces.map(function (hash, i) {
@@ -17270,6 +17271,7 @@ var TorrentEngine = function () {
           };
           var onrequest = function onrequest(wire, index, hotswap) {
             if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false;
+            if (!requestedAt[index]) requestedAt[index] = Date.now();
             var p = pieces[index];
             var reservation = p.reserve();
             if (reservation === -1 && hotswap && onhotswap(wire, index)) reservation = p.reserve();
@@ -17743,6 +17745,58 @@ var TV_TORRENT = (function () {
 
   function noop() {}
 
+  // Startup and transfer diagnostics kept on the engine (it survives warm episode reuse).
+  // Counts and times only; no addresses, names or URLs.
+  function attachDiag(engine) {
+    var d = engine.diag = { createdAt: Date.now(), firstPeerMs: null, firstWireMs: null, firstUnchokeMs: null,
+      firstBlockMs: null, readyMs: null, peersFound: 0, wiresOpened: 0, wiresClosed: 0, timeouts: 0,
+      chokes: 0, unchokes: 0, hashFails: 0, hotswaps: 0, pieces: [], closed: [] };
+    function at() { return Date.now() - d.createdAt; }
+    engine.on('peer', function () { d.peersFound++; if (d.firstPeerMs === null) d.firstPeerMs = at(); });
+    engine.on('wire', function (wire) {
+      var openedAt = Date.now();
+      var bytes = 0;
+      d.wiresOpened++;
+      if (d.firstWireMs === null) d.firstWireMs = at();
+      if (typeof wire.on !== 'function') return;
+      wire.on('unchoke', function () { d.unchokes++; if (d.firstUnchokeMs === null) d.firstUnchokeMs = at(); });
+      wire.on('choke', function () { d.chokes++; });
+      wire.on('download', function (n) { bytes += n; if (d.firstBlockMs === null) d.firstBlockMs = at(); });
+      wire.on('close', function () {
+        d.wiresClosed++;
+        // Lifetime and payload of the most recent closed connections: short-lived wires with
+        // no payload point at unreachable or choking peers rather than a slow swarm.
+        d.closed.push({ s: Math.round((Date.now() - openedAt) / 1000), kb: Math.round(bytes / 1024) });
+        if (d.closed.length > 8) d.closed.shift();
+      });
+    });
+    engine.on('timeout', function () { d.timeouts++; });
+    engine.on('invalid-piece', function () { d.hashFails++; });
+    engine.on('hotswap', function () { d.hotswaps++; });
+    engine.on('ready', function () { d.readyMs = at(); });
+    engine.on('verify', function (index) {
+      var requested = engine.pieceRequestedAt && engine.pieceRequestedAt[index];
+      d.pieces.push({ i: index, ms: requested ? Date.now() - requested : null, at: at() });
+      if (d.pieces.length > 10) d.pieces.shift();
+      if (requested) delete engine.pieceRequestedAt[index];
+    });
+    return d;
+  }
+
+  function wireSummary(engine) {
+    var swarm = engine.swarm || {};
+    var wires = swarm.wires || [];
+    var unchoked = 0;
+    var speeds = [];
+    var speed = function (x) { return typeof x.downloadSpeed === 'function' ? x.downloadSpeed() : 0; };
+    for (var i = 0; i < wires.length; i++) {
+      if (!wires[i].peerChoking) unchoked++;
+      speeds.push(Math.round(speed(wires[i]) / 1024));
+    }
+    speeds.sort(function (a, b) { return b - a; });
+    return { connected: wires.length, unchoked: unchoked, topKBs: speeds.slice(0, 6), rateKBs: Math.round(speed(swarm) / 1024) };
+  }
+
   function supported() {
     return typeof TorrentEngine === 'function';
   }
@@ -18203,6 +18257,19 @@ var TV_TORRENT = (function () {
     } catch (e) {
       return cb(e);
     }
+    attachDiag(engine);
+    // Peers that delivered payload, returned to the app over loopback so it can offer them as
+    // hints next time (libtorrent keeps known peers in resume data for the same reason).
+    engine.goodPeers = [];
+    engine.on('wire', function (wire) {
+      if (typeof wire.once !== 'function') return;
+      wire.once('download', function () {
+        var addr = String(wire.peerAddress || '');
+        if (!/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$/.test(addr) || engine.goodPeers.indexOf(addr) >= 0) return;
+        engine.goodPeers.unshift(addr);
+        if (engine.goodPeers.length > 30) engine.goodPeers.pop();
+      });
+    });
 
     var done = false;
     var peerCount = 0;
@@ -18369,6 +18436,8 @@ var TV_TORRENT = (function () {
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
+        wires: wireSummary(s.engine), diag: s.engine.diag || null, resumePending: !!s.resumePending,
+        goodPeers: s.engine.goodPeers || [],
         ranges: s.requests || [] };
     },
     supported: supported,

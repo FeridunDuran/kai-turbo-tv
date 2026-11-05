@@ -172,7 +172,7 @@ test('Smart Choice startup timeout advances once and rejects the previous attemp
 test('proxy bootstrap pins the app revision and coalesces concurrent checks', async () => {
   const commands = [];
   let running = false, probes = 0, engineProbes = 0;
-  const context = {
+  const context = { store: { get: (k, d) => d, set() {} },
     Promise, Date, encodeURIComponent, log: { info() {} },
     window: { __KAI_BASE__: 'https://cdn.jsdelivr.net/gh/FeridunDuran/stremio-kai-tizen@' + 'a'.repeat(40) + '/dist/' },
     location: { pathname: '/module/gh%2FFeridunDuran%2Fstremio-kai-tizen/dist/index.html' },

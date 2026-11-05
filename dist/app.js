@@ -5311,7 +5311,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Press Back again to stop watching": "Press Back again to stop watching",
     "Hide stats": "Hide stats",
     "Show stats": "Show stats",
-    "file average {rate} MB/s": "file average {rate} MB/s",
+    "needs ~{rate} MB/s": "needs ~{rate} MB/s",
     "below the file's average bitrate": "below the file's average bitrate"
   };
 
@@ -5847,7 +5847,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
     "Hide stats": "إخفاء الإحصاءات",
     "Show stats": "إظهار الإحصاءات",
-    "file average {rate} MB/s": "متوسط الملف {rate} ميغابايت/ث",
+    "needs ~{rate} MB/s": "يحتاج ~{rate} ميغابايت/ث",
     "below the file's average bitrate": "أقل من متوسط معدل بت الملف"
   };
 
@@ -7208,13 +7208,55 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function isTorrentAvailable() {
     return status.torrent;
   }
+  var PEER_KEY = "torrentPeers";
+  var PEER_TORRENTS = 20;
+  var PEER_LIMIT = 30;
+  var PEER_RE = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$/;
+  var hashByUrl = {};
+  function cachedPeers(infoHash) {
+    var all2 = get(PEER_KEY, {}) || {};
+    var entry = all2[String(infoHash || "").toLowerCase()];
+    return entry && Array.isArray(entry.p) ? entry.p.filter(function (a) {
+      return PEER_RE.test(a);
+    }).slice(0, PEER_LIMIT) : [];
+  }
+  function rememberPeers(infoHash, peers) {
+    var hash = String(infoHash || "").toLowerCase();
+    var fresh = (peers || []).filter(function (a) {
+      return PEER_RE.test(a);
+    });
+    if (!/^[a-f0-9]{40}$/.test(hash) || !fresh.length) return;
+    var all2 = get(PEER_KEY, {}) || {};
+    var merged = fresh.concat(cachedPeers(hash).filter(function (a) {
+      return fresh.indexOf(a) < 0;
+    })).slice(0, PEER_LIMIT);
+    delete all2[hash];
+    all2[hash] = {
+      p: merged,
+      at: Date.now()
+    };
+    var keys = Object.keys(all2).sort(function (a, b) {
+      return (all2[a].at || 0) - (all2[b].at || 0);
+    });
+    while (keys.length > PEER_TORRENTS) delete all2[keys.shift()];
+    set(PEER_KEY, all2);
+  }
   function torrentStats(url2) {
     var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
-    return match ? request2(match[1] + "/torrent-status/" + match[2], 2500).catch(function () {
+    if (!match) return Promise.resolve(null);
+    return request2(match[1] + "/torrent-status/" + match[2], 2500).then(function (stats) {
+      if (stats && stats.goodPeers && hashByUrl[url2]) rememberPeers(hashByUrl[url2], stats.goodPeers);
+      return stats;
+    }).catch(function () {
       return null;
-    }) : Promise.resolve(null);
+    });
   }
   function openTorrent(args) {
+    args = Object.assign({}, args);
+    var hints = cachedPeers(args.infoHash).map(function (a) {
+      return "peer:" + a;
+    });
+    if (hints.length) args.sources = (args.sources || []).concat(hints);
     return ensureTorrent().then(function (ok) {
       if (!ok) throw new Error("TV torrent engine unavailable");
       return new Promise(function (resolve, reject) {
@@ -7229,7 +7271,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           } catch (e) {
             result = null;
           }
-          if (x.status === 200 && result && result.url) resolve(result);else {
+          if (x.status === 200 && result && result.url) {
+            hashByUrl[result.url] = String(args.infoHash || "").toLowerCase();
+            resolve(result);
+          } else {
             var error = new Error(result && result.error || "Could not open TV torrent");
             error.torrentOpen = true;
             reject(error);
@@ -10261,6 +10306,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       failed = false;
       userPaused = false;
       currentAudio = null;
+      logPlaybackSummary();
+      rebufferAt = 0;
+      rebuffers = 0;
+      rebufferMs = 0;
+      playStartedAt = 0;
+      playbackLogTicks = 0;
       startedAt = Date.now();
       marks = {};
       torrentProgress = {
@@ -10422,7 +10473,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         scheduleAudioPick();
         mark("playing");
         logStartupTimeline();
+        if (!playStartedAt) playStartedAt = Date.now();
       }
+      rebufferEnd();
       hasPlayed = true;
       showSpinner(false);
       message("");
@@ -10436,7 +10489,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("waiting", function () {
       showSpinner(true);
-      if (hasPlayed) setStage("buffering");
+      if (hasPlayed) {
+        setStage("buffering");
+        rebufferStart();
+      }
     });
     videoEl.addEventListener("canplay", function () {
       mark("canplay");
@@ -10983,13 +11039,116 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             rate: (p.rate / 1048576).toFixed(2)
           }));
         }
-        if (average) parts.push(t("file average {rate} MB/s", {
+        if (average) parts.push(t("needs ~{rate} MB/s", {
           rate: (average / 1048576).toFixed(1)
         }));
       }
       if (videoEl.videoHeight) parts.push(videoEl.videoHeight + "p");
       statsEl.textContent = parts.join("  ·  ");
       statsEl.style.display = parts.length ? "" : "none";
+    }
+    function remoteLog() {
+      return !!(settings2.devlogUrl || "");
+    }
+    function compactStats(stats) {
+      var ranges = stats.ranges || [];
+      var last2 = ranges[ranges.length - 1] || null;
+      var d = stats.diag || {};
+      return {
+        t: Math.round((videoEl.currentTime || 0) * 10) / 10,
+        ready: videoEl.readyState,
+        wires: stats.wires || {
+          connected: stats.peers
+        },
+        receivedMB: Math.round((stats.downloaded || 0) / 104857.6) / 10,
+        aheadKB: typeof stats.aheadBytes === "number" ? Math.round(stats.aheadBytes / 1024) : null,
+        cachedKB: Math.round((stats.cachedBytes || 0) / 1024),
+        window: [stats.windowFrom, stats.windowTo],
+        pieceKB: Math.round((stats.pieceLength || 0) / 1024),
+        resumePending: stats.resumePending,
+        scheduler: stats.scheduler,
+        headerPieces: stats.headerPieces,
+        engineReused: stats.engineReused,
+        lastRange: last2 ? {
+          start: last2.start,
+          sentKB: Math.round(last2.sent / 1024),
+          closed: last2.closed,
+          ageMs: Date.now() - last2.openedAt
+        } : null,
+        ranges: ranges.length,
+        discovery: d.createdAt ? {
+          firstPeerMs: d.firstPeerMs,
+          firstWireMs: d.firstWireMs,
+          firstUnchokeMs: d.firstUnchokeMs,
+          firstBlockMs: d.firstBlockMs,
+          readyMs: d.readyMs,
+          peersFound: d.peersFound,
+          wiresOpened: d.wiresOpened,
+          wiresClosed: d.wiresClosed,
+          timeouts: d.timeouts,
+          chokes: d.chokes,
+          unchokes: d.unchokes,
+          hashFails: d.hashFails,
+          hotswaps: d.hotswaps
+        } : null,
+        pieces: d.pieces ? d.pieces.slice(-4) : null,
+        recentClosed: d.closed ? d.closed.slice(-4) : null
+      };
+    }
+    var statsMisses = 0;
+    var playbackLogTicks = 0;
+    function logTorrentState(label, extra) {
+      var forUrl = mediaUrl;
+      torrentStats(forUrl).then(function (stats) {
+        if (!alive || mediaUrl !== forUrl) return;
+        if (stats) {
+          statsMisses = 0;
+          log.info(label, Object.assign(compactStats(stats), extra || {}));
+        } else if (++statsMisses === 2 && !torrentStatsMissing) {
+          torrentStatsMissing = true;
+          log.warn("Torrent diagnostics unavailable: fully restart TV to reload player service");
+        }
+      });
+    }
+    var rebufferAt = 0;
+    var rebuffers = 0;
+    var rebufferMs = 0;
+    var playStartedAt = 0;
+    function rebufferStart() {
+      if (!hasPlayed || rebufferAt || videoEl.seeking || seekTarget !== null) return;
+      rebufferAt = Date.now();
+      rebuffers++;
+      if (remoteLog()) {
+        if (isTorrent(stream)) logTorrentState("Rebuffer start", {
+          n: rebuffers
+        });else log.info("Rebuffer start", {
+          n: rebuffers,
+          t: videoEl.currentTime,
+          ready: videoEl.readyState
+        });
+      }
+    }
+    function rebufferEnd() {
+      if (!rebufferAt) return;
+      var ms = Date.now() - rebufferAt;
+      rebufferMs += ms;
+      rebufferAt = 0;
+      if (remoteLog()) log.info("Rebuffer end", {
+        n: rebuffers,
+        ms: ms,
+        totalMs: rebufferMs
+      });
+    }
+    function logPlaybackSummary() {
+      if (!remoteLog() || !playStartedAt) return;
+      log.info("Playback summary", {
+        torrent: isTorrent(stream),
+        startupMs: marks.playing,
+        playedMs: Date.now() - playStartedAt,
+        rebuffers: rebuffers,
+        rebufferMs: rebufferMs + (rebufferAt ? Date.now() - rebufferAt : 0),
+        position: Math.round(videoEl.currentTime || 0)
+      });
     }
     function logStartupTimeline() {
       var p = torrentProgress;
@@ -11630,16 +11789,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
-          if (settings2.devlogUrl || "") statusTimer = setInterval(function () {
-            if (alive && !hasPlayed && mediaUrl && isTorrent(stream)) {
-              var forUrl = mediaUrl;
-              torrentStats(forUrl).then(function (stats) {
-                if (alive && mediaUrl === forUrl && stats) log.info("Torrent startup progress", stats);else if (alive && mediaUrl === forUrl && !torrentStatsMissing) {
-                  torrentStatsMissing = true;
-                  log.warn("Torrent diagnostics unavailable: fully restart TV to reload player service");
-                }
-              });
-            }
+          if (remoteLog()) statusTimer = setInterval(function () {
+            if (!alive || !mediaUrl || !isTorrent(stream)) return;
+            if (hasPlayed && ++playbackLogTicks % 4 !== 0) return;
+            logTorrentState(hasPlayed ? "Torrent playback" : "Torrent startup progress");
           }, 3e3);
         }
         showControls(bar);
@@ -11649,7 +11802,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return true;
       },
       destroy: function destroy() {
-        if (alive) saveProgress2(true);
+        if (alive) {
+          saveProgress2(true);
+          logPlaybackSummary();
+        }
         alive = false;
         startGeneration++;
         clearStartup();
@@ -13883,7 +14039,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T17:58:49.275Z";
+  var BUILD = "2026-11-05T18:08:35.181Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

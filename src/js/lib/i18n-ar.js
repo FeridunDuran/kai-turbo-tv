@@ -538,6 +538,6 @@ export const AR = {
   "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة",
   "Hide stats": "إخفاء الإحصاءات",
   "Show stats": "إظهار الإحصاءات",
-  "file average {rate} MB/s": "متوسط الملف {rate} ميغابايت/ث",
+  "needs ~{rate} MB/s": "يحتاج ~{rate} ميغابايت/ث",
   "below the file's average bitrate": "أقل من متوسط معدل بت الملف",
 };

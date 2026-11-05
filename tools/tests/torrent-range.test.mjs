@@ -119,3 +119,17 @@ test('a session opened for resume downloads only requested start/tail pieces unt
  const plain=new context.TV_TORRENT.Session(engine,{name:'movie.mp4',offset:408*4194304,length:200*4194304},0);
  selected.length=0;plain.ensureWindow(409,true);assert.ok(selected.filter(x=>x[2]===1)[0][1]>409,'without resume, start read-ahead is unchanged');
 });
+
+test('engine diagnostics record discovery times, connection lifetimes and piece request-to-verify times without addresses',()=>{
+ const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','attachDiag: attachDiag, wireSummary: wireSummary, supported: supported,'),context);
+ const engine=new EventEmitter();engine.pieceRequestedAt={};const d=context.TV_TORRENT.attachDiag(engine);
+ engine.emit('peer','10.0.0.1:6881');const wire=new EventEmitter();engine.emit('wire',wire);wire.emit('unchoke');wire.emit('download',16384);wire.emit('download',16384);wire.emit('close');
+ engine.pieceRequestedAt[61]=Date.now()-17000;engine.emit('verify',61);engine.emit('invalid-piece',62);engine.emit('timeout',wire);
+ assert.equal(d.peersFound,1);assert.notEqual(d.firstPeerMs,null);assert.notEqual(d.firstBlockMs,null);
+ assert.equal(d.wiresClosed,1);assert.equal(d.closed[0].kb,32);assert.equal(d.hashFails,1);assert.equal(d.timeouts,1);
+ assert.equal(d.pieces[0].i,61);assert.ok(d.pieces[0].ms>=17000);
+ assert.equal(JSON.stringify(d).includes('10.0.0.1'),false,'no peer addresses in diagnostics');
+ const summary=context.TV_TORRENT.wireSummary({swarm:{wires:[{peerChoking:false,downloadSpeed:()=>102400},{peerChoking:true,downloadSpeed:()=>0}],downloadSpeed:()=>102400}});
+ assert.deepEqual(JSON.parse(JSON.stringify(summary)),{connected:2,unchoked:1,topKBs:[100,0],rateKBs:100});
+});

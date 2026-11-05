@@ -7,7 +7,7 @@ const flush = () => new Promise(setImmediate);
 const KEY = { BACK: 10009, ESC: 27, BACKSPACE: 8, ENTER: 13, PLAY: 415, PAUSE: 19, LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40 };
 
 // Player fixture with controllable clock, torrent statistics and media events.
-async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false } = {}) {
+async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false, remoteLog = false } = {}) {
   const nodes = [], events = {}, intervals = new Map(), timers = new Map(), lookups = [], plays = [], toasts = [], logs = [];
   let id = 0, view, focused, popped = 0, playCalls = 0, now = 1000000, statsCalls = 0;
   function h(tag, props = {}, children = []) {
@@ -27,7 +27,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
   const episode1 = { id: 'tt:1:1', season: 1, episode: 1 }, episode2 = { id: 'tt:1:2', season: 1, episode: 2 };
   const current = torrent ? { infoHash: 'a'.repeat(40), fileIdx: 0, name: 'current', addon: 'Torrentio', behaviorHints: { bingeGroup: 'same' } }
     : { url: 'https://fixture/current', name: 'current' };
-  const settings = { skipMode: 'off', audioLangs: [], subtitleLangs: [], subtitlesAuto: false };
+  const settings = { skipMode: 'off', audioLangs: [], subtitleLangs: [], subtitlesAuto: false, devlogUrl: remoteLog ? 'http://log' : '' };
   class FakeDate extends Date { constructor(...a) { super(...(a.length ? a : [now])); } static now() { return now; } }
   const mocks = {
     dom: { h, clear: (n) => { n.children = []; n.textContent = ''; } },
@@ -210,7 +210,7 @@ test('playback stats line shows peers and rates only with controls, and can be h
   assert.match(line.textContent, /7 peers/);
   assert.match(line.textContent, /0\.13 MB\/s/);
   assert.doesNotMatch(line.textContent, /buffer/, 'buffer figure removed on request');
-  assert.match(line.textContent, /file average 0\.2 MB\/s/);
+  assert.match(line.textContent, /needs ~0\.2 MB\/s/);
   assert.match(line.textContent, /1080p/);
   f.key(KEY.BACK);
   assert.equal(line.style.display, 'none', 'hidden in full-screen viewing');
@@ -231,5 +231,22 @@ test('startup wait counter keeps counting across stage changes', async () => {
   f.advance(5000); f.video.duration = 6600; f.video.emit('loadedmetadata'); f.tick();
   assert.match(f.stageText(), /Loading the first frames.*15 s/, 'no reset to 0 at the new stage');
   f.close();
+});
+
+test('remote log records rebuffer start/end with service state and a playback summary on close', async () => {
+  const stats = [];
+  for (let i = 0; i < 10; i++) stats.push({ downloaded: 1048576 * (i + 1), peers: 4, length: 1e9, aheadBytes: 0, ranges: [{ start: 0, sent: 4096, openedAt: 0 }],
+    wires: { connected: 4, unchoked: 2, topKBs: [300, 100], rateKBs: 400 }, diag: { createdAt: 1, firstPeerMs: 13000, pieces: [{ i: 61, ms: 17000 }] } });
+  const f = await fixture({ statsSeq: stats, remoteLog: true });
+  f.video.duration = 6600; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
+  f.advance(20000); f.video.emit('waiting'); await flush();
+  f.advance(25000); f.video.emit('playing');
+  const start = f.logs.find((l) => l[0] === 'Rebuffer start');
+  assert.ok(start && start[1].wires.unchoked === 2 && start[1].discovery.firstPeerMs === 13000 && start[1].pieces[0].ms === 17000);
+  assert.deepEqual([f.logs.find((l) => l[0] === 'Rebuffer end')[1].ms], [25000]);
+  f.close();
+  const summary = f.logs.find((l) => l[0] === 'Playback summary')[1];
+  assert.equal(summary.rebuffers, 1); assert.equal(summary.rebufferMs, 25000);
+  assert.equal(JSON.stringify(f.logs.filter((l) => /Rebuffer|Playback summary/.test(l[0]))).includes('127.0.0.1'), false, 'no stream URL in compact state');
 });
 

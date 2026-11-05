@@ -146,6 +146,7 @@ var torrentStream = function (link, opts, cb) {
     }))
     engine.torrent = torrent
     engine.bitfield = bitfield(torrent.pieces.length)
+    var requestedAt = engine.pieceRequestedAt = {}
 
     var pieceLength = torrent.pieceLength
     var pieceRemainder = (torrent.length % pieceLength) || pieceLength
@@ -301,6 +302,8 @@ var torrentStream = function (link, opts, cb) {
 
     var onrequest = function (wire, index, hotswap) {
       if (!pieces[index] || activeRequests.length >= MAX_ACTIVE_BLOCKS) return false
+      // Diagnostics: when a piece was first requested, for request-to-verify times.
+      if (!requestedAt[index]) requestedAt[index] = Date.now()
 
       var p = pieces[index]
       var reservation = p.reserve()

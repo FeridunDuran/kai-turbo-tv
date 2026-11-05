@@ -5,7 +5,8 @@ import vm from 'node:vm';
 
 function client(outcome = 'success') {
   const posts = [];
-  const context = { Promise, Date, encodeURIComponent, log: { info() {} },
+  const saved = {};
+  const context = { Promise, Date, encodeURIComponent, log: { info() {} }, store: { get: (k, d) => saved[k] || d, set: (k, v) => { saved[k] = v; } },
     XMLHttpRequest: class {
       open(method, url) { this.method = method; this.url = url; this.headers = {}; }
       setRequestHeader(key, value) { this.headers[key.toLowerCase()] = value; }
@@ -53,4 +54,19 @@ test('actual disconnects and timeouts clear stale torrent readiness without retr
     assert.equal(api.isTorrentAvailable(), false);
     assert.equal(posts.length, 1);
   }
+});
+
+test('peers that delivered data are remembered per torrent and offered as hints on the next open', async () => {
+  const { api, posts } = client();
+  const hash = 'b'.repeat(40);
+  api.rememberPeers(hash, ['1.2.3.4:6881', 'not-an-address', '5.6.7.8:51413']);
+  assert.deepEqual([...api.cachedPeers(hash)], ['1.2.3.4:6881', '5.6.7.8:51413'], 'only IPv4:port entries are kept');
+  api.rememberPeers(hash, ['9.9.9.9:1000']);
+  assert.equal(api.cachedPeers(hash)[0], '9.9.9.9:1000', 'most recent first');
+  for (let i = 0; i < 25; i++) api.rememberPeers(i.toString(16).padStart(40, '0'), ['10.0.0.' + i + ':1']);
+  assert.equal(api.cachedPeers(hash).length, 0, 'at most 20 torrents are kept, oldest dropped');
+  api.rememberPeers(hash, ['1.2.3.4:6881']);
+  await api.check();
+  await api.openTorrent({ infoHash: hash.toUpperCase(), sources: ['tracker:udp://x'] });
+  assert.deepEqual(posts[0].args.sources, ['tracker:udp://x', 'peer:1.2.3.4:6881']);
 });

@@ -227,6 +227,12 @@ function PlayerView(opts) {
     failed = false;
     userPaused = false;
     currentAudio = null;
+    logPlaybackSummary();
+    rebufferAt = 0;
+    rebuffers = 0;
+    rebufferMs = 0;
+    playStartedAt = 0;
+    playbackLogTicks = 0;
     startedAt = Date.now();
     marks = {};
     torrentProgress = { bytes: 0, at: 0, rate: 0, peers: 0, delivered: 0, length: 0, checkedAt: 0 };
@@ -378,7 +384,9 @@ function PlayerView(opts) {
       scheduleAudioPick();
       mark('playing');
       logStartupTimeline();
+      if (!playStartedAt) playStartedAt = Date.now();
     }
+    rebufferEnd();
     hasPlayed = true;
     showSpinner(false);
     message('');
@@ -392,7 +400,10 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('waiting', () => {
     showSpinner(true);
-    if (hasPlayed) setStage('buffering');
+    if (hasPlayed) {
+      setStage('buffering');
+      rebufferStart();
+    }
   });
   videoEl.addEventListener('canplay', () => {
     mark('canplay');
@@ -962,11 +973,82 @@ function PlayerView(opts) {
         parts.push(t('{n} peers', { n: p.peers }));
         parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(2) }));
       }
-      if (average) parts.push(t('file average {rate} MB/s', { rate: (average / 1048576).toFixed(1) }));
+      // The file's average bitrate (size / duration): scenes vary, so it is not a hard minimum.
+      if (average) parts.push(t('needs ~{rate} MB/s', { rate: (average / 1048576).toFixed(1) }));
     }
     if (videoEl.videoHeight) parts.push(videoEl.videoHeight + 'p');
     statsEl.textContent = parts.join('  ·  ');
     statsEl.style.display = parts.length ? '' : 'none';
+  }
+
+  function remoteLog() {
+    return !!(settings.devlogUrl || __KAI_DEVLOG__);
+  }
+
+  // Compact, address-free summary of the service statistics for the remote log.
+  function compactStats(stats) {
+    const ranges = stats.ranges || [];
+    const last = ranges[ranges.length - 1] || null;
+    const d = stats.diag || {};
+    return {
+      t: Math.round((videoEl.currentTime || 0) * 10) / 10, ready: videoEl.readyState,
+      wires: stats.wires || { connected: stats.peers }, receivedMB: Math.round((stats.downloaded || 0) / 104857.6) / 10,
+      aheadKB: typeof stats.aheadBytes === 'number' ? Math.round(stats.aheadBytes / 1024) : null,
+      cachedKB: Math.round((stats.cachedBytes || 0) / 1024), window: [stats.windowFrom, stats.windowTo],
+      pieceKB: Math.round((stats.pieceLength || 0) / 1024), resumePending: stats.resumePending,
+      scheduler: stats.scheduler, headerPieces: stats.headerPieces, engineReused: stats.engineReused,
+      lastRange: last ? { start: last.start, sentKB: Math.round(last.sent / 1024), closed: last.closed, ageMs: Date.now() - last.openedAt } : null,
+      ranges: ranges.length,
+      discovery: d.createdAt ? { firstPeerMs: d.firstPeerMs, firstWireMs: d.firstWireMs, firstUnchokeMs: d.firstUnchokeMs,
+        firstBlockMs: d.firstBlockMs, readyMs: d.readyMs, peersFound: d.peersFound, wiresOpened: d.wiresOpened,
+        wiresClosed: d.wiresClosed, timeouts: d.timeouts, chokes: d.chokes, unchokes: d.unchokes,
+        hashFails: d.hashFails, hotswaps: d.hotswaps } : null,
+      pieces: d.pieces ? d.pieces.slice(-4) : null, recentClosed: d.closed ? d.closed.slice(-4) : null,
+    };
+  }
+
+  let statsMisses = 0;
+  let playbackLogTicks = 0;
+  function logTorrentState(label, extra) {
+    const forUrl = mediaUrl;
+    tvproxy.torrentStats(forUrl).then((stats) => {
+      if (!alive || mediaUrl !== forUrl) return;
+      if (stats) {
+        statsMisses = 0;
+        log.info(label, Object.assign(compactStats(stats), extra || {}));
+      } else if (++statsMisses === 2 && !torrentStatsMissing) {
+        // One missed reply can be a busy service; two in a row point at an old service.
+        torrentStatsMissing = true;
+        log.warn('Torrent diagnostics unavailable: fully restart TV to reload player service');
+      }
+    });
+  }
+
+  // Rebuffering after playback started: when it began, how long it lasted, totals per session.
+  let rebufferAt = 0;
+  let rebuffers = 0;
+  let rebufferMs = 0;
+  let playStartedAt = 0;
+  function rebufferStart() {
+    if (!hasPlayed || rebufferAt || videoEl.seeking || seekTarget !== null) return;
+    rebufferAt = Date.now();
+    rebuffers++;
+    if (remoteLog()) {
+      if (server.isTorrent(stream)) logTorrentState('Rebuffer start', { n: rebuffers });
+      else log.info('Rebuffer start', { n: rebuffers, t: videoEl.currentTime, ready: videoEl.readyState });
+    }
+  }
+  function rebufferEnd() {
+    if (!rebufferAt) return;
+    const ms = Date.now() - rebufferAt;
+    rebufferMs += ms;
+    rebufferAt = 0;
+    if (remoteLog()) log.info('Rebuffer end', { n: rebuffers, ms: ms, totalMs: rebufferMs });
+  }
+  function logPlaybackSummary() {
+    if (!remoteLog() || !playStartedAt) return;
+    log.info('Playback summary', { torrent: server.isTorrent(stream), startupMs: marks.playing, playedMs: Date.now() - playStartedAt,
+      rebuffers: rebuffers, rebufferMs: rebufferMs + (rebufferAt ? Date.now() - rebufferAt : 0), position: Math.round(videoEl.currentTime || 0) });
   }
 
   function logStartupTimeline() {
@@ -1513,17 +1595,11 @@ function PlayerView(opts) {
         }, SAVE_MS);
         watchTimer = setInterval(watchdog, 2000);
         // Build de desenvolvimento: estado do buffer a cada 10s no log remoto.
-        if (settings.devlogUrl || __KAI_DEVLOG__) statusTimer = setInterval(() => {
-          if (alive && !hasPlayed && mediaUrl && server.isTorrent(stream)) {
-            const forUrl = mediaUrl;
-            tvproxy.torrentStats(forUrl).then((stats) => {
-              if (alive && mediaUrl === forUrl && stats) log.info('Torrent startup progress', stats);
-              else if (alive && mediaUrl === forUrl && !torrentStatsMissing) {
-                torrentStatsMissing = true;
-                log.warn('Torrent diagnostics unavailable: fully restart TV to reload player service');
-              }
-            });
-          }
+        // Remote log only: every 3 s while starting, every 10 s while playing.
+        if (remoteLog()) statusTimer = setInterval(() => {
+          if (!alive || !mediaUrl || !server.isTorrent(stream)) return;
+          if (hasPlayed && ++playbackLogTicks % 4 !== 0) return;
+          logTorrentState(hasPlayed ? 'Torrent playback' : 'Torrent startup progress');
         }, 3000);
       }
       showControls(bar);
@@ -1533,7 +1609,10 @@ function PlayerView(opts) {
       return true;
     },
     destroy: () => {
-      if (alive) saveProgress(true);
+      if (alive) {
+        saveProgress(true);
+        logPlaybackSummary();
+      }
       alive = false;
       startGeneration++;
       clearStartup();

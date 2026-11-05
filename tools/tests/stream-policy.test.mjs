@@ -17,7 +17,7 @@ test('critical recovery waits, chooses a faster eligible peer, and rejects redun
  request.retried=false;fast.peerChoking=true;assert.equal(policy.recovery([request],[old,fast],{10:true},20000),null);
 });
 test('actual engine request accounting caps outstanding blocks and releases cancelled capacity',()=>{
- const Piece=require('torrent-piece'),pending=[],activeRequests=[],context={pieces:[Piece(4194304)],activeRequests,MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},Date,onupdatetick(){}};
+ const Piece=require('torrent-piece'),pending=[],activeRequests=[],context={pieces:[Piece(4194304)],activeRequests,MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,onupdatetick(){}};
  vm.runInNewContext(source.slice(source.indexOf('var onrequest = function'),source.indexOf('var onvalidatewire =')),context);
  const wire={request(i,offset,size,cb){pending.push(cb);}};for(let i=0;i<256;i++)assert.equal(context.onrequest(wire,0,false),true);
  assert.equal(context.onrequest(wire,0,false),false);assert.equal(activeRequests.length,256);pending[0](new Error('cancelled'));assert.equal(activeRequests.length,255);assert.equal(context.onrequest(wire,0,false),true);assert.equal(activeRequests.length,256);
@@ -30,7 +30,7 @@ test('engine recovery cancels the old request before reserving it on the alterna
 });
 
 test('a late cancellation cannot cancel a block reservation already handed to another peer',()=>{
- const Piece=require('torrent-piece'),p=Piece(32768),pending=[],context={pieces:[p],activeRequests:[],MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},Date,onupdatetick(){}};
+ const Piece=require('torrent-piece'),p=Piece(32768),pending=[],context={pieces:[p],activeRequests:[],MAX_ACTIVE_BLOCKS:256,reservations:[[]],retriedBlocks:{},requestedAt:{},Date,onupdatetick(){}};
  vm.runInNewContext(source.slice(source.indexOf('var onrequest = function'),source.indexOf('var onvalidatewire =')),context);
  const wire={request(i,offset,size,cb){pending.push(cb);}};context.onrequest(wire,0,false);
  p.cancel(0);context.reservations[0][0]=null;pending[0](new Error('hotswap cancelled'));

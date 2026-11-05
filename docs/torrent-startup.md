@@ -174,3 +174,19 @@ from the start of the file (pieces 1-8) although playback resumed at 355 s. Sess
 the first read outside the start (first three pieces) and the end region (last two pieces);
 that read is the resume position and gets the normal window. Older services ignore the flag.
 
+## Diagnostics and peer hints (next round)
+
+The second trace showed metadata within 2 s but zero connected peers for the next 13 s; the logs
+could not say why. The service now keeps per-engine counters (time to first peer, connection,
+unchoke and payload block; connections opened/closed with lifetime and payload of the last
+eight; timeouts, chokes, hash failures, hotswaps; request-to-verify time of the last ten
+pieces) and a per-connection rate summary. The player logs them compactly (no addresses, names
+or URLs) while starting, every 10 s while playing, at each rebuffer, and in a closing summary.
+
+Peers that delivered payload are returned over the loopback status endpoint and stored by the
+app (localStorage, which survives TV restarts unlike the service's /tmp), then sent as `peer:`
+hints on the next open of the same torrent. This follows libtorrent, which writes known peers
+into resume data ([write_resume_data.cpp](https://github.com/arvidn/libtorrent/blob/RC_2_0/src/write_resume_data.cpp),
+`add_torrent_params::peers`). Hints only add connection attempts; discovery is unchanged.
+Whether this shortens a cold start depends on the remembered peers still being online.
+

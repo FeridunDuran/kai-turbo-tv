@@ -3,6 +3,7 @@
 // Referer/User-Agent/Cookie, so the service fetches the stream and adds them.
 // Nothing runs on a PC and no separate proxy app is needed.
 import { log } from '../lib/log.js';
+import * as store from '../lib/store.js';
 
 const TTL_MS = 30000;
 let base = 'http://127.0.0.1:8097';
@@ -144,12 +145,47 @@ export function lastStatus() {
   return status;
 }
 
+// Peers that delivered data for a torrent, kept in this app's storage (the TV service's /tmp
+// may not survive a TV restart). They are offered as peer hints when the same torrent opens
+// again, so a cold start does not wait only for tracker/DHT discovery. Never logged.
+const PEER_KEY = 'torrentPeers';
+const PEER_TORRENTS = 20;
+const PEER_LIMIT = 30;
+const PEER_RE = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$/;
+const hashByUrl = {};
+
+export function cachedPeers(infoHash) {
+  const all = store.get(PEER_KEY, {}) || {};
+  const entry = all[String(infoHash || '').toLowerCase()];
+  return entry && Array.isArray(entry.p) ? entry.p.filter((a) => PEER_RE.test(a)).slice(0, PEER_LIMIT) : [];
+}
+
+export function rememberPeers(infoHash, peers) {
+  const hash = String(infoHash || '').toLowerCase();
+  const fresh = (peers || []).filter((a) => PEER_RE.test(a));
+  if (!/^[a-f0-9]{40}$/.test(hash) || !fresh.length) return;
+  const all = store.get(PEER_KEY, {}) || {};
+  const merged = fresh.concat(cachedPeers(hash).filter((a) => fresh.indexOf(a) < 0)).slice(0, PEER_LIMIT);
+  delete all[hash];
+  all[hash] = { p: merged, at: Date.now() };
+  const keys = Object.keys(all).sort((a, b) => (all[a].at || 0) - (all[b].at || 0));
+  while (keys.length > PEER_TORRENTS) delete all[keys.shift()];
+  store.set(PEER_KEY, all);
+}
+
 export function torrentStats(url) {
   const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
-  return match ? request(match[1] + '/torrent-status/' + match[2], 2500).catch(() => null) : Promise.resolve(null);
+  if (!match) return Promise.resolve(null);
+  return request(match[1] + '/torrent-status/' + match[2], 2500).then((stats) => {
+    if (stats && stats.goodPeers && hashByUrl[url]) rememberPeers(hashByUrl[url], stats.goodPeers);
+    return stats;
+  }).catch(() => null);
 }
 
 export function openTorrent(args) {
+  args = Object.assign({}, args);
+  const hints = cachedPeers(args.infoHash).map((a) => 'peer:' + a);
+  if (hints.length) args.sources = (args.sources || []).concat(hints);
   return ensureTorrent().then((ok) => {
     if (!ok) throw new Error('TV torrent engine unavailable');
     return new Promise((resolve, reject) => {
@@ -163,7 +199,10 @@ export function openTorrent(args) {
       x.onload = () => {
         let result;
         try { result = JSON.parse(x.responseText); } catch (e) { result = null; }
-        if (x.status === 200 && result && result.url) resolve(result);
+        if (x.status === 200 && result && result.url) {
+          hashByUrl[result.url] = String(args.infoHash || '').toLowerCase();
+          resolve(result);
+        }
         else {
           const error = new Error(result && result.error || 'Could not open TV torrent');
           error.torrentOpen = true;

@@ -121,6 +121,10 @@ episode list instead of the previous episode's sources.
   pieces the player actually reads at the start and end of the file (header and index) until
   the resume position is read. Before, it also downloaded 32 MiB of read-ahead from the start of
   the file that resumed playback never used.
+- Peers that actually delivered data for a torrent are remembered in the app's own storage
+  (20 torrents, 30 peers each) and offered to the TV engine as connection hints the next time the
+  same torrent opens, as libtorrent does with the peers in its resume data. Discovery through
+  trackers/DHT still runs in parallel. Peer addresses are never written to the remote log.
 - A peer may hold at most two seconds of its measured rate in blocks of the piece being played
   (as libtorrent does for time-critical pieces); the rest of its queue serves read-ahead.
 - A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
@@ -135,9 +139,13 @@ local tests; their effect on TV startup time has not been measured yet.
   a small line shows connected peers, data received and the current download rate, plus a note
   when the download is slower than the file's average bitrate. There are no estimated percentages.
 - While the player controls are visible, a small line in the top-right corner shows connected
-  peers, current download rate, the file's average bitrate and the video height. It is hidden during full-screen viewing; **Hide stats / Show stats** turns it off or on
+  peers, current download rate, "needs ~X MB/s" (the file's average bitrate) and the video height. It is hidden during full-screen viewing; **Hide stats / Show stats** turns it off or on
   (remembered). The average bitrate is not a minimum: scenes vary, so playback can keep up at a
   lower download rate.
+- With the remote log on, torrent playback logs a compact service state every 3 s while starting
+  and every 10 s while playing (connections, unchoked peers, top peer rates, discovery times,
+  connection lifetimes, request-to-verify time of recent pieces, window and scheduler counters),
+  each rebuffer's start state and duration, and a playback summary when the player closes.
 - Each start logs a startup timeline (milliseconds to URL, metadata, seek, first frame,
   `canplay`, `canplaythrough`, playing) to the remote log when it is enabled.
 - After an error the Play button becomes **Try again** (same source, from the last position that
