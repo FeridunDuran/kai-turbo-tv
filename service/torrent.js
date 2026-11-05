@@ -280,6 +280,10 @@ var TV_TORRENT = (function () {
     this.lastUsed = Date.now();
 
     var reader = new Reader(this, start, end, res);
+    reader.diag = { start: start, end: end, sent: 0, openedAt: Date.now(), closed: false };
+    if (!this.requests) this.requests = [];
+    this.requests.push(reader.diag);
+    if (this.requests.length > 6) this.requests.shift();
     this.reader = reader;
     reader.start();
     return reader;
@@ -307,6 +311,7 @@ var TV_TORRENT = (function () {
 
   Reader.prototype.destroy = function () {
     this.destroyed = true;
+    if (this.diag) this.diag.closed = true;
     clearTimeout(this.stall);
     if (this.onProgress) this.session.engine.swarm.removeListener('download', this.onProgress);
   };
@@ -315,6 +320,7 @@ var TV_TORRENT = (function () {
     var self = this;
     this.onProgress = function () {
       if (self.destroyed) return;
+      if (self.diag) self.diag.lastDataAt = Date.now();
       clearTimeout(self.stall);
       self.stall = setTimeout(function () {
         self.destroy();
@@ -364,6 +370,7 @@ var TV_TORRENT = (function () {
       var want = Math.min(buf.length - within, self.end - self.pos + 1);
       var slice = buf.slice(within, within + want);
       self.pos += slice.length;
+      if (self.diag) self.diag.sent += slice.length;
       if (self.res.write(slice)) return self._next();
       self.res.once('drain', function () { self._next(); });
     });
@@ -563,6 +570,14 @@ var TV_TORRENT = (function () {
   }, 30000);
 
   return {
+    stats: function (id) {
+      var s = sessions[id];
+      if (!s) return null;
+      return { length: s.file.length, pieceLength: s.pieceLength,
+        downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
+        cachedBytes: s.store.bytes, windowFrom: s.windowFrom, windowTo: s.windowTo,
+        ranges: s.requests || [] };
+    },
     supported: supported,
     create: create,
     serve: serve,

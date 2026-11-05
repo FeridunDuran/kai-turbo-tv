@@ -108,6 +108,7 @@ function PlayerView(opts) {
   let saveTimer = null;
   let watchTimer = null;
   let statusTimer = null;
+  let torrentStatsMissing = false;
   let mediaUrl = '';
   let viaServer = false;
   let lastTick = 0;
@@ -1170,7 +1171,18 @@ function PlayerView(opts) {
         }, SAVE_MS);
         watchTimer = setInterval(watchdog, 2000);
         // Build de desenvolvimento: estado do buffer a cada 10s no log remoto.
-        if (__KAI_DEVLOG__) statusTimer = setInterval(() => !videoEl.paused && diag('status'), 10000);
+        if (settings.devlogUrl || __KAI_DEVLOG__) statusTimer = setInterval(() => {
+          if (alive && !hasPlayed && mediaUrl && server.isTorrent(stream)) {
+            const forUrl = mediaUrl;
+            tvproxy.torrentStats(forUrl).then((stats) => {
+              if (alive && mediaUrl === forUrl && stats) log.info('Torrent startup progress', stats);
+              else if (alive && mediaUrl === forUrl && !torrentStatsMissing) {
+                torrentStatsMissing = true;
+                log.warn('Torrent diagnostics unavailable: fully restart TV to reload player service');
+              }
+            });
+          }
+        }, 3000);
       }
       showControls(bar);
     },

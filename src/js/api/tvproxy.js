@@ -140,6 +140,11 @@ export function lastStatus() {
   return status;
 }
 
+export function torrentStats(url) {
+  const match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url || '');
+  return match ? request(match[1] + '/torrent-status/' + match[2], 2500).catch(() => null) : Promise.resolve(null);
+}
+
 export function openTorrent(args) {
   return ensureTorrent().then((ok) => {
     if (!ok) throw new Error('TV torrent engine unavailable');

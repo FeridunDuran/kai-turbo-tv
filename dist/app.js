@@ -7134,6 +7134,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function isTorrentAvailable() {
     return status.torrent;
   }
+  function torrentStats(url2) {
+    var match = /^(http:\/\/127\.0\.0\.1:8097)\/torrent\/([a-f0-9]{16})$/.exec(url2 || "");
+    return match ? request2(match[1] + "/torrent-status/" + match[2], 2500).catch(function () {
+      return null;
+    }) : Promise.resolve(null);
+  }
   function openTorrent(args) {
     return ensureTorrent().then(function (ok) {
       if (!ok) throw new Error("TV torrent engine unavailable");
@@ -10012,6 +10018,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var saveTimer = null;
     var watchTimer = null;
     var statusTimer = null;
+    var torrentStatsMissing = false;
     var mediaUrl = "";
     var viaServer = false;
     var lastTick = 0;
@@ -11126,9 +11133,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
-          if ("") statusTimer = setInterval(function () {
-            return !videoEl.paused && diag("status");
-          }, 1e4);
+          if (settings2.devlogUrl || "") statusTimer = setInterval(function () {
+            if (alive && !hasPlayed && mediaUrl && isTorrent(stream)) {
+              var forUrl = mediaUrl;
+              torrentStats(forUrl).then(function (stats) {
+                if (alive && mediaUrl === forUrl && stats) log.info("Torrent startup progress", stats);else if (alive && mediaUrl === forUrl && !torrentStatsMissing) {
+                  torrentStatsMissing = true;
+                  log.warn("Torrent diagnostics unavailable: fully restart TV to reload player service");
+                }
+              });
+            }
+          }, 3e3);
         }
         showControls(bar);
       },
@@ -13300,7 +13315,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T15:34:31.934Z";
+  var BUILD = "2026-11-05T15:40:35.522Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

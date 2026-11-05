@@ -417,6 +417,14 @@ function handle(req, res) {
       });
     }, 8192);
   }
+  if (url.pathname.indexOf('/torrent-status/') === 0) {
+    if (!isLocal(req)) return send(res, 403, { error: 'local only' });
+    if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' });
+    var statsId = url.pathname.slice('/torrent-status/'.length);
+    if (!/^[a-f0-9]{16}$/.test(statsId) || typeof TV_TORRENT === 'undefined' || !TV_TORRENT.stats) return send(res, 404, { error: 'not available' });
+    var stats = TV_TORRENT.stats(statsId);
+    return send(res, stats ? 200 : 404, stats || { error: 'session not found' });
+  }
   if (url.pathname.indexOf('/torrent/') === 0) {
     if (!isLocal(req)) return send(res, 403, { error: 'local only' });
     if (typeof TV_TORRENT === 'undefined' || !TV_TORRENT.supported()) return send(res, 503, { error: 'torrent engine unavailable' });
