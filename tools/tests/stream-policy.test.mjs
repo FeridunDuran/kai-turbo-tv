@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cre
 const require=createRequire(import.meta.url),policy=require('../../service/vendor/torrent-stream/lib/stream-policy.cjs');
 const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/index.cjs',import.meta.url),'utf8');
 function peer(speed,pieces={10:true}){return {downloadSpeed:()=>speed,requests:[],peerPieces:pieces,peerChoking:false};}
-test('pipeline adapts to throughput and remains bounded',()=>{assert.equal(policy.pipeline(0),5);assert.equal(policy.pipeline(16384),5);assert.equal(policy.pipeline(131072),26);assert.equal(policy.pipeline(1e9),64);assert.equal(policy.pipeline(Infinity),5);assert.equal(policy.pipeline(1e9,40),40,'peer reqq is honoured');assert.equal(policy.pipeline(16384,0),5,'invalid reqq ignored');});
+test('pipeline adapts to throughput and remains bounded',()=>{assert.equal(policy.pipeline(0),5);assert.equal(policy.pipeline(16384),5);assert.equal(policy.pipeline(131072),26);assert.equal(policy.pipeline(1e9),250);assert.equal(policy.pipeline(Infinity),5);assert.equal(policy.pipeline(1e9,40),40,'peer reqq is honoured');assert.equal(policy.pipeline(16384,0),5,'invalid reqq ignored');});
 test('a peer with a long round trip can grow its queue instead of staying at the rate its queue allows',()=>{
  // Throughput limited by the queue: speed = blocks * 16 KiB / rtt. Iterate the policy as the engine does.
  for(const rtt of [0.3,1,2.5]){let blocks=policy.pipeline(0);for(let i=0;i<20;i++)blocks=policy.pipeline(blocks*16384/rtt);assert.ok(blocks>=40,'rtt '+rtt+'s grew to '+blocks);}
@@ -45,7 +45,7 @@ test('hotswap cancels each actual block offset once and cleans the old wire queu
 
 test('a slow peer holds at most two seconds of playhead blocks; its spare queue serves read-ahead',()=>{
  assert.equal(policy.criticalLimit(0),5,'unknown rate keeps the starting pipeline');
- assert.equal(policy.criticalLimit(50000),7);assert.equal(policy.criticalLimit(1e7),64);assert.equal(policy.criticalLimit(1e7,20),20);
+ assert.equal(policy.criticalLimit(50000),7);assert.equal(policy.criticalLimit(1e7),250);assert.equal(policy.criticalLimit(1e7,20),20);
  const remaining={10:256,11:256,12:256};
  const context={streamPolicy:policy,swarm:{downloaded:0,downloadSpeed:()=>0},engine:{_flood:0,_pulse:Number.MAX_SAFE_INTEGER,
   selection:[{from:10,to:10,offset:0,priority:2},{from:11,to:12,offset:0,priority:1}]},critical:{10:true,11:true},
@@ -58,5 +58,13 @@ test('a slow peer holds at most two seconds of playhead blocks; its spare queue 
  assert.equal(slowCritical,7,'only two seconds of critical blocks on the slow peer');
  assert.ok(slow.requests.some(r=>r.piece===12),'remaining capacity goes to read-ahead');
  context.select(fast,false);
- assert.equal(fast.requests.filter(r=>r.piece===10).length,64,'fast peer takes playhead blocks');
+ assert.equal(fast.requests.filter(r=>r.piece===10).length,policy.criticalLimit(1e6),'fast peer takes up to two seconds of playhead blocks');
 });
+
+test('a fast peer is not capped at 1 MiB in flight (TV trace: the only fast peer sat at 64 blocks)',()=>{
+ const speed=2.4*1024*1024;
+ assert.equal(policy.pipeline(speed),250,'up to 250 blocks (about 4 MB) in flight at the observed 2.4 MB/s');
+ assert.equal(policy.pipeline(speed,100),100,'a peer\'s reqq still limits it');
+ assert.ok(/var MAX_ACTIVE_BLOCKS = 512/.test(source),'engine-wide cap leaves room beyond one fast peer');
+});
+

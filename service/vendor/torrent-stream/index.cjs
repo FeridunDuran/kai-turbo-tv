@@ -21,7 +21,8 @@ var exchangeMetadata = require('./lib/exchange-metadata.cjs')
 var fileStream = require('./lib/file-stream.cjs')
 
 var streamPolicy = require('./lib/stream-policy.cjs')
-var MAX_ACTIVE_BLOCKS = 256
+// Engine-wide outstanding block requests (16 KiB each); see MAX_PEER_BLOCKS in stream-policy.
+var MAX_ACTIVE_BLOCKS = 512
 // How long a choked connection is kept while other peers wait in the queue. Upstream used 5 s
 // (as WebTorrent does), but peers following libtorrent defaults rechoke every 15 s
 // (unchoke_interval) and optimistically unchoke every 30 s. TV trace: with 550 peers queued, every

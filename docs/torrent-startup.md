@@ -313,3 +313,17 @@ and read the external address; it is in 100.64.0.0/10 (carrier-grade NAT), so in
 still cannot reach the TV on this line even with the port mapped. No mapping was added to the
 real router by the tests.
 
+## Rebuffers while watching (TV trace, 13.2 GB file)
+
+Eight minutes of playback with two rebuffers of 12-24 s. One peer delivered nearly everything
+(1.5-2.4 MB/s, the others 0-5 KB/s) while the file consumed about 1.7 MB/s, so the buffer ahead
+of the reader stayed near zero and every dip of that peer stalled playback. The engine's active
+block count stayed at exactly 64-66: the fast peer was pinned at the per-peer limit of 64 blocks
+(1 MiB in flight), which at a 0.4 s round trip is about 2.5 MB/s. The per-peer limit is now 250
+blocks and the engine-wide limit 512 (libtorrent: max_out_request_queue 500). Requests in flight
+allocate no memory; RAM stays bounded by the 48 MiB piece window.
+
+The same trace shows the TV was still running an older player service (none of the new
+listening/UPnP/PEX/snub counters were present), so the reconnect fix for dropped peers was not
+active yet. A full TV restart loads the current service.
+

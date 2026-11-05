@@ -17057,7 +17057,7 @@ var TorrentEngine = function () {
   // service/vendor/torrent-stream/lib/stream-policy.cjs
   var require_stream_policy = __commonJS({
     "service/vendor/torrent-stream/lib/stream-policy.cjs"(exports) {
-      exports.MAX_PEER_BLOCKS = 64;
+      exports.MAX_PEER_BLOCKS = 250;
       exports.pipeline = function (speed, reqq) {
         var length = !(speed > 0) || !isFinite(speed) ? 5 : Math.min(exports.MAX_PEER_BLOCKS, 2 + Math.ceil(speed * 3 / 16384));
         if (typeof reqq === "number" && reqq > 0) length = Math.min(length, reqq);
@@ -17150,7 +17150,7 @@ var TorrentEngine = function () {
       var exchangeMetadata = require_exchange_metadata();
       var fileStream = require_file_stream();
       var streamPolicy = require_stream_policy();
-      var MAX_ACTIVE_BLOCKS = 256;
+      var MAX_ACTIVE_BLOCKS = 512;
       var CHOKE_TIMEOUT = 15e3;
       var REQUEST_TIMEOUT = 3e4;
       var SPEED_THRESHOLD = 3 * piece.BLOCK_LENGTH;

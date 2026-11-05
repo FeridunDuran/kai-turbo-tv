@@ -78,7 +78,8 @@ Peerflix and qBittorrent, checked against their source code and the TV's own log
   seconds of its own speed in playhead blocks, so a slow peer cannot hold up the piece you are
   waiting for, and slow blocks are re-requested from a faster peer.
 - **Request queues that grow.** Each peer gets three seconds of its measured speed plus two
-  blocks (up to 64). The old formula kept peers with a slow round trip at 32 KiB.
+  blocks, up to 250 (about 4 MB in flight; libtorrent allows 500). A TV trace showed the one fast
+  peer of a swarm stuck at the old 64-block limit, close to the file's bitrate.
 - **Nothing downloaded twice.** MP4 headers at both ends of the file stay cached, and the piece
   read just before the jump to the end of the file is kept for the re-read that follows.
 - **Nothing downloaded for nothing.** When resuming, only the pieces the player reads at the

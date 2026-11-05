@@ -5,7 +5,11 @@
 // never grows (the previous 0.75 s formula fell back to 2 blocks above 0.75 s RTT). The per-peer
 // cap is 64 blocks (1 MiB); the engine-wide MAX_ACTIVE_BLOCKS cap still bounds the total. A
 // peer's advertised reqq (BEP 10 extended handshake) is honoured when it is lower.
-exports.MAX_PEER_BLOCKS = 64;
+// TV trace: one fast peer delivered nearly all data and sat at exactly 64 outstanding blocks
+// (1 MiB), which at a 0.4 s round trip caps it near 2.5 MB/s, about the file's bitrate, so every
+// dip became a rebuffer. libtorrent allows 500 (max_out_request_queue) and WebTorrent only the
+// peer's reqq. Outstanding requests allocate nothing; RAM is bounded by the piece window.
+exports.MAX_PEER_BLOCKS = 250;
 exports.pipeline = function (speed, reqq) {
   var length = (!(speed > 0) || !isFinite(speed)) ? 5 : Math.min(exports.MAX_PEER_BLOCKS, 2 + Math.ceil(speed * 3 / 16384));
   if (typeof reqq === 'number' && reqq > 0) length = Math.min(length, reqq);
