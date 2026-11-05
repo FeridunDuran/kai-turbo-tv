@@ -10351,6 +10351,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var torrentReopens = 0;
     var reopenBytes = 0;
     var playedPosition = 0;
+    var playbackConfirmed = false;
+    var resumeSettled = true;
+    var resumeTarget = 0;
+    var confirmationPosition = 0;
+    var reopenPending = false;
+    var errorChecking = false;
     var prematureEnds = 0;
     var sessionRestarts = 0;
     var openRetried = false;
@@ -10461,6 +10467,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       torrentReopens = 0;
       reopenBytes = 0;
       playedPosition = pendingStart > 0 ? pendingStart / 1e3 : 0;
+      playbackConfirmed = false;
+      resumeTarget = playedPosition;
+      resumeSettled = !(resumeTarget > 0);
+      confirmationPosition = resumeTarget;
+      reopenPending = false;
+      errorChecking = false;
       prematureEnds = 0;
       currentAudio = null;
       logPlaybackSummary();
@@ -10625,6 +10637,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       mark("metadata");
       if (!hasPlayed) setStage(pendingStart > 0 ? "resume" : "frames");
       if (pendingStart > 0) {
+        resumeTarget = pendingStart / 1e3;
+        resumeSettled = false;
+        confirmationPosition = resumeTarget;
         try {
           videoEl.currentTime = pendingStart / 1e3;
           autoResume = true;
@@ -10635,10 +10650,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadSegments();
     });
     videoEl.addEventListener("playing", function () {
-      if (isTorrent(stream) && mediaUrl) torrentResumed(mediaUrl);
+      if (isTorrent(stream) && mediaUrl && resumeSettled && !videoEl.seeking) torrentResumed(mediaUrl);
       clearStartup();
       if (!hasPlayed) {
-        sessionRestarts = 0;
         scheduleAudioPick();
         mark("playing");
         logStartupTimeline();
@@ -10646,8 +10660,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       rebufferEnd();
       hasPlayed = true;
-      showSpinner(false);
-      message("");
+      showSpinner(!resumeSettled || videoEl.seeking);
+      if (!resumeSettled) setStage("resume");else message("");
       updatePlayBtn();
       scheduleHide();
     });
@@ -10684,10 +10698,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     videoEl.addEventListener("loadeddata", function () {
       return mark("firstFrame");
     });
+    videoEl.addEventListener("seeking", function () {
+      playbackConfirmed = false;
+      resumeSettled = false;
+      resumeTarget = videoEl.currentTime;
+      confirmationPosition = resumeTarget;
+      if (remoteLog()) log.info("Playback seek pending", {
+        target: resumeTarget
+      });
+    });
     videoEl.addEventListener("seeked", function () {
       mark("seeked");
+      if (Math.abs(videoEl.currentTime - resumeTarget) < 2) resumeSettled = true;
+      confirmationPosition = videoEl.currentTime;
       if (videoEl.currentTime < videoEl.duration - 1) playedPosition = videoEl.currentTime;
-      if (isTorrent(stream) && mediaUrl) torrentResumed(mediaUrl);
+      if (isTorrent(stream) && mediaUrl && resumeSettled) torrentResumed(mediaUrl);
     });
     videoEl.addEventListener("timeupdate", function () {
       var now = Date.now();
@@ -10697,6 +10722,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       lastTick = now;
       if (mediaReady && !videoEl.seeking && Math.abs(videoEl.currentTime - playedPosition) < 5) playedPosition = videoEl.currentTime;
+      if (hasPlayed && !playbackConfirmed && !videoEl.paused && !videoEl.seeking) {
+        if (Math.abs(videoEl.currentTime - resumeTarget) < 2) resumeSettled = true;
+        var step = videoEl.currentTime - confirmationPosition;
+        if (resumeSettled && step >= 0.25 && step < 5) {
+          playbackConfirmed = true;
+          sessionRestarts = 0;
+          mark("confirmed");
+          log.info("Playback confirmed", {
+            t: videoEl.currentTime,
+            resumeTarget: resumeTarget,
+            ms: marks.confirmed
+          });
+        } else if (Math.abs(step) >= 5) confirmationPosition = videoEl.currentTime;
+      }
       renderer.update(videoEl.currentTime);
       if (controlsOn) updateTimes();
       checkUpNext();
@@ -10843,15 +10882,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         readyState: videoEl.readyState,
         networkState: videoEl.networkState,
         currentTime: videoEl.currentTime,
+        playbackConfirmed: playbackConfirmed,
+        resumeSettled: resumeSettled,
+        seeking: videoEl.seeking,
         torrent: isTorrent(stream)
       });
-      if (!alive) return;
+      if (!alive || reopenPending || errorChecking) return;
       clearStartup();
       var failedUrl = mediaUrl;
       var failedAttempt = startGeneration;
-      if (isTorrent(stream) && !hasPlayed && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
+      var failedWhileSeeking = videoEl.seeking;
+      if (isTorrent(stream) && (!hasPlayed || !playbackConfirmed || videoEl.seeking) && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
+        errorChecking = true;
         torrentStats(failedUrl).then(function (stats) {
-          if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+          if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration || reopenPending) return;
+          errorChecking = false;
           if (!stats && playedPosition > 0 && sessionRestarts < 2) {
             sessionRestarts++;
             log.warn("Torrent session lost; opening the torrent again", {
@@ -10872,15 +10917,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             torrentReopens++;
             log.info("Torrent reopen after player no-data timeout", {
               n: torrentReopens,
-              receivedMB: Math.round(bytes / 104857.6) / 10
+              receivedMB: Math.round(bytes / 104857.6) / 10,
+              confirmed: playbackConfirmed,
+              seeking: failedWhileSeeking
             });
-            pendingStart = Math.max(pendingStart, playedPosition * 1e3, (videoEl.currentTime || 0) * 1e3);
+            pendingStart = failedWhileSeeking ? (videoEl.currentTime || playedPosition) * 1e3 : Math.max(pendingStart, playedPosition * 1e3, (videoEl.currentTime || 0) * 1e3);
+            reopenPending = true;
+            hasPlayed = false;
+            playbackConfirmed = false;
+            mediaReady = false;
+            resumeTarget = pendingStart / 1e3;
+            resumeSettled = !(resumeTarget > 0);
+            confirmationPosition = resumeTarget;
             try {
               videoEl.removeAttribute("src");
               videoEl.load();
             } catch (e) {}
             setTimeout(function () {
               if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+              reopenPending = false;
               videoEl.autoplay = true;
               videoEl.src = failedUrl;
             }, 300);
@@ -11298,6 +11353,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         paused: videoEl.paused,
         userPaused: userPaused,
         seeking: videoEl.seeking,
+        playbackConfirmed: playbackConfirmed,
+        resumeSettled: resumeSettled,
+        resumeTarget: resumeTarget,
         requestedPiece: stats.requestedPiece,
         wantedPieces: stats.wantedPieces,
         wires: stats.wires || {
@@ -11413,7 +11471,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var p = torrentProgress;
       log.info("Startup timeline", {
         torrent: isTorrent(stream),
-        resumed: !!marks.seeked,
+        resumed: resumeTarget > 0 || !!marks.seeked,
+        playbackConfirmed: playbackConfirmed,
         readyState: videoEl.readyState,
         ms: marks,
         pieceLength: p.pieceLength || 0,
@@ -14331,7 +14390,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T21:54:00.752Z";
+  var BUILD = "2026-11-05T22:06:08.999Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

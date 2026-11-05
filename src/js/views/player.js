@@ -138,6 +138,12 @@ function PlayerView(opts) {
   let torrentReopens = 0;
   let reopenBytes = 0;
   let playedPosition = 0;
+  let playbackConfirmed = false;
+  let resumeSettled = true;
+  let resumeTarget = 0;
+  let confirmationPosition = 0;
+  let reopenPending = false;
+  let errorChecking = false;
   let prematureEnds = 0;
   let sessionRestarts = 0;
   // One automatic retry of a torrent open per source chosen by the user.
@@ -236,6 +242,12 @@ function PlayerView(opts) {
     torrentReopens = 0;
     reopenBytes = 0;
     playedPosition = pendingStart > 0 ? pendingStart / 1000 : 0;
+    playbackConfirmed = false;
+    resumeTarget = playedPosition;
+    resumeSettled = !(resumeTarget > 0);
+    confirmationPosition = resumeTarget;
+    reopenPending = false;
+    errorChecking = false;
     prematureEnds = 0;
     currentAudio = null;
     logPlaybackSummary();
@@ -386,6 +398,9 @@ function PlayerView(opts) {
     mark('metadata');
     if (!hasPlayed) setStage(pendingStart > 0 ? 'resume' : 'frames');
     if (pendingStart > 0) {
+      resumeTarget = pendingStart / 1000;
+      resumeSettled = false;
+      confirmationPosition = resumeTarget;
       try {
         videoEl.currentTime = pendingStart / 1000;
         autoResume = true;
@@ -398,11 +413,10 @@ function PlayerView(opts) {
     loadSegments();
   });
   videoEl.addEventListener('playing', () => {
-    if (server.isTorrent(stream) && mediaUrl) tvproxy.torrentResumed(mediaUrl);
+    if (server.isTorrent(stream) && mediaUrl && resumeSettled && !videoEl.seeking) tvproxy.torrentResumed(mediaUrl);
     clearStartup();
     if (!hasPlayed) {
-      // Playing again: a later session loss is a new incident with its own retries.
-      sessionRestarts = 0;
+      // Some TVs emit playing before the resume seek; confirmation comes from actual progress.
       scheduleAudioPick();
       mark('playing');
       logStartupTimeline();
@@ -410,8 +424,9 @@ function PlayerView(opts) {
     }
     rebufferEnd();
     hasPlayed = true;
-    showSpinner(false);
-    message('');
+    showSpinner(!resumeSettled || videoEl.seeking);
+    if (!resumeSettled) setStage('resume');
+    else message('');
     updatePlayBtn();
     scheduleHide();
   });
@@ -443,11 +458,20 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('canplaythrough', () => mark('canplaythrough'));
   videoEl.addEventListener('loadeddata', () => mark('firstFrame'));
+  videoEl.addEventListener('seeking', () => {
+    playbackConfirmed = false;
+    resumeSettled = false;
+    resumeTarget = videoEl.currentTime;
+    confirmationPosition = resumeTarget;
+    if (remoteLog()) log.info('Playback seek pending', { target: resumeTarget });
+  });
   videoEl.addEventListener('seeked', () => {
     mark('seeked');
+    if (Math.abs(videoEl.currentTime - resumeTarget) < 2) resumeSettled = true;
+    confirmationPosition = videoEl.currentTime;
     if (videoEl.currentTime < videoEl.duration - 1) playedPosition = videoEl.currentTime;
     // The resume position is now being read: the engine may start its normal read-ahead.
-    if (server.isTorrent(stream) && mediaUrl) tvproxy.torrentResumed(mediaUrl);
+    if (server.isTorrent(stream) && mediaUrl && resumeSettled) tvproxy.torrentResumed(mediaUrl);
   });
   videoEl.addEventListener('timeupdate', () => {
     const now = Date.now();
@@ -459,6 +483,16 @@ function PlayerView(opts) {
     // Advances only through normal playback (small steps) or our own seeks, never through the
     // jump to the duration that accompanies a truncated stream.
     if (mediaReady && !videoEl.seeking && Math.abs(videoEl.currentTime - playedPosition) < 5) playedPosition = videoEl.currentTime;
+    if (hasPlayed && !playbackConfirmed && !videoEl.paused && !videoEl.seeking) {
+      if (Math.abs(videoEl.currentTime - resumeTarget) < 2) resumeSettled = true;
+      const step = videoEl.currentTime - confirmationPosition;
+      if (resumeSettled && step >= 0.25 && step < 5) {
+        playbackConfirmed = true;
+        sessionRestarts = 0;
+        mark('confirmed');
+        log.info('Playback confirmed', { t: videoEl.currentTime, resumeTarget: resumeTarget, ms: marks.confirmed });
+      } else if (Math.abs(step) >= 5) confirmationPosition = videoEl.currentTime;
+    }
     renderer.update(videoEl.currentTime);
     if (controlsOn) updateTimes();
     checkUpNext();
@@ -597,18 +631,22 @@ function PlayerView(opts) {
       code: err && err.code, message: err && err.message,
       engine: videoEl.playbackEngine || 'html', readyState: videoEl.readyState,
       networkState: videoEl.networkState, currentTime: videoEl.currentTime,
+      playbackConfirmed: playbackConfirmed, resumeSettled: resumeSettled, seeking: videoEl.seeking,
       torrent: server.isTorrent(stream),
     });
-    if (!alive) return;
+    if (!alive || reopenPending || errorChecking) return;
     clearStartup();
     const failedUrl = mediaUrl;
     const failedAttempt = startGeneration;
+    const failedWhileSeeking = videoEl.seeking;
     // The TV's player reports error 4 after about 30 s without the first bytes (TV traces:
     // error at 30 s, the torrent piece verified 3 s later). While the engine is still
     // receiving data this is a slow start, not a failure: reopen the same local URL.
-    if (server.isTorrent(stream) && !hasPlayed && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
+    if (server.isTorrent(stream) && (!hasPlayed || !playbackConfirmed || videoEl.seeking) && err && (err.code === 4 || err.code === 3) && (torrentReopens < 3 || sessionRestarts < 2)) {
+      errorChecking = true;
       tvproxy.torrentStats(failedUrl).then((stats) => {
-        if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+        if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration || reopenPending) return;
+        errorChecking = false;
         // The TV service no longer knows this stream (its session ended or the service restarted):
         // reopening the same URL cannot work. Open the torrent again at the position played.
         if (!stats && playedPosition > 0 && sessionRestarts < 2) {
@@ -628,11 +666,19 @@ function PlayerView(opts) {
         if (stats && bytes > reopenBytes) {
           reopenBytes = bytes;
           torrentReopens++;
-          log.info('Torrent reopen after player no-data timeout', { n: torrentReopens, receivedMB: Math.round(bytes / 104857.6) / 10 });
-          pendingStart = Math.max(pendingStart, playedPosition * 1000, (videoEl.currentTime || 0) * 1000);
+          log.info('Torrent reopen after player no-data timeout', { n: torrentReopens, receivedMB: Math.round(bytes / 104857.6) / 10, confirmed: playbackConfirmed, seeking: failedWhileSeeking });
+          pendingStart = failedWhileSeeking ? (videoEl.currentTime || playedPosition) * 1000 : Math.max(pendingStart, playedPosition * 1000, (videoEl.currentTime || 0) * 1000);
+          reopenPending = true;
+          hasPlayed = false;
+          playbackConfirmed = false;
+          mediaReady = false;
+          resumeTarget = pendingStart / 1000;
+          resumeSettled = !(resumeTarget > 0);
+          confirmationPosition = resumeTarget;
           try { videoEl.removeAttribute('src'); videoEl.load(); } catch (e) { /* ignore */ }
           setTimeout(() => {
             if (!alive || mediaUrl !== failedUrl || failedAttempt !== startGeneration) return;
+            reopenPending = false;
             videoEl.autoplay = true;
             videoEl.src = failedUrl;
           }, 300);
@@ -1084,6 +1130,7 @@ function PlayerView(opts) {
     return {
       t: Math.round((videoEl.currentTime || 0) * 10) / 10, ready: videoEl.readyState,
       paused: videoEl.paused, userPaused: userPaused, seeking: videoEl.seeking,
+      playbackConfirmed: playbackConfirmed, resumeSettled: resumeSettled, resumeTarget: resumeTarget,
       requestedPiece: stats.requestedPiece, wantedPieces: stats.wantedPieces,
       wires: stats.wires || { connected: stats.peers }, receivedMB: Math.round((stats.downloaded || 0) / 104857.6) / 10,
       aheadKB: typeof stats.aheadBytes === 'number' ? Math.round(stats.aheadBytes / 1024) : null,
@@ -1150,7 +1197,7 @@ function PlayerView(opts) {
   function logStartupTimeline() {
     const p = torrentProgress;
     log.info('Startup timeline', {
-      torrent: server.isTorrent(stream), resumed: !!marks.seeked, readyState: videoEl.readyState,
+      torrent: server.isTorrent(stream), resumed: resumeTarget > 0 || !!marks.seeked, playbackConfirmed: playbackConfirmed, readyState: videoEl.readyState,
       ms: marks, pieceLength: p.pieceLength || 0, receivedBytes: p.bytes, peers: p.peers,
     });
   }

@@ -437,3 +437,27 @@ finishingRetries. They contain no peer addresses.124 tests pass; the new eligibi
 fails on the former ranker. Build/ES5 and Node4.4.3 TCP/HTTP4MiB269ms,16MiB19040ms and fake-network
 1485ms fixtures pass. Local times are regression checks, not TV speed claims. The16MiB fixture
 has a45s test-process deadline; production playback deadlines are unchanged.
+
+## Resume confirmation and starvation recovery (2026-11-06)
+
+TV trace00:59:42 emitted playing at the assigned170.789s position before the resume seek.
+At01:00:12 it raised code3 with seeking=true. The requested range had delivered zero bytes;
+after the failure1.4MiB of the needed piece was still missing. hasPlayed alone incorrectly
+excluded this from startup recovery. This is evidence of starvation during resume, not proof
+that the file's decoder is unsupported.
+
+The frontend now tracks resume target, seek completion and playbackConfirmed separately.
+Confirmation requires actual forward progress after settling the seek. Early playing cannot
+signal the backend to release resume preparation, nor disable bounded zero-payload recovery.
+Code3 recovery still requires zero bytes on the last Range, peers and new downloaded bytes;
+payload-bearing decoder failures are surfaced. Error checking/reopening coalesce duplicate
+events; retries retain the desired position, including backward seeks. Session-restart allowance
+is reset only after confirmed progress. Logs add seek-pending, confirmation timing and state.
+127 tests cover the TV event order, duplicate errors, progress confirmation and backward seeks;
+build/ES5 pass. Frontend-only revision; no service restart required for this revision.
+
+Peer strategy assessment for the same trace: queue estimates and eligibility policy were active,
+three critical retries occurred, but transfer still came mostly from one341-477KiB/s peer plus
+small contributors. Four timeout uTP probes produced no uTP wire; the connection pool was not
+full so idle rotation correctly stayed zero. Startup remained about63s. This does not demonstrate
+a startup speed improvement or an increased number of productive peers.

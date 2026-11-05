@@ -353,3 +353,30 @@ test('watchdog does not reopen a torrent while the browser is actively seeking',
  for(let i=0;i<12;i++){f.advance(2000);f.watchdog();}
  assert.ok(!f.logs.some(l=>String(l[0]).includes('travado-recuperando')));assert.ok(!f.toasts.some(s=>/Reconectando/.test(s)));f.close();
 });
+
+
+test('premature playing before resume seek does not disable no-data recovery or signal resume completion',async()=>{
+ const f=await fixture({startTime:170789,statsSeq:[{downloaded:49000000,peers:5,ranges:[{start:111950133,sent:0}]},{downloaded:50000000,peers:5,ranges:[{start:111950133,sent:0}]}]});
+ f.video.duration=1406;f.video.emit('loadedmetadata');f.video.paused=false;f.video.emit('playing');
+ assert.equal(f.resumedCalls.length,0,'playing at the assigned time is not proof seek completed');assert.ok(!f.logs.some(l=>l[0]==='Playback confirmed'));
+ f.video.seeking=true;f.video.error={code:3};f.video.emit('error');f.video.emit('error');await flush();await flush();
+ assert.equal(f.logs.filter(l=>l[0]==='Torrent reopen after player no-data timeout').length,1,'duplicate error notifications coalesce');assert.ok(!f.byHtml('Try again'));
+ [...f.timers.values()].filter(t=>t.ms===300).forEach(t=>t.fn());f.video.currentTime=0;f.video.emit('loadedmetadata');assert.ok(Math.abs(f.video.currentTime-170.789)<0.001);
+ f.video.seeking=false;f.video.emit('seeked');assert.equal(f.resumedCalls.length,1);f.video.paused=false;f.video.emit('playing');f.video.currentTime+=0.5;f.video.emit('timeupdate');
+ assert.ok(f.logs.some(l=>l[0]==='Playback confirmed'));f.close();
+});
+
+test('a decoder failure after confirmed progress does not silently retry as startup starvation',async()=>{
+ const f=await fixture();f.video.duration=1406;f.video.emit('loadedmetadata');f.video.paused=false;f.video.emit('playing');f.video.currentTime=0.5;f.video.emit('timeupdate');
+ assert.ok(f.logs.some(l=>l[0]==='Playback confirmed'));
+ f.video.error={code:3};f.video.emit('error');await flush();await flush();await flush();assert.ok(f.byHtml('Try again'));assert.ok(!f.logs.some(l=>l[0]==='Torrent reopen after player no-data timeout'));f.close();
+});
+
+
+test('a failed backward seek retries the requested position rather than the previously played later time',async()=>{
+ const f=await fixture({statsSeq:[{downloaded:49000000,peers:5,ranges:[{start:1000000,sent:0}]}]});
+ f.video.duration=1406;f.video.emit('loadedmetadata');f.video.currentTime=500;f.video.emit('seeked');f.video.paused=false;f.video.emit('playing');
+ f.video.currentTime=200;f.video.seeking=true;f.video.emit('seeking');f.video.error={code:3};f.video.emit('error');await flush();await flush();
+ assert.ok(f.logs.some(l=>l[0]==='Torrent reopen after player no-data timeout'));[...f.timers.values()].filter(t=>t.ms===300).forEach(t=>t.fn());
+ f.video.currentTime=0;f.video.emit('loadedmetadata');assert.equal(f.video.currentTime,200);f.close();
+});
