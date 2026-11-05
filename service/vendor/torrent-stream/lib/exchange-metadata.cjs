@@ -29,6 +29,7 @@ module.exports = function (engine, callback) {
 
       var channel = handshake.m.ut_metadata
       var size = handshake.metadata_size
+      engine.emit('metadata-peer', size)
 
       wire.on('extended', function (id, ext) {
         if (id !== EXTENSIONS.m.ut_metadata) return
@@ -56,6 +57,7 @@ module.exports = function (engine, callback) {
 
         if (message.msg_type === 1 && !metadata) {
           metadataPieces[piece] = ext.slice(delimiter + 2)
+          engine.emit('metadata-piece', piece, size)
           for (var i = 0; i * METADATA_BLOCK_SIZE < size; i++) {
             if (!metadataPieces[i]) return
           }

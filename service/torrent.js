@@ -401,22 +401,43 @@ var TV_TORRENT = (function () {
 
     var done = false;
     var peerCount = 0;
+    var wireCount = 0;
     var handshakeCount = 0;
+    var metadataPeerCount = 0;
+    var metadataPieceCount = 0;
+    var metadataExpectedPieces = 0;
+    var receivedMetadataPieces = {};
     engine.on('peer', function () { peerCount++; });
     engine.on('wire', function (wire) {
       // torrent-stream emits "wire" as soon as a socket is wrapped, before
       // the BitTorrent handshake succeeds. Count the handshake itself here.
+      wireCount++;
       wire.once('handshake', function () { handshakeCount++; });
+    });
+    engine.on('metadata-peer', function (size) {
+      metadataPeerCount++;
+      if (size > 0) metadataExpectedPieces = Math.max(metadataExpectedPieces, Math.ceil(size / 16384));
+    });
+    engine.on('metadata-piece', function (piece, size) {
+      if (!receivedMetadataPieces[piece]) {
+        receivedMetadataPieces[piece] = true;
+        metadataPieceCount++;
+      }
+      if (size > 0) metadataExpectedPieces = Math.max(metadataExpectedPieces, Math.ceil(size / 16384));
     });
     (body.sources || []).forEach(function (source) {
       var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
       if (match) { peerCount++; engine.connect(match[1]); }
     });
     var timer = setTimeout(function () {
-      var reason = !peerCount ? 'no peers found; tracker/DHT discovery may be blocked or the torrent is inactive'
-        : !handshakeCount ? 'peers found but no BitTorrent handshake completed; peers may be unreachable'
-        : 'peers connected but did not supply complete metadata';
-      finish(new Error('torrent metadata timeout after 120 seconds: ' + reason));
+      var reason = !peerCount ? 'No peers found; tracker/DHT discovery may be blocked or the torrent is inactive.'
+        : !handshakeCount ? 'Peers were found but no BitTorrent handshake completed; peers may be unreachable.'
+        : !metadataPeerCount ? 'Handshakes completed, but no peer advertised the ut_metadata extension.'
+        : 'Metadata transfer did not complete before the deadline.';
+      var detail = 'torrent metadata timeout after 120 seconds\n' + reason + '\n'
+        + 'Peers discovered: ' + peerCount + ' · sockets opened: ' + wireCount + ' · handshakes: ' + handshakeCount + '\n'
+        + 'Metadata peers: ' + metadataPeerCount + ' · blocks received: ' + metadataPieceCount + '/' + (metadataExpectedPieces || '?');
+      finish(new Error(detail));
     }, OPEN_TIMEOUT_MS);
 
     function finish(err, file, fileIdx) {
