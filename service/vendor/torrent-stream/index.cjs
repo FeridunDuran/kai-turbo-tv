@@ -351,9 +351,9 @@ var torrentStream = function (link, opts, cb) {
     var onvalidatewire = function (wire) {
       if (wire.requests.length) return
 
-      for (var i = engine.selection.length - 1; i >= 0; i--) {
+      for (var i = 0; i < engine.selection.length; i++) {
         var next = engine.selection[i]
-        for (var j = next.to; j >= next.from + next.offset; j--) {
+        for (var j = next.from + next.offset; j <= next.to; j++) {
           if (!wire.peerPieces[j]) continue
           if (onrequest(wire, j, false)) return
         }
@@ -390,7 +390,7 @@ var torrentStream = function (link, opts, cb) {
 
     var shufflePriority = function (i) {
       var last = i
-      for (var j = i; j < engine.selection.length && engine.selection[j].priority; j++) {
+      for (var j = i; j < engine.selection.length && engine.selection[j].priority === engine.selection[i].priority; j++) {
         last = j
       }
       var tmp = engine.selection[i]

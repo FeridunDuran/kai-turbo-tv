@@ -17250,9 +17250,9 @@ var TorrentEngine = function () {
           };
           var onvalidatewire = function onvalidatewire(wire) {
             if (wire.requests.length) return;
-            for (var i = engine.selection.length - 1; i >= 0; i--) {
+            for (var i = 0; i < engine.selection.length; i++) {
               var next = engine.selection[i];
-              for (var j = next.to; j >= next.from + next.offset; j--) {
+              for (var j = next.from + next.offset; j <= next.to; j++) {
                 if (!wire.peerPieces[j]) continue;
                 if (onrequest(wire, j, false)) return;
               }
@@ -17281,7 +17281,7 @@ var TorrentEngine = function () {
           };
           var shufflePriority = function shufflePriority(i) {
             var last = i;
-            for (var j = i; j < engine.selection.length && engine.selection[j].priority; j++) {
+            for (var j = i; j < engine.selection.length && engine.selection[j].priority === engine.selection[i].priority; j++) {
               last = j;
             }
             var tmp = engine.selection[i];
@@ -17783,6 +17783,7 @@ var TV_TORRENT = (function () {
     this.stepPieces = Math.max(2, Math.floor(this.aheadPieces / 4));
     this.selFrom = null;
     this.selTo = null;
+    this.priorityPiece = null;
     this.windowFrom = 0;
     this.windowTo = -1;
     this.waiters = {};
@@ -17816,10 +17817,21 @@ var TV_TORRENT = (function () {
   };
 
   Session.prototype._deselect = function () {
+    if (this.priorityPiece !== null) {
+      this.engine.deselect(this.priorityPiece, this.priorityPiece, 2, noop);
+      this.priorityPiece = null;
+    }
     if (this.selFrom === null) return;
     this.engine.deselect(this.selFrom, this.selTo, 1, noop);
     this.selFrom = null;
     this.selTo = null;
+  };
+
+  Session.prototype._prioritize = function (index) {
+    if (this.priorityPiece === index) return;
+    if (this.priorityPiece !== null) this.engine.deselect(this.priorityPiece, this.priorityPiece, 2, noop);
+    this.priorityPiece = index;
+    this.engine.select(index, index, 2, noop);
   };
 
   Session.prototype.ensureWindow = function (index, force) {
@@ -17827,6 +17839,7 @@ var TV_TORRENT = (function () {
     if (index > this.last) index = this.last;
 
     if (!force && this.selFrom !== null && index >= this.selFrom && this.selTo - index >= this.stepPieces) {
+      this._prioritize(index);
       return;
     }
 
@@ -17852,6 +17865,7 @@ var TV_TORRENT = (function () {
     this.selFrom = index;
     this.selTo = to;
     this.engine.select(index, to, 1, noop);
+    this._prioritize(index);
   };
 
   Session.prototype.readPiece = function (index, cb) {
