@@ -12047,7 +12047,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T09:42:43.644Z";
+  var BUILD = "2026-11-05T09:52:42.757Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];
@@ -12410,7 +12410,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       menu(catalogTitle(orderedCatalogs()[i]), acts, {
         onPick: function onPick(v) {
-          if (v === "up") move2(i - 1);else if (v === "down") move2(i + 1);else if (v === "top") move2(0);else if (v === "bottom") move2(keys.length);else if (v === "toggle") {
+          var focus2 = k;
+          if (v === "up") move2(i - 1);else if (v === "down") move2(i + 1);else if (v === "top" || v === "bottom") {
+            move2(v === "top" ? 0 : keys.length);
+            focus2 = keys[i] || k;
+          } else if (v === "toggle") {
             var hidden = off ? p.hidden.filter(function (x) {
               return x !== k;
             }) : p.hidden.concat([k]);
@@ -12420,7 +12424,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             });
           }
           setTimeout(function () {
-            return rowsMenu(k);
+            return rowsMenu(focus2);
           }, 0);
         }
       });

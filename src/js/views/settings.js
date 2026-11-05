@@ -101,15 +101,19 @@ export function SettingsView() {
     ].filter((a) => !a.disabled);
     menu(addons.catalogTitle(addons.orderedCatalogs()[i]), acts, {
       onPick: (v) => {
+        // Up/down: the cursor follows the row. Top/bottom: the row jumps away and the cursor stays
+        // at the same position, so several rows can be reordered one after another.
+        let focus = k;
         if (v === 'up') move(i - 1);
         else if (v === 'down') move(i + 1);
-        else if (v === 'top') move(0);
-        else if (v === 'bottom') move(keys.length);
-        else if (v === 'toggle') {
+        else if (v === 'top' || v === 'bottom') {
+          move(v === 'top' ? 0 : keys.length);
+          focus = keys[i] || k;
+        } else if (v === 'toggle') {
           const hidden = off ? p.hidden.filter((x) => x !== k) : p.hidden.concat([k]);
           addons.saveRowPrefs({ order: keys, hidden: hidden });
         }
-        setTimeout(() => rowsMenu(k), 0);
+        setTimeout(() => rowsMenu(focus), 0);
       },
     });
   }
