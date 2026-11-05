@@ -56,6 +56,7 @@ function DetailsView(type, id, opts) {
   let watchBtn = null;
   let libBtn = null;
   let tmdbInfo = null;
+  let lastTorrentError = '';
 
   const isSeries = () => meta && sortedVideos(meta).length > 0 && meta.type !== 'movie';
 
@@ -400,7 +401,6 @@ function DetailsView(type, id, opts) {
     let serverOk = server.isAvailable();
     let tvOk = tvproxy.isAvailable();
     let torrentOk = tvproxy.isTorrentAvailable();
-    let lastTorrentError = '';
     // Smart Choice: picks a source once the debrid add-ons answer (or after SMART_WAIT_MS),
     // unless the user moves the focus first.
     let smartActive = !!smart;
@@ -599,12 +599,7 @@ function DetailsView(type, id, opts) {
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
           if (torrent && !torrentOk) return toast(t('TV torrent player unavailable.'), 5000);
-          play(video, s, all, null, (error) => {
-            if (!error || !error.torrentOpen) return;
-            lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
-            const currentStatus = el.querySelector('.details-sources-status');
-            if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
-          });
+          play(video, s, all);
         },
       },
       [
@@ -683,6 +678,12 @@ function DetailsView(type, id, opts) {
 
   return {
     el: el,
+    reportTorrentError: (error) => {
+      if (!error || !error.torrentOpen) return;
+      lastTorrentError = t('Torrent metadata hatası: {msg}', { msg: error.message });
+      const currentStatus = el.querySelector('.details-sources-status');
+      if (currentStatus) currentStatus.textContent += '  ·  ' + lastTorrentError;
+    },
     onShow: () => {
       if (meta && watchBtn) updateButtons();
       loadVisibleImages(panel, 300);

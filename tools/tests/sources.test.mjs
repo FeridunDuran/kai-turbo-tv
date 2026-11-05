@@ -88,7 +88,7 @@ async function sourceFixture(ready = true, initialStreams = null) {
   });
   ctx.openDetails('series', 'tt0460649', { videoId: 'tt0460649:1:1', autoStreams: true });
   await new Promise(setImmediate);
-  return { root: view.el, addonApi, get played() { return played; }, selectTorrent: () => view.el.querySelectorAll('.stream')[0].__select(), reportTorrentError: (error) => played.onError(error) };
+  return { root: view.el, addonApi, get played() { return played; }, view, selectTorrent: () => view.el.querySelectorAll('.stream')[0].__select() };
 }
 
 test('ready TV engine retains Torrentio infoHash/magnet and Comet sources in closed groups', async () => {
@@ -119,13 +119,16 @@ test('unavailable TV engine hides torrent rows but retains direct sources', asyn
   assert.match(f.root.querySelector('.stream').textContent, /Direct video/);
 });
 
-test('torrent metadata error is passed from TV proxy to the player source callback', async () => {
-  const f = await sourceFixture(true, [[{ infoHash: 'a'.repeat(40), name: '1080p hash' }], [], []]);
-  f.selectTorrent();
-  assert.equal(typeof f.played.onError, 'function');
-  const error = Object.assign(new Error('torrent metadata timeout after 120 seconds: peers connected but did not supply complete metadata'), { torrentOpen: true });
-  f.reportTorrentError(error);
+test('torrent metadata error is stored by details and survives a source status refresh', async () => {
+  const f = await sourceFixture();
+  f.view.reportTorrentError(Object.assign(new Error('torrent metadata timeout after 120 seconds: peers connected but did not supply complete metadata'), { torrentOpen: true }));
   assert.match(f.root.textContent, /torrent metadata timeout after 120 seconds/);
+  const status = f.root.querySelector('.details-sources-status');
+  assert.ok(status);
+  assert.equal(status.textContent.includes('peers connected but did not supply complete metadata'), true);
+  const filter = f.root.querySelectorAll('.chip')[0];
+  filter.__select();
+  assert.equal(status.textContent.includes('peers connected but did not supply complete metadata'), true);
 });
 
 test('a source-rendering exception is not reported as a second, empty addon response', async () => {
