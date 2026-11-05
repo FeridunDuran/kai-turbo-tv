@@ -55,11 +55,11 @@ function h(tag, props, children) {
 }
 const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); el.value = ''; };
 
-async function sourceFixture(ready = true) {
+async function sourceFixture(ready = true, initialStreams = null) {
   const installed = ['Torrentio', 'Comet ELF', 'Direct addon'].map((name, i) => ({
     transportUrl: 'https://fixture.invalid/' + i + '/manifest.json', manifest: { name, resources: ['stream'], types: ['series'], idPrefixes: ['tt'] },
   }));
-  const streams = [
+  const streams = initialStreams || [
     [{ infoHash: 'a'.repeat(40), fileIdx: 0, name: '1080p hash' }, { url: 'magnet:?xt=urn:btih:' + 'b'.repeat(40), name: '720p magnet' }],
     [{ infoHash: 'c'.repeat(40), fileIdx: 1, name: '1080p hash' }],
     [{ url: 'https://fixture.invalid/video.mp4', name: 'Direct video' }],
@@ -88,7 +88,7 @@ async function sourceFixture(ready = true) {
   });
   ctx.openDetails('series', 'tt0460649', { videoId: 'tt0460649:1:1', autoStreams: true });
   await new Promise(setImmediate);
-  return { root: view.el, addonApi, get played() { return played; } };
+  return { root: view.el, addonApi, get played() { return played; }, selectTorrent: () => view.el.querySelectorAll('.stream')[0].__select(), reportTorrentError: (error) => played.onError(error) };
 }
 
 test('ready TV engine retains Torrentio infoHash/magnet and Comet sources in closed groups', async () => {
@@ -117,6 +117,15 @@ test('unavailable TV engine hides torrent rows but retains direct sources', asyn
   const f = await sourceFixture(false);
   assert.equal(f.root.querySelectorAll('.stream').length, 1);
   assert.match(f.root.querySelector('.stream').textContent, /Direct video/);
+});
+
+test('torrent metadata error is passed from TV proxy to the player source callback', async () => {
+  const f = await sourceFixture(true, [[{ infoHash: 'a'.repeat(40), name: '1080p hash' }], [], []]);
+  f.selectTorrent();
+  assert.equal(typeof f.played.onError, 'function');
+  const error = Object.assign(new Error('torrent metadata timeout after 120 seconds: peers connected but did not supply complete metadata'), { torrentOpen: true });
+  f.reportTorrentError(error);
+  assert.match(f.root.textContent, /torrent metadata timeout after 120 seconds/);
 });
 
 test('a source-rendering exception is not reported as a second, empty addon response', async () => {
