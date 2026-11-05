@@ -146,7 +146,7 @@ export function openTorrent(args) {
     return new Promise((resolve, reject) => {
       const x = new XMLHttpRequest();
       x.open('POST', base + '/torrent/open', true);
-      x.timeout = 25000;
+      x.timeout = 0; // The service enforces inactivity, not a total metadata deadline.
       // TizenBrew's page and this service have different ports/origins. JSON
       // Content-Type triggers a preflight that older services do not support.
       // The endpoint parses the body as JSON regardless of its media type.

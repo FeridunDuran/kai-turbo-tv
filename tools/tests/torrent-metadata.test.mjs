@@ -7,7 +7,7 @@ import { EventEmitter } from 'node:events';
 function runtime() {
   const engines = [], timers = [];
   const context = { process, Buffer, require: (id) => id === 'os' ? { tmpdir: () => '/tmp' } : {},
-    setInterval() {}, clearTimeout(timer) { timer.cleared = true; },
+    setInterval() {}, clearTimeout(timer) { if(timer) timer.cleared = true; },
     setTimeout(fn, ms) { const timer = { fn, ms }; timers.push(timer); return timer; },
     TorrentEngine: function (magnet, options) {
       const engine = new EventEmitter();
@@ -52,8 +52,8 @@ test('metadata deadline distinguishes socket attempts from completed handshakes'
       else if (event === 'metadata-piece') engines[0].emit('metadata-piece', 0, 32768);
       else engines[0].emit(event);
     }
-    timers[0].fn();
-    assert.match(error.message, /after 20 seconds/);
+    timers[timers.length-1].fn();
+    assert.match(error.message, /stalled for 20 seconds/);
     assert.match(error.message, expected);
     assert.equal(engines[0].destroyed, true);
     engines[0].emit('error', new Error('late'));

@@ -7140,7 +7140,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return new Promise(function (resolve, reject) {
         var x = new XMLHttpRequest();
         x.open("POST", base + "/torrent/open", true);
-        x.timeout = 25e3;
+        x.timeout = 0;
         x.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
         x.onload = function () {
           var result;
@@ -9861,7 +9861,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var HIDE_MS = 5e3;
   var SAVE_MS = 15e3;
   var STARTUP_MS = 12e4;
-  var TORRENT_STARTUP_MS = 3e4;
   var LANG_NAMES = {
     por: "Português",
     pob: "Português (BR)",
@@ -10021,7 +10020,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function armStartup() {
       clearStartup();
-      var limit = isTorrent(stream) ? TORRENT_STARTUP_MS : STARTUP_MS;
+      if (isTorrent(stream)) return;
+      var limit = STARTUP_MS;
       startupTimer = setTimeout(function () {
         if (!alive || hasPlayed) return;
         if (tryFallback()) return;
@@ -10101,7 +10101,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       nativeOffDone = false;
       hideSkip();
       toPlayable(stream, seriesInfo()).then(function (res) {
-        if (!alive || attempt !== startGeneration || !startupTimer) return;
+        if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info("Tocando", mediaUrl);
@@ -13278,7 +13278,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T15:21:15.634Z";
+  var BUILD = "2026-11-05T15:29:27.151Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

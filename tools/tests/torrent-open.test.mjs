@@ -39,7 +39,7 @@ test('ready TV service opens a torrent with a CORS-safelisted JSON body', async 
   assert.match(posts[0].headers['content-type'], /^text\/plain(?:;|$)/);
   assert.equal(posts[0].args.infoHash, 'a'.repeat(40));
   assert.equal(posts[0].args.fileIdx, 2);
-  assert.equal(posts[0].timeout, 25000);
+  assert.equal(posts[0].timeout, 0);
   assert.equal(new URL(posts[0].url).port, '8097');
   assert.match(result.url, /\/torrent\//);
 });

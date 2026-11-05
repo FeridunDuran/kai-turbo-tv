@@ -17613,7 +17613,7 @@ var TV_TORRENT = (function () {
   var BEHIND_BYTES = 8 * 1024 * 1024;
   var OPEN_TIMEOUT_MS = 20000;
   var IDLE_MS = 3 * 60 * 1000;
-  var STALL_MS = 75000;
+  var STALL_MS = 20000;
   var MAX_SESSIONS = 2;
 
   // Public trackers, used together with the ones the add-on sends.
@@ -17907,22 +17907,28 @@ var TV_TORRENT = (function () {
   Reader.prototype.destroy = function () {
     this.destroyed = true;
     clearTimeout(this.stall);
+    if (this.onProgress) this.session.engine.swarm.removeListener('download', this.onProgress);
   };
 
   Reader.prototype.start = function () {
     var self = this;
-    this.stall = setTimeout(function () {
+    this.onProgress = function () {
       if (self.destroyed) return;
-      self.destroy();
-      try { self.res.destroy(); } catch (e) { /* already gone */ }
-    }, STALL_MS);
+      clearTimeout(self.stall);
+      self.stall = setTimeout(function () {
+        self.destroy();
+        try { self.res.destroy(); } catch (e) { /* already gone */ }
+      }, STALL_MS);
+    };
+    this.session.engine.swarm.on('download', this.onProgress);
+    this.onProgress();
     this._next();
   };
 
   Reader.prototype._next = function () {
     if (this.destroyed) return;
     if (this.pos > this.end) {
-      clearTimeout(this.stall);
+      this.destroy();
       this.session.lastUsed = Date.now();
       try { this.res.end(); } catch (e) { /* already gone */ }
       return;
@@ -18023,6 +18029,7 @@ var TV_TORRENT = (function () {
       if (!receivedMetadataPieces[piece]) {
         receivedMetadataPieces[piece] = true;
         metadataPieceCount++;
+        touchMetadata();
       }
       if (size > 0) metadataExpectedPieces = Math.max(metadataExpectedPieces, Math.ceil(size / 16384));
     });
@@ -18030,18 +18037,25 @@ var TV_TORRENT = (function () {
       var match = /^peer:((?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5})$/i.exec(String(source));
       if (match) { peerCount++; engine.connect(match[1]); }
     });
-    var timer = setTimeout(function () {
+    var timer;
+    function metadataDeadline() {
       var reason = engine.metadata ? 'Metadata verified, but the torrent engine did not finish preparing the files.'
         : !peerCount ? 'No peers found; tracker/DHT discovery may be blocked or the torrent is inactive.'
         : !handshakeCount ? 'Peers were found but no BitTorrent handshake completed; peers may be unreachable.'
         : !metadataPeerCount ? 'Handshakes completed, but no peer advertised the ut_metadata extension.'
         : 'Metadata transfer did not complete before the deadline.';
-      var detail = 'torrent metadata timeout after 20 seconds\n' + reason + '\n'
+      var detail = 'torrent metadata transfer stalled for 20 seconds\n' + reason + '\n'
         + 'Peers discovered: ' + peerCount + ' · sockets opened: ' + wireCount + ' · handshakes: ' + handshakeCount + '\n'
         + 'Metadata hash failures: ' + metadataInvalidCount + '\n'
         + 'Metadata peers: ' + metadataPeerCount + ' · blocks received: ' + metadataPieceCount + '/' + (metadataExpectedPieces || '?');
       finish(new Error(detail));
-    }, OPEN_TIMEOUT_MS);
+    }
+    function touchMetadata() {
+      if (done) return;
+      clearTimeout(timer);
+      timer = setTimeout(metadataDeadline, OPEN_TIMEOUT_MS);
+    }
+    touchMetadata();
 
     function finish(err, file, fileIdx) {
       if (done) return;

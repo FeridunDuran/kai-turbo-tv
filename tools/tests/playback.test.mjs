@@ -268,4 +268,5 @@ test('real local proxy preserves HLS audio/key/map headers even on ranged manife
   }
 });
 
-test("torrent thirty second deadline ignores late metadata",async()=>{const f=playerFixture([],true);f.expire();f.pending[0]({url:"http://127.0.0.1:8097/torrent/late"});await new Promise(setImmediate);assert.equal(f.video.src,"");assert.equal(f.pauseCalls,1);f.view.destroy();});
+
+test("torrent has no absolute startup deadline while service tracks download progress",()=>{const f=playerFixture([],true);assert.equal([...f.timers.values()].some(t=>t.ms===30000||t.ms===120000),false);f.view.destroy();});
