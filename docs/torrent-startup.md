@@ -222,3 +222,18 @@ Still avoidable: after reading the header the browser continued into piece 210 b
 resume seek, so a few MB went to a piece playback did not use. The remote log also lost a 14 s
 batch; failed batches are now kept and retried in order instead of being dropped.
 
+## Episode skipped to the next one mid-way (TV trace)
+
+At 544.7 s of a 1303 s episode the swarm dropped to 3-10 KB/s (only five of 59 discovered peers
+ever connected; one delivered almost everything) and piece 227 took 44.7 s. The browser's next
+range request received nothing for 20 s, the service's reader stall closed the response, and
+the TV's player reported `ended` with the position at 1303.1 s. The player then started the next
+episode.
+
+- The service keeps a stalled response open once the session has delivered video; the 20 s
+  close remains only before any video reached the player (so start failures are still reported).
+- The player tracks the position reached by playback or its own seeks. An `ended` event more
+  than 20 s before the duration from that position is treated as a cut stream: reconnect there
+  (three attempts, then the existing stall error). Progress saving and the up-next countdown
+  ignore the jump.
+

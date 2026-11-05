@@ -163,3 +163,17 @@ test('resume signal clears the pending state and selects the normal window from 
  selected.length=0;assert.equal(context.TV_TORRENT.resumed(s.id),true);
  assert.equal(s.resumePending,false);const w=selected.filter(x=>x[2]===1)[0];assert.equal(w[0],150);assert.ok(w[1]>150);
 });
+
+test('after video was delivered, a data stall keeps the response open instead of signalling end of file',()=>{
+ let now=0,id=0,closed=0;const timers=new Map(),swarm=new EventEmitter();
+ const context={require:()=>({}),setInterval(){},setTimeout(fn,ms){const token=++id;timers.set(token,{fn,at:now+ms});return token;},clearTimeout(token){timers.delete(token);}};
+ const source=fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','Reader: Reader, supported: supported,');vm.runInNewContext(source,context);
+ function advance(ms){const target=now+ms;while(true){const due=[...timers].filter(([,t])=>t.at<=target).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;now=due[1].at;timers.delete(due[0]);due[1].fn();}now=target;}
+ const session={engine:{swarm},delivered:120*1048576};
+ const reader=new context.TV_TORRENT.Reader(session,0,100,{destroy(){closed++;}});reader._next=()=>{};reader.start();
+ advance(120000);
+ assert.equal(closed,0,'TV trace: a closed response made the player jump to the end and start the next episode');
+ assert.equal(reader.destroyed,false);
+ swarm.emit('download',16384);advance(1000);assert.equal(closed,0);
+ reader.destroy();assert.equal(swarm.listenerCount('download'),0);
+});

@@ -130,6 +130,11 @@ episode list instead of the previous episode's sources.
   trackers/DHT still runs in parallel. Peer addresses are never written to the remote log.
 - A peer may hold at most two seconds of its measured rate in blocks of the piece being played
   (as libtorrent does for time-critical pieces); the rest of its queue serves read-ahead.
+- A torrent that stalls after playback started no longer has its stream closed by the TV
+  service. The TV's player read a closed stream as the end of the file, jumped to the end and
+  started the next episode mid-way. The player also treats an "ended" event far from the
+  position it actually played as a cut stream and reconnects there (up to three times), and does
+  not save that jump as progress or start the up-next countdown from it.
 - A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
   so the player no longer reopens it (and throws away its buffer) after 15 seconds.
 Piece verification and the 48 MiB cache limit are unchanged. These are code-path changes with

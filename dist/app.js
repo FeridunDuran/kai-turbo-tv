@@ -10227,7 +10227,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var userPaused = false;
     var torrentReopens = 0;
     var reopenBytes = 0;
-    var lastPosition = 0;
+    var playedPosition = 0;
+    var prematureEnds = 0;
     var backArmedAt = 0;
     var startedAt = 0;
     var marks = {};
@@ -10333,6 +10334,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       userPaused = false;
       torrentReopens = 0;
       reopenBytes = 0;
+      playedPosition = pendingStart > 0 ? pendingStart / 1e3 : 0;
+      prematureEnds = 0;
       currentAudio = null;
       logPlaybackSummary();
       rebufferAt = 0;
@@ -10538,6 +10541,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("seeked", function () {
       mark("seeked");
+      if (videoEl.currentTime < videoEl.duration - 1) playedPosition = videoEl.currentTime;
       if (isTorrent(stream) && mediaUrl) torrentResumed(mediaUrl);
     });
     videoEl.addEventListener("timeupdate", function () {
@@ -10547,13 +10551,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (d > 0 && d < 3e3) watchedDelta += d;
       }
       lastTick = now;
-      if (mediaReady && videoEl.currentTime > 0) lastPosition = videoEl.currentTime;
+      if (mediaReady && !videoEl.seeking && Math.abs(videoEl.currentTime - playedPosition) < 5) playedPosition = videoEl.currentTime;
       renderer.update(videoEl.currentTime);
       if (controlsOn) updateTimes();
       checkUpNext();
     });
     videoEl.addEventListener("ended", function () {
       if (!alive || nextRequest) return;
+      var d = videoEl.duration;
+      if (isFinite(d) && d > 0 && d - playedPosition > 20) {
+        log.warn("Premature end of stream", {
+          playedTo: Math.round(playedPosition),
+          duration: Math.round(d),
+          torrent: isTorrent(stream)
+        });
+        if (prematureEnds++ < 3) {
+          reopenAt(playedPosition);
+          return;
+        }
+        showStallError();
+        return;
+      }
       upNextStop(false);
       if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();else {
         saveProgress2(true);
@@ -10598,6 +10616,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function checkUpNext() {
       if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
+      if (videoEl.currentTime - playedPosition > 20) return;
       var d = videoEl.duration;
       var nv = nextVideo();
       if (!nv || !(d > 300) || !isFinite(d)) return;
@@ -10913,7 +10932,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       showControls(srcBtn);
     }
     function retry() {
-      if (lastPosition > 0) pendingStart = lastPosition * 1e3;
+      if (playedPosition > 0) pendingStart = playedPosition * 1e3;
       autoDone = {
         sub: false,
         audio: false
@@ -11689,7 +11708,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           opts.streams = result.streams;
           opts.fallbacks = [];
           pendingStart = 0;
-          lastPosition = 0;
+          playedPosition = 0;
           autoDone = {
             sub: false,
             audio: false
@@ -11717,6 +11736,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!mediaReady || !mediaUrl) return;
       var d = videoEl.duration;
       if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
+      if (videoEl.currentTime - playedPosition > 20) return;
       var delta = watchedDelta;
       watchedDelta = 0;
       if (meta.id === "dev") return;
@@ -14097,7 +14117,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:21:14.206Z";
+  var BUILD = "2026-11-05T18:25:43.577Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

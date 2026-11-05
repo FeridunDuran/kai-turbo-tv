@@ -137,7 +137,8 @@ function PlayerView(opts) {
   let userPaused = false;
   let torrentReopens = 0;
   let reopenBytes = 0;
-  let lastPosition = 0;
+  let playedPosition = 0;
+  let prematureEnds = 0;
   let backArmedAt = 0;
   // Startup timeline: milliseconds from start() to each player milestone, logged once.
   let startedAt = 0;
@@ -230,6 +231,8 @@ function PlayerView(opts) {
     userPaused = false;
     torrentReopens = 0;
     reopenBytes = 0;
+    playedPosition = pendingStart > 0 ? pendingStart / 1000 : 0;
+    prematureEnds = 0;
     currentAudio = null;
     logPlaybackSummary();
     rebufferAt = 0;
@@ -423,6 +426,7 @@ function PlayerView(opts) {
   videoEl.addEventListener('loadeddata', () => mark('firstFrame'));
   videoEl.addEventListener('seeked', () => {
     mark('seeked');
+    if (videoEl.currentTime < videoEl.duration - 1) playedPosition = videoEl.currentTime;
     // The resume position is now being read: the engine may start its normal read-ahead.
     if (server.isTorrent(stream) && mediaUrl) tvproxy.torrentResumed(mediaUrl);
   });
@@ -433,13 +437,28 @@ function PlayerView(opts) {
       if (d > 0 && d < 3000) watchedDelta += d;
     }
     lastTick = now;
-    if (mediaReady && videoEl.currentTime > 0) lastPosition = videoEl.currentTime;
+    // Advances only through normal playback (small steps) or our own seeks, never through the
+    // jump to the duration that accompanies a truncated stream.
+    if (mediaReady && !videoEl.seeking && Math.abs(videoEl.currentTime - playedPosition) < 5) playedPosition = videoEl.currentTime;
     renderer.update(videoEl.currentTime);
     if (controlsOn) updateTimes();
     checkUpNext();
   });
   videoEl.addEventListener('ended', () => {
     if (!alive || nextRequest) return;
+    // A stream cut short is reported by the TV's player as "ended" with the position set to the
+    // duration (TV trace: playing at 556 s of 1303 s, then ended). Only an end reached by playing
+    // close to the real end counts; otherwise reconnect at the last position actually played.
+    const d = videoEl.duration;
+    if (isFinite(d) && d > 0 && d - playedPosition > 20) {
+      log.warn('Premature end of stream', { playedTo: Math.round(playedPosition), duration: Math.round(d), torrent: server.isTorrent(stream) });
+      if (prematureEnds++ < 3) {
+        reopenAt(playedPosition);
+        return;
+      }
+      showStallError();
+      return;
+    }
     upNextStop(false);
     if (opts.isSeries && nextVideo() && !upNextCancelled) playNext();
     else { saveProgress(true); watched.record(video.id, 1); router.pop(); }
@@ -482,6 +501,8 @@ function PlayerView(opts) {
 
   function checkUpNext() {
     if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
+    // A position far beyond what was actually played is a truncated stream, not the credits.
+    if (videoEl.currentTime - playedPosition > 20) return;
     const d = videoEl.duration;
     const nv = nextVideo();
     if (!nv || !(d > 300) || !isFinite(d)) return;
@@ -822,7 +843,7 @@ function PlayerView(opts) {
 
   // Same source again, from the last position that actually played.
   function retry() {
-    if (lastPosition > 0) pendingStart = lastPosition * 1000;
+    if (playedPosition > 0) pendingStart = playedPosition * 1000;
     autoDone = { sub: false, audio: false };
     start();
   }
@@ -1465,7 +1486,7 @@ function PlayerView(opts) {
         opts.streams = result.streams;
         opts.fallbacks = [];
         pendingStart = 0;
-        lastPosition = 0;
+        playedPosition = 0;
         autoDone = { sub: false, audio: false };
         if (opts.onVideoChange) opts.onVideoChange(nv);
         start();
@@ -1489,6 +1510,8 @@ function PlayerView(opts) {
     if (!mediaReady || !mediaUrl) return;
     const d = videoEl.duration;
     if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
+    // Do not record the jump to the duration that a truncated stream produces as progress.
+    if (videoEl.currentTime - playedPosition > 20) return;
     const delta = watchedDelta;
     watchedDelta = 0;
     if (meta.id === 'dev') return; // teste de desenvolvimento: não mexe na biblioteca

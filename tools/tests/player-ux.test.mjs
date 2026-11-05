@@ -181,9 +181,9 @@ test('failed open offers Try again on the play button and retries the same sourc
 test('next-episode streams are prefetched near the credits and reused by the countdown', async () => {
   const f = await fixture();
   f.video.duration = 1327; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
-  f.video.currentTime = 1000; f.video.emit('timeupdate');
+  f.video.currentTime = 1000; f.video.emit('seeked'); f.video.emit('timeupdate');
   assert.equal(f.lookups.length, 0, 'no prefetch long before the credits');
-  f.video.currentTime = 1250; f.video.emit('timeupdate');
+  f.video.currentTime = 1250; f.video.emit('seeked'); f.video.emit('timeupdate');
   assert.equal(f.lookups.length, 1, 'prefetch a minute before the up-next point');
   f.lookups[0].callback({}, [{ infoHash: 'a'.repeat(40), fileIdx: 1, name: 'next', addon: 'Torrentio' }]);
   f.lookups[0].resolve([{ infoHash: 'a'.repeat(40), fileIdx: 1, name: 'next', addon: 'Torrentio' }]);
@@ -278,3 +278,22 @@ test('player no-data timeout while the torrent is still downloading reopens the 
   f.close();
 });
 
+
+test('a truncated stream reported as ended mid-episode reconnects instead of starting the next episode', async () => {
+  const f = await fixture();
+  f.video.duration = 1303; f.video.emit('loadedmetadata'); f.video.paused = false; f.video.emit('playing');
+  f.video.currentTime = 544.7; f.video.emit('seeked');
+  for (const t of [550, 552, 554, 556]) { f.video.currentTime = t; f.video.emit('timeupdate'); }
+  f.video.currentTime = 1303.1; f.video.emit('timeupdate'); f.video.emit('ended');
+  assert.equal(f.lookups.length, 0, 'no next-episode lookup');
+  assert.ok(f.logs.length >= 0 && f.toasts.some((s) => /Reconectando/.test(s)), 'reconnects at the last played position');
+  f.close();
+  const g = await fixture();
+  g.video.duration = 1303; g.video.emit('loadedmetadata'); g.video.paused = false; g.video.emit('playing');
+  g.video.currentTime = 1290; g.video.emit('seeked');
+  for (const t of [1296, 1298, 1300, 1302]) { g.video.currentTime = t; g.video.emit('timeupdate'); }
+  g.video.emit('ended');
+  assert.equal(g.lookups.length, 1, 'a real end still continues to the next episode');
+  assert.equal(g.logs.some((l) => l[0] === 'Premature end of stream'), false);
+  g.close();
+});

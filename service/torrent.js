@@ -427,6 +427,23 @@ var TV_TORRENT = (function () {
     if (this.onProgress) this.session.engine.swarm.removeListener('download', this.onProgress);
   };
 
+  // No torrent data for STALL_MS. Before the player has received any video, closing lets it
+  // report the failure. Once playback data has been delivered, a closed response is read by the
+  // TV's player as the end of the file: it jumped to the duration and fired "ended", which
+  // started the next episode mid-way (TV trace). Then the response stays open and the player's
+  // own stall handling (buffering, reconnect, error) decides.
+  Reader.prototype._stalled = function () {
+    var self = this;
+    if (this.destroyed) return;
+    if (this.session.delivered > 0) {
+      clearTimeout(this.stall);
+      this.stall = setTimeout(function () { self._stalled(); }, STALL_MS);
+      return;
+    }
+    this.destroy();
+    try { this.res.destroy(); } catch (e) { /* already gone */ }
+  };
+
   Reader.prototype.start = function () {
     var self = this;
     if (typeof this.session.lastDataAt !== 'number') this.session.lastDataAt = Date.now();
@@ -435,10 +452,7 @@ var TV_TORRENT = (function () {
       if (bytes > 0) self.session.lastDataAt = Date.now();
       if (self.diag) self.diag.lastDataAt = self.session.lastDataAt;
       clearTimeout(self.stall);
-      self.stall = setTimeout(function () {
-        self.destroy();
-        try { self.res.destroy(); } catch (e) { /* already gone */ }
-      }, Math.max(0, STALL_MS - (Date.now() - self.session.lastDataAt)));
+      self.stall = setTimeout(function () { self._stalled(); }, Math.max(0, STALL_MS - (Date.now() - self.session.lastDataAt)));
     };
     this.session.engine.swarm.on('download', this.onProgress);
     this.onProgress();
@@ -475,17 +489,14 @@ var TV_TORRENT = (function () {
         return;
       }
       clearTimeout(self.stall);
-      self.stall = setTimeout(function () {
-        if (self.destroyed) return;
-        self.destroy();
-        try { self.res.destroy(); } catch (e) { /* already gone */ }
-      }, STALL_MS);
+      self.stall = setTimeout(function () { self._stalled(); }, STALL_MS);
 
       var want = Math.min(buf.length - within, self.end - self.pos + 1);
       var slice = buf.slice(within, within + want);
       self.pos += slice.length;
       self.session.lastDataAt = Date.now();
       if (self.diag) self.diag.sent += slice.length;
+      session.delivered = (session.delivered || 0) + slice.length;
       if (self.res.write(slice)) return self._next();
       self.res.once('drain', function () { self._next(); });
     });
