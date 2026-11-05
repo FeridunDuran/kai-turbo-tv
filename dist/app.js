@@ -11796,6 +11796,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     });
     var grid = h("div.grid");
+    var status2 = h("div.hint");
     scroller.appendChild(bar);
     scroller.appendChild(filters);
     scroller.appendChild(status2);
@@ -11876,7 +11877,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
-    var status2 = h("div.hint");
     function renderStatus() {
       status2.textContent = fetching ? t("Carregando detalhes {done}/{total}...", {
         done: fetching.done,
@@ -11955,7 +11955,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T07:54:18.595Z";
+  var BUILD = "2026-11-05T09:03:33.716Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/build.json"];

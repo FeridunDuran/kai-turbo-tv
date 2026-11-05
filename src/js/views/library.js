@@ -76,6 +76,7 @@ export function LibraryView() {
   const bar = topbar('library', router.goTab);
   const filters = h('div.filters', { 'data-group': '' });
   const grid = h('div.grid');
+  const status = h('div.hint'); // aviso de carregamento das ordenações por lançamento/nota
   scroller.appendChild(bar);
   scroller.appendChild(filters);
   scroller.appendChild(status);
@@ -152,7 +153,6 @@ export function LibraryView() {
     });
   }
 
-  const status = h('div.hint');
   function renderStatus() {
     status.textContent = fetching ? t('Carregando detalhes {done}/{total}...', { done: fetching.done, total: fetching.total }) : '';
     status.style.display = fetching ? '' : 'none';
