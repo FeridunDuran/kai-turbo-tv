@@ -50,6 +50,9 @@ Torrents play on the TV through a bundled Node 4 engine and rolling RAM cache, s
 optional. When both are available the PC server is preferred; without either, torrent sources
 are hidden with a count per add-on.
 
+The TV keeps a moving window of torrent pieces in memory instead of saving the whole video to
+internal storage. Seeking outside that window fetches the needed pieces again.
+
 Links that need extra request headers (Referer, User-Agent, Cookie...) work without a PC: the
 app's small TizenBrew service on the TV fetches them and adds the headers, so the player gets a
 normal local URL. They are tagged **Via TV**. If the TV service is not running they show as
