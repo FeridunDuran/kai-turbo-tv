@@ -17269,6 +17269,35 @@ var TorrentEngine = function () {
           var pieces = torrent.pieces.map(function (hash, i) {
             return piece(i === torrent.pieces.length - 1 ? pieceRemainder : pieceLength);
           });
+          engine.pieceStats = function (indices) {
+            return indices.slice(0, 4).map(function (index) {
+              var p = pieces[index],
+                active = 0,
+                oldest = 0,
+                available = 0,
+                unchoked = 0;
+              activeRequests.forEach(function (r) {
+                if (r.index !== index) return;
+                active++;
+                oldest = Math.max(oldest, Date.now() - r.at);
+              });
+              wires.forEach(function (w) {
+                if (!w.peerPieces[index]) return;
+                available++;
+                if (!w.peerChoking) unchoked++;
+              });
+              return {
+                index,
+                verified: !!engine.bitfield.get(index),
+                received: p ? p.length - p.missing : 0,
+                missing: p ? p.missing : 0,
+                active,
+                oldestMs: oldest,
+                available,
+                unchoked
+              };
+            });
+          };
           var reservations = torrent.pieces.map(function () {
             return [];
           });
@@ -18962,7 +18991,11 @@ var TV_TORRENT = (function () {
     stats: function (id) {
       var s = sessions[id];
       if (!s) return null;
-      return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
+      var requested = s.reader ? Math.floor((s.file.offset + s.reader.pos) / s.pieceLength) : s.first;
+      var wanted = [requested];
+      s.headerPieces.forEach(function (index) { if (wanted.indexOf(index) < 0) wanted.push(index); });
+      return { requestedPiece: requested, wantedPieces: s.engine.pieceStats ? s.engine.pieceStats(wanted) : null,
+        length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,

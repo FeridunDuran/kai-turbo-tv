@@ -338,3 +338,11 @@ test('startup code 3 with a starving resume range retries and preserves resume p
  g.video.error={code:3};g.video.emit('error');await flush();await flush();await flush();
  assert.ok(g.byHtml('Try again'),'decoder failure with payload is not silently retried');g.close();
 });
+
+
+test('waiting while paused is not counted as rebuffering and pause ends an active wait',async()=>{
+ const f=await fixture({remoteLog:true});f.video.duration=1302;f.video.emit('loadedmetadata');f.video.paused=false;f.video.emit('playing');
+ f.video.paused=true;f.video.emit('pause');f.video.emit('waiting');await flush();assert.ok(!f.logs.some(l=>l[0]==='Rebuffer start'));assert.ok(f.logs.some(l=>l[0]==='Playback paused'));
+ f.video.paused=false;f.video.emit('playing');f.video.emit('waiting');await flush();f.video.paused=true;f.video.emit('pause');
+ assert.ok(f.logs.some(l=>l[0]==='Rebuffer end'&&l[1].reason==='pause'));f.close();
+});

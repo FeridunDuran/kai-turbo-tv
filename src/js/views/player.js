@@ -416,11 +416,14 @@ function PlayerView(opts) {
     scheduleHide();
   });
   videoEl.addEventListener('pause', () => {
+    if (remoteLog()) log.info('Playback paused', { t: videoEl.currentTime, userPaused: userPaused, seeking: videoEl.seeking });
+    rebufferEnd('pause');
     updatePlayBtn();
     showControls();
     saveProgress();
   });
   videoEl.addEventListener('waiting', () => {
+    if (videoEl.paused || userPaused) return;
     showSpinner(true);
     if (hasPlayed) {
       setStage('buffering');
@@ -1080,6 +1083,8 @@ function PlayerView(opts) {
     const d = stats.diag || {};
     return {
       t: Math.round((videoEl.currentTime || 0) * 10) / 10, ready: videoEl.readyState,
+      paused: videoEl.paused, userPaused: userPaused, seeking: videoEl.seeking,
+      requestedPiece: stats.requestedPiece, wantedPieces: stats.wantedPieces,
       wires: stats.wires || { connected: stats.peers }, receivedMB: Math.round((stats.downloaded || 0) / 104857.6) / 10,
       aheadKB: typeof stats.aheadBytes === 'number' ? Math.round(stats.aheadBytes / 1024) : null,
       cachedKB: Math.round((stats.cachedBytes || 0) / 1024), window: [stats.windowFrom, stats.windowTo],
@@ -1121,7 +1126,7 @@ function PlayerView(opts) {
   let rebufferMs = 0;
   let playStartedAt = 0;
   function rebufferStart() {
-    if (!hasPlayed || rebufferAt || videoEl.seeking || seekTarget !== null) return;
+    if (!hasPlayed || rebufferAt || videoEl.paused || userPaused || videoEl.seeking || seekTarget !== null) return;
     rebufferAt = Date.now();
     rebuffers++;
     if (remoteLog()) {
@@ -1129,12 +1134,12 @@ function PlayerView(opts) {
       else log.info('Rebuffer start', { n: rebuffers, t: videoEl.currentTime, ready: videoEl.readyState });
     }
   }
-  function rebufferEnd() {
+  function rebufferEnd(reason) {
     if (!rebufferAt) return;
     const ms = Date.now() - rebufferAt;
     rebufferMs += ms;
     rebufferAt = 0;
-    if (remoteLog()) log.info('Rebuffer end', { n: rebuffers, ms: ms, totalMs: rebufferMs });
+    if (remoteLog()) log.info('Rebuffer end', { n: rebuffers, ms: ms, totalMs: rebufferMs, reason: reason || 'playing' });
   }
   function logPlaybackSummary() {
     if (!remoteLog() || !playStartedAt) return;

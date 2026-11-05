@@ -164,6 +164,26 @@ var torrentStream = function (link, opts, cb) {
     var pieces = torrent.pieces.map(function (hash, i) {
       return piece(i === torrent.pieces.length - 1 ? pieceRemainder : pieceLength)
     })
+
+    // Bounded, address-free diagnostics for requested/header pieces only.
+    engine.pieceStats = function (indices) {
+      return indices.slice(0, 4).map(function (index) {
+        var p = pieces[index], active = 0, oldest = 0, available = 0, unchoked = 0;
+        activeRequests.forEach(function (r) {
+          if (r.index !== index) return;
+          active++;
+          oldest = Math.max(oldest, Date.now() - r.at);
+        });
+        wires.forEach(function (w) {
+          if (!w.peerPieces[index]) return;
+          available++;
+          if (!w.peerChoking) unchoked++;
+        });
+        return { index: index, verified: !!engine.bitfield.get(index),
+          received: p ? p.length - p.missing : 0, missing: p ? p.missing : 0,
+          active: active, oldestMs: oldest, available: available, unchoked: unchoked };
+      });
+    };
     var reservations = torrent.pieces.map(function () {
       return []
     })

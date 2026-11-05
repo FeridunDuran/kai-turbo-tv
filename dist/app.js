@@ -10549,11 +10549,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       scheduleHide();
     });
     videoEl.addEventListener("pause", function () {
+      if (remoteLog()) log.info("Playback paused", {
+        t: videoEl.currentTime,
+        userPaused: userPaused,
+        seeking: videoEl.seeking
+      });
+      rebufferEnd("pause");
       updatePlayBtn();
       showControls();
       saveProgress2();
     });
     videoEl.addEventListener("waiting", function () {
+      if (videoEl.paused || userPaused) return;
       showSpinner(true);
       if (hasPlayed) {
         setStage("buffering");
@@ -11185,6 +11192,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return {
         t: Math.round((videoEl.currentTime || 0) * 10) / 10,
         ready: videoEl.readyState,
+        paused: videoEl.paused,
+        userPaused: userPaused,
+        seeking: videoEl.seeking,
+        requestedPiece: stats.requestedPiece,
+        wantedPieces: stats.wantedPieces,
         wires: stats.wires || {
           connected: stats.peers
         },
@@ -11254,7 +11266,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var rebufferMs = 0;
     var playStartedAt = 0;
     function rebufferStart() {
-      if (!hasPlayed || rebufferAt || videoEl.seeking || seekTarget !== null) return;
+      if (!hasPlayed || rebufferAt || videoEl.paused || userPaused || videoEl.seeking || seekTarget !== null) return;
       rebufferAt = Date.now();
       rebuffers++;
       if (remoteLog()) {
@@ -11267,7 +11279,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
     }
-    function rebufferEnd() {
+    function rebufferEnd(reason) {
       if (!rebufferAt) return;
       var ms = Date.now() - rebufferAt;
       rebufferMs += ms;
@@ -11275,7 +11287,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (remoteLog()) log.info("Rebuffer end", {
         n: rebuffers,
         ms: ms,
-        totalMs: rebufferMs
+        totalMs: rebufferMs,
+        reason: reason || "playing"
       });
     }
     function logPlaybackSummary() {
@@ -14209,7 +14222,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T20:57:30.586Z";
+  var BUILD = "2026-11-05T21:05:01.231Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];

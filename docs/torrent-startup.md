@@ -358,3 +358,14 @@ MP4 prefetch behavior remains unchanged; two-slot sessions do not add speculativ
 108 tests pass, including priority ordering, cache accounting, release and read-ahead restoration.
 Build/ES5 and the Node 4.4.3 synthetic BitTorrent/HTTP fixture pass. The fixture is a loopback
 regression, not a 16 MiB public-swarm performance benchmark. Same-source TV comparison is pending.
+
+## Separate user pauses from transport waits (2026-11-06)
+
+The user confirmed manually pausing at 15.5s; a stationary playback position is not proof of
+rebuffering. Logs now include paused/userPaused/seeking and explicit pause events. Waiting
+while paused is not counted as rebuffering; pause terminates an active rebuffer interval.
+Bounded diagnostics cover the requested piece plus pinned headers (at most four): verified,
+received/missing bytes, active requests, oldest request age, and peers with the piece including
+unchoked peers. This distinguishes unavailable pieces, queue stalls and partial piece assembly.
+No peer addresses or media URLs are added to these records. 110 tests and build/ES5 pass;
+the Node 4.4.3 loopback startup fixture passes. These are diagnostics, not a measured speed gain.

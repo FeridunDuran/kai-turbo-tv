@@ -923,7 +923,11 @@ var TV_TORRENT = (function () {
     stats: function (id) {
       var s = sessions[id];
       if (!s) return null;
-      return { length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
+      var requested = s.reader ? Math.floor((s.file.offset + s.reader.pos) / s.pieceLength) : s.first;
+      var wanted = [requested];
+      s.headerPieces.forEach(function (index) { if (wanted.indexOf(index) < 0) wanted.push(index); });
+      return { requestedPiece: requested, wantedPieces: s.engine.pieceStats ? s.engine.pieceStats(wanted) : null,
+        length: s.file.length, pieceLength: s.pieceLength, engineReused: s.engineReused,
         headerPieces: s.headerPieces, scheduler: s.engine.streamingStats ? s.engine.streamingStats() : null,
         downloaded: s.engine.swarm.downloaded, peers: s.engine.swarm.wires.length,
         cachedBytes: s.store.bytes, aheadBytes: aheadBytes(s), windowFrom: s.windowFrom, windowTo: s.windowTo,
