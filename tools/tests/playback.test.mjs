@@ -112,6 +112,7 @@ function playerFixture(fallbacks = [], torrent = false) {
     subs: { Renderer: () => ({ clear() {} }) }, substyle: { apply() {} },
     store: { settings: () => settings }, log: { log: { info() {}, warn() {} } }, http: {}, mediaerror: {},
     server: { isTorrent: () => torrent, toPlayable: () => new Promise((resolve, reject) => { pending.push(resolve); rejected.push(reject); }) },
+    tvproxy: { isTorrentAvailable: () => true, torrentStats: () => Promise.resolve(null) },
     addons: { fetchSubtitles: () => Promise.resolve() }, stremio: {}, skip: {},
     ui: { menu: (...args) => menus.push(args), toast() {}, fmtTime: () => '0:00', timeHM: () => '0:00' },
     router: { push(v) { view = v; v.onShow(); }, tabView() {} }, details: {},

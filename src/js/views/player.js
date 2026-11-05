@@ -77,6 +77,10 @@ function PlayerView(opts) {
   const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
   const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
+  // What the player is actually waiting for (no estimated percentages).
+  const stageTitle = h('div.p-stage-title');
+  const stageDetail = h('div.p-stage-detail');
+  const stageEl = h('div.p-stage', null, [stageTitle, stageDetail]);
   const msgEl = h('div.p-msg');
   const skipFill = h('i');
   const skipBtn = h('div.btn', { focusable: true, onSelect: () => doSkip() });
@@ -96,7 +100,7 @@ function PlayerView(opts) {
     upNextCount,
     h('div.un-buttons', { 'data-group': '' }, [upNextPlay, upNextCancel]),
   ]);
-  const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, msgEl]);
+  const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -126,6 +130,20 @@ function PlayerView(opts) {
   let nextRequest = null;
   let nextRequestId = 0;
   let mediaReady = false;
+  let failed = false;
+  let userPaused = false;
+  let lastPosition = 0;
+  let backArmedAt = 0;
+  // Startup timeline: milliseconds from start() to each player milestone, logged once.
+  let startedAt = 0;
+  let marks = {};
+  let stage = '';
+  let stageSince = 0;
+  let torrentProgress = { bytes: 0, at: 0, rate: 0, peers: 0, delivered: 0, length: 0, checkedAt: 0 };
+  let statsBusy = false;
+  function mark(name) {
+    if (startedAt && marks[name] === undefined) marks[name] = Date.now() - startedAt;
+  }
   function clearStartup() { clearTimeout(startupTimer); startupTimer = null; }
   function armStartup() {
     clearStartup();
@@ -202,11 +220,18 @@ function PlayerView(opts) {
     mediaUrl = '';
     hasPlayed = false;
     gaveUp = false;
+    failed = false;
+    userPaused = false;
     currentAudio = null;
+    startedAt = Date.now();
+    marks = {};
+    torrentProgress = { bytes: 0, at: 0, rate: 0, peers: 0, delivered: 0, length: 0, checkedAt: 0 };
+    updatePlayBtn();
     armStartup();
     setTitle();
     showSpinner(true);
     message('');
+    setStage(server.isTorrent(stream) ? (tvproxy.isTorrentAvailable() ? 'metadata' : 'engine') : 'opening');
     embedded = null;
     tracksPromise = null;
     addonSubs = null;
@@ -226,6 +251,8 @@ function PlayerView(opts) {
         if (!alive || attempt !== startGeneration || (!startupTimer && !server.isTorrent(stream))) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
+        mark('url');
+        if (server.isTorrent(stream)) setStage('peers');
         log.info('Tocando', mediaUrl);
         // Só src + autoplay, como o player oficial do Stremio no webOS: load()/play() extras
         // faziam a TV abrir o stream duas vezes.
@@ -326,6 +353,8 @@ function PlayerView(opts) {
   videoEl.addEventListener('loadedmetadata', () => {
     if (!alive || !mediaUrl) return;
     mediaReady = true;
+    mark('metadata');
+    if (!hasPlayed) setStage(pendingStart > 0 ? 'resume' : 'frames');
     if (pendingStart > 0) {
       try {
         videoEl.currentTime = pendingStart / 1000;
@@ -340,7 +369,11 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('playing', () => {
     clearStartup();
-    if (!hasPlayed) scheduleAudioPick();
+    if (!hasPlayed) {
+      scheduleAudioPick();
+      mark('playing');
+      logStartupTimeline();
+    }
     hasPlayed = true;
     showSpinner(false);
     message('');
@@ -352,8 +385,24 @@ function PlayerView(opts) {
     showControls();
     saveProgress();
   });
-  videoEl.addEventListener('waiting', () => showSpinner(true));
-  videoEl.addEventListener('canplay', () => showSpinner(false));
+  videoEl.addEventListener('waiting', () => {
+    showSpinner(true);
+    if (hasPlayed) setStage('buffering');
+  });
+  videoEl.addEventListener('canplay', () => {
+    mark('canplay');
+    showSpinner(false);
+    // Chromium autoplay waits for HAVE_ENOUGH_DATA, which also requires its download-rate
+    // estimate to cover the rest of the file. A slow torrent may already have playable
+    // data (HAVE_FUTURE_DATA). An explicit play() starts it then, as after a resume seek.
+    if (alive && mediaUrl && !hasPlayed && !failed && !userPaused && videoEl.paused) {
+      const p = videoEl.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+  });
+  videoEl.addEventListener('canplaythrough', () => mark('canplaythrough'));
+  videoEl.addEventListener('loadeddata', () => mark('firstFrame'));
+  videoEl.addEventListener('seeked', () => mark('seeked'));
   videoEl.addEventListener('timeupdate', () => {
     const now = Date.now();
     if (!videoEl.paused && lastTick) {
@@ -361,6 +410,7 @@ function PlayerView(opts) {
       if (d > 0 && d < 3000) watchedDelta += d;
     }
     lastTick = now;
+    if (mediaReady && videoEl.currentTime > 0) lastPosition = videoEl.currentTime;
     renderer.update(videoEl.currentTime);
     if (controlsOn) updateTimes();
     checkUpNext();
@@ -411,7 +461,9 @@ function PlayerView(opts) {
     if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
     const d = videoEl.duration;
     const nv = nextVideo();
-    if (!nv || !(d > 300) || !isFinite(d) || videoEl.currentTime < upNextStart()) return;
+    if (!nv || !(d > 300) || !isFinite(d)) return;
+    if (hasPlayed && videoEl.currentTime >= upNextStart() - 60) prefetchNext();
+    if (videoEl.currentTime < upNextStart()) return;
     hideSkip();
     upNextTitle.textContent = epLabel(nv.season, nv.episode) + (nv.name || nv.title ? ' · ' + (nv.name || nv.title) : '');
     upNextLeft = UP_NEXT_COUNT;
@@ -605,7 +657,7 @@ function PlayerView(opts) {
       'buf=' + bufferedInfo()
     );
   }
-  ['waiting', 'stalled', 'suspend', 'abort', 'emptied', 'seeking', 'seeked', 'ended', 'loadeddata'].forEach((ev) =>
+  ['waiting', 'stalled', 'suspend', 'abort', 'emptied', 'seeking', 'seeked', 'ended', 'loadeddata', 'canplay', 'canplaythrough', 'playing'].forEach((ev) =>
     videoEl.addEventListener(ev, () => diag(ev))
   );
 
@@ -653,7 +705,14 @@ function PlayerView(opts) {
       stuckSince = Date.now();
       return;
     }
+    if (Date.now() - torrentProgress.checkedAt >= 2000) pollTorrentProgress(true);
     const stuckFor = Date.now() - stuckSince;
+    // A slow torrent that is still receiving data is buffering, not stalled; reopening it
+    // would discard the player's buffer. Only time without incoming data counts.
+    if (server.isTorrent(stream) && torrentProgress.at && Date.now() - torrentProgress.at < 15000) {
+      if (stuckFor > 15000) stuckSince = Date.now();
+      return;
+    }
     if (stuckFor > 15000) {
       stuckSince = 0;
       if (recoveries >= 3) {
@@ -699,24 +758,41 @@ function PlayerView(opts) {
   }
 
   function fail(text, hint) {
+    failed = true;
     showSpinner(false);
     videoEl.pause();
-    const box = h('div', null, [text, h('small', { text: hint || t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
+    // A codec suggestion is given only by the error explanations that establish one.
+    const box = h('div', null, [text, h('small', { text: hint || t('Try again or choose another source.') })]);
     clear(msgEl);
     msgEl.appendChild(box);
+    updatePlayBtn();
     // Keep the normal player controls available; errors do not open a modal.
     showControls(srcBtn);
   }
 
+  // Same source again, from the last position that actually played.
+  function retry() {
+    if (lastPosition > 0) pendingStart = lastPosition * 1000;
+    autoDone = { sub: false, audio: false };
+    start();
+  }
+
   // ---------- Controles ----------
   function togglePlay() {
-    if (videoEl.paused) videoEl.play();
-    else videoEl.pause();
+    if (failed) return retry();
+    if (videoEl.paused) {
+      userPaused = false;
+      videoEl.play();
+    } else {
+      userPaused = true;
+      videoEl.pause();
+    }
     showControls();
   }
 
   function updatePlayBtn() {
-    playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t('Tocar') : '<span class="ico">❚❚</span>' + t('Pausar');
+    if (failed) playBtn.innerHTML = '<span class="ico">↻</span>' + t('Try again');
+    else playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t('Tocar') : '<span class="ico">❚❚</span>' + t('Pausar');
   }
 
   function updateTimes() {
@@ -774,6 +850,85 @@ function PlayerView(opts) {
 
   function showSpinner(on) {
     spinner.style.display = on ? '' : 'none';
+    stageEl.style.display = on && stage ? '' : 'none';
+  }
+
+  const STAGES = {
+    engine: 'Starting the TV torrent player',
+    metadata: 'Getting the torrent file list',
+    peers: 'Waiting for video data from peers',
+    header: 'Reading the video information',
+    frames: 'Loading the first frames',
+    resume: 'Jumping to {time}',
+    opening: 'Connecting to the source',
+    buffering: 'Buffering',
+    next: 'Finding the next episode',
+  };
+
+  function setStage(name) {
+    if (stage !== name) stageSince = Date.now();
+    stage = name || '';
+    renderStage();
+  }
+
+  function mb(bytes) {
+    return (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0);
+  }
+
+  function renderStage() {
+    if (!stage) {
+      stageEl.style.display = 'none';
+      return;
+    }
+    stageTitle.textContent = t(STAGES[stage], { time: fmtTime(pendingStart / 1000 || videoEl.currentTime || 0) });
+    const parts = [];
+    const secs = Math.floor((Date.now() - stageSince) / 1000);
+    if (secs >= 3) parts.push(t('{n} s', { n: secs }));
+    const p = torrentProgress;
+    if (server.isTorrent(stream) && p.checkedAt && stage !== 'next') {
+      parts.push(t('{n} peers', { n: p.peers }));
+      if (p.bytes) parts.push(t('{mb} MB received', { mb: mb(p.bytes) }));
+      if (p.rate > 0) parts.push(t('{rate} MB/s', { rate: (p.rate / 1048576).toFixed(1) }));
+      // Average rate the file needs, from its real size and duration (only once both are known).
+      const d = videoEl.duration;
+      const need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
+      if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 10000) parts.push(t('slower than this video needs'));
+    }
+    stageDetail.textContent = parts.join('  ·  ');
+  }
+
+  // Local loopback statistics from the TV torrent service, polled only while waiting.
+  function pollTorrentProgress(force) {
+    if (statsBusy || !alive || !mediaUrl || !server.isTorrent(stream) || (!force && spinner.style.display === 'none')) return;
+    const forUrl = mediaUrl;
+    statsBusy = true;
+    tvproxy.torrentStats(forUrl).then((stats) => {
+      statsBusy = false;
+      if (!alive || forUrl !== mediaUrl || !stats) return;
+      const now = Date.now();
+      const p = torrentProgress;
+      const bytes = stats.downloaded || 0;
+      if (bytes > p.bytes) {
+        if (p.checkedAt && now > p.checkedAt) p.rate = (bytes - p.bytes) * 1000 / (now - p.checkedAt);
+        p.at = now;
+      } else if (p.checkedAt && now - p.at > 4000) p.rate = 0;
+      p.bytes = Math.max(p.bytes, bytes);
+      p.peers = stats.peers || 0;
+      p.length = stats.length || 0;
+      p.delivered = (stats.ranges || []).reduce((sum, range) => sum + (range.sent || 0), 0);
+      p.checkedAt = now;
+      p.pieceLength = stats.pieceLength || 0;
+      if (stage === 'peers' && p.delivered > 0) setStage('header');
+      else renderStage();
+    }, () => { statsBusy = false; });
+  }
+
+  function logStartupTimeline() {
+    const p = torrentProgress;
+    log.info('Startup timeline', {
+      torrent: server.isTorrent(stream), resumed: !!marks.seeked, readyState: videoEl.readyState,
+      ms: marks, pieceLength: p.pieceLength || 0, receivedBytes: p.bytes, peers: p.peers,
+    });
   }
 
   function message(text) {
@@ -1063,6 +1218,42 @@ function PlayerView(opts) {
     });
   }
 
+  // Next-episode stream lookup, shared by prefetch, the countdown and the Next button.
+  // Like stremio-core's player next_streams, it is requested before it is needed: here once
+  // playback is within a minute of the up-next point, so it never competes with startup.
+  // Results older than NEXT_FRESH_MS are not reused (HTTP links can expire).
+  const NEXT_FRESH_MS = 10 * 60000;
+  let nextLookup = null;
+
+  function lookupNext(nv) {
+    const cur = nextLookup;
+    if (cur && cur.id === nv.id && !cur.error && Date.now() - cur.at < NEXT_FRESH_MS) return cur;
+    const entry = { id: nv.id, at: Date.now(), collected: [], list: null, done: false, error: null, listeners: [] };
+    nextLookup = entry;
+    const notify = () => entry.listeners.slice().forEach((fn) => fn());
+    addons.fetchStreams(meta.type, nv.id, (addon, streams) => {
+      entry.collected = entry.collected.concat(streams);
+      notify();
+    }).then((list) => {
+      entry.list = list;
+      entry.done = true;
+      if (alive && video.id === entry.id) opts.streams = list;
+      notify();
+    }, (error) => {
+      entry.error = error;
+      entry.done = true;
+      if (nextLookup === entry) nextLookup = null;
+      notify();
+    });
+    return entry;
+  }
+
+  function prefetchNext() {
+    if (!opts.isSeries || !hasPlayed || nextRequest) return;
+    const nv = nextVideo();
+    if (nv) lookupNext(nv);
+  }
+
   // Próximo episódio: mantém o mesmo "bingeGroup" (mesma qualidade/fonte) quando possível.
   function playNext() {
     if (nextRequest) return nextRequest;
@@ -1081,19 +1272,26 @@ function PlayerView(opts) {
       return sameTorrent || (group ? valid.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group && (!previousSource.addon || s.addon === previousSource.addon)) : null);
     };
     showSpinner(true);
-    message(t('Procurando o próximo episódio...'));
+    setStage('next');
+    const entry = lookupNext(nv);
     const lookup = new Promise((resolve, reject) => {
       let settled = false;
-      let collected = [];
-      addons.fetchStreams(meta.type, nv.id, (addon, streams) => {
-        collected = collected.concat(streams);
+      const check = () => {
         if (settled) return;
-        const match = choose(collected);
-        if (match) { settled = true; resolve({ match, streams: collected }); }
-      }).then((list) => {
-        if (alive && video === nv) opts.streams = list;
-        if (!settled) { settled = true; resolve({ match: choose(list), streams: list }); }
-      }).catch((error) => { if (!settled) reject(error); });
+        const match = choose(entry.collected);
+        if (match) {
+          settled = true;
+          resolve({ match, streams: entry.done && entry.list ? entry.list : entry.collected });
+        } else if (entry.error) {
+          settled = true;
+          reject(entry.error);
+        } else if (entry.done) {
+          settled = true;
+          resolve({ match: choose(entry.list || []), streams: entry.list || [] });
+        }
+      };
+      entry.listeners.push(check);
+      check();
     });
     nextRequest = lookup.then((result) => {
       if (!alive || requestId !== nextRequestId || previousVideo !== video || sourceAttempt !== startGeneration) return;
@@ -1105,7 +1303,9 @@ function PlayerView(opts) {
         opts.streams = result.streams;
         opts.fallbacks = [];
         pendingStart = 0;
+        lastPosition = 0;
         autoDone = { sub: false, audio: false };
+        if (opts.onVideoChange) opts.onVideoChange(nv);
         start();
       } else {
         router.pop();
@@ -1115,7 +1315,7 @@ function PlayerView(opts) {
       if (!alive || requestId !== nextRequestId) return;
       nextRequest = null;
       showSpinner(false);
-      message('');
+      setStage('');
       log.warn('Next episode source lookup failed', error.message);
       toast(t('Could not load the next episode. Try again.'));
     });
@@ -1154,10 +1354,15 @@ function PlayerView(opts) {
     }
     switch (k) {
       case KEY.PLAY:
-        videoEl.play();
+        if (failed) retry();
+        else {
+          userPaused = false;
+          videoEl.play();
+        }
         showControls();
         return true;
       case KEY.PAUSE:
+        userPaused = true;
         videoEl.pause();
         return true;
       case KEY.PLAYPAUSE:
@@ -1177,8 +1382,13 @@ function PlayerView(opts) {
       case KEY.BACKSPACE:
         if (seekTarget !== null) cancelSeek();
         else if (activeSeg && !controlsOn) dismissSkip();
-        else if (controlsOn && !videoEl.paused) hideControls();
-        else close();
+        else if (hasPlayed && !videoEl.paused && Date.now() - backArmedAt > 3000) {
+          // While a video plays, one Back press only hides the controls; a second press
+          // within 3 seconds leaves. Paused, loading or failed playback leaves at once.
+          backArmedAt = Date.now();
+          hideControls();
+          toast(t('Press Back again to stop watching'), 2500);
+        } else close();
         return true;
     }
     if (!controlsOn && activeSeg) {
@@ -1228,6 +1438,10 @@ function PlayerView(opts) {
           if (controlsOn) updateTimes();
           renderer.update(videoEl.currentTime);
           checkSkip();
+          if (spinner.style.display !== 'none' && stage) {
+            if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress();
+            renderStage();
+          }
           if (!nativeOffDone && !(currentSub.kind === 'embedded' && !currentSub.extracted)) nativeSubsOff();
           if (currentSub.extracted) ensureSegments();
         }, 250);

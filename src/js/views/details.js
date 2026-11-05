@@ -91,6 +91,8 @@ function DetailsView(type, id, opts) {
   let libBtn = null;
   let tmdbInfo = null;
   let lastTorrentError = '';
+  // Episode the player was on when it closed; it can differ after next-episode playback.
+  let playerVideo = null;
 
   const isSeries = () => meta && sortedVideos(meta).length > 0 && meta.type !== 'movie';
 
@@ -563,50 +565,61 @@ function DetailsView(type, id, opts) {
     }
 
     status();
-    (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
+    // Add-on requests do not depend on service discovery, so both start now. Replies wait
+    // only for the service state that decides which torrent rows are playable.
+    let servicesKnown = false;
+    const queuedReplies = [];
+    const services = (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
       .then(() => {
         if (tvOk && torrentOk) return null;
         return tvproxy.check(!torrentOk).then((r) => { tvOk = r.ok; torrentOk = r.torrent; });
-      })
-      .then(() => {
-        status();
-        return addons.fetchStreams(meta.type, video.id, (addon, streams) => {
-          if (!alive || streamsVideo !== video) return;
-          pendingCount--;
-          const g = groups.find((x) => x.addon === addon);
-          if (g) {
-            g.done = true;
-            // Hide torrents only when the TV engine is unavailable. Other playable links stay visible
-            // and header-dependent links can still be tried directly.
-            const shown = orderSources(streams.filter((s) => server.isPlayableType(s) && (server.isTorrent(s) ? torrentOk : server.canTryDirect(s))));
-            const hidden = streams.length - shown.length;
-            g.count = shown.length;
-            g.streams = shown;
-            g.countEl.textContent = String(shown.length);
-            shown.forEach((s) => {
-              all.push(s);
-              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all));
-            });
-            if (hidden) g.body.appendChild(h('div.loading-line', { text: t('{name}: {n} torrent sources hidden (TV torrent player unavailable)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
-            applyFilter(false);
-          }
-          // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
-          if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
-            const first = firstVisibleItem();
-            if (first) {
-              autoFocused = first;
-              nav.focus(first);
-            }
-          }
-          if (pendingCount <= 0) {
-            if (loadingLine.parentNode) list.removeChild(loadingLine);
-            if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
-          }
-          status();
-          decideSmart(false);
+      });
+    addons.fetchStreams(meta.type, video.id, (addon, streams) => {
+      if (servicesKnown) renderAddon(addon, streams);
+      else queuedReplies.push([addon, streams]);
+    }).catch(() => {});
+    services.catch(() => {}).then(() => {
+      servicesKnown = true;
+      if (!alive || streamsVideo !== video) return;
+      status();
+      queuedReplies.splice(0).forEach((reply) => renderAddon(reply[0], reply[1]));
+    });
+
+    function renderAddon(addon, streams) {
+      if (!alive || streamsVideo !== video) return;
+      pendingCount--;
+      const g = groups.find((x) => x.addon === addon);
+      if (g) {
+        g.done = true;
+        // Hide torrents only when the TV engine is unavailable. Other playable links stay visible
+        // and header-dependent links can still be tried directly.
+        const shown = orderSources(streams.filter((s) => server.isPlayableType(s) && (server.isTorrent(s) ? torrentOk : server.canTryDirect(s))));
+        const hidden = streams.length - shown.length;
+        g.count = shown.length;
+        g.streams = shown;
+        g.countEl.textContent = String(shown.length);
+        shown.forEach((s) => {
+          all.push(s);
+          g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all));
         });
-      })
-      .catch(() => {});
+        if (hidden) g.body.appendChild(h('div.loading-line', { text: t('{name}: {n} torrent sources hidden (TV torrent player unavailable)', { name: addon.manifest.name || addon.manifest.id, n: hidden }) }));
+        applyFilter(false);
+      }
+      // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
+      if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
+        const first = firstVisibleItem();
+        if (first) {
+          autoFocused = first;
+          nav.focus(first);
+        }
+      }
+      if (pendingCount <= 0) {
+        if (loadingLine.parentNode) list.removeChild(loadingLine);
+        if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
+      }
+      status();
+      decideSmart(false);
+    }
   }
 
   function streamItem(s, addonName, video, serverOk, tvOk, torrentOk, all) {
@@ -658,7 +671,8 @@ function DetailsView(type, id, opts) {
     const li = stremio.libraryItem(meta.id);
     const resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
     const start = (ms) =>
-      openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries(), fallbacks: fallbacks || [], onError: onError });
+      openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries(), fallbacks: fallbacks || [], onError: onError,
+        onVideoChange: (v) => { playerVideo = v; } });
     if (resumeMs > 30000) {
       menu(
         t('Continuar de onde parou?'),
@@ -721,6 +735,14 @@ function DetailsView(type, id, opts) {
     el: el,
     onShow: () => {
       if (meta && watchBtn) updateButtons();
+      // After automatic next-episode playback, Back lands on the episode actually watched
+      // instead of the earlier episode's (now stale) source list.
+      const returned = playerVideo;
+      playerVideo = null;
+      if (returned && mode === 'streams' && isSeries() && streamsVideo && returned.id !== streamsVideo.id) {
+        season = returned.season || 0;
+        showEpisodes(returned.id);
+      }
       loadVisibleImages(panel, 300);
     },
     onBack: () => {

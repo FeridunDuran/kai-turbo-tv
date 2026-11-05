@@ -5292,7 +5292,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Torrent playback stopped after receiving data.": "Torrent playback stopped after receiving data.",
     "The transfer may have stalled or the player rejected the stream. Try another source.": "The transfer may have stalled or the player rejected the stream. Try another source.",
     "Seeds: {n}": "Seeds: {n}",
-    "Could not load the next episode. Try again.": "Could not load the next episode. Try again."
+    "Could not load the next episode. Try again.": "Could not load the next episode. Try again.",
+    "Try again or choose another source.": "Try again or choose another source.",
+    "Try again": "Try again",
+    "Starting the TV torrent player": "Starting the TV torrent player",
+    "Getting the torrent file list": "Getting the torrent file list",
+    "Waiting for video data from peers": "Waiting for video data from peers",
+    "Reading the video information": "Reading the video information",
+    "Loading the first frames": "Loading the first frames",
+    "Jumping to {time}": "Jumping to {time}",
+    "Connecting to the source": "Connecting to the source",
+    "Buffering": "Buffering",
+    "Finding the next episode": "Finding the next episode",
+    "{n} s": "{n} s",
+    "{n} peers": "{n} peers",
+    "{mb} MB received": "{mb} MB received",
+    "{rate} MB/s": "{rate} MB/s",
+    "slower than this video needs": "slower than this video needs",
+    "Press Back again to stop watching": "Press Back again to stop watching"
   };
 
   // src/js/lib/i18n-ar.js
@@ -5808,7 +5825,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Torrent playback stopped after receiving data.": "توقف تشغيل التورنت بعد استقبال بيانات.",
     "The transfer may have stalled or the player rejected the stream. Try another source.": "ربما توقف نقل البيانات أو رفض المشغل البث. جرّب مصدراً آخر.",
     "Seeds: {n}": "البذور: {n}",
-    "Could not load the next episode. Try again.": "تعذر تحميل الحلقة التالية. حاول مجدداً."
+    "Could not load the next episode. Try again.": "تعذر تحميل الحلقة التالية. حاول مجدداً.",
+    "Try again or choose another source.": "حاول مجدداً أو اختر مصدراً آخر.",
+    "Try again": "إعادة المحاولة",
+    "Starting the TV torrent player": "جارٍ تشغيل مشغل التورنت في التلفاز",
+    "Getting the torrent file list": "جارٍ جلب قائمة ملفات التورنت",
+    "Waiting for video data from peers": "بانتظار بيانات الفيديو من الأقران",
+    "Reading the video information": "جارٍ قراءة معلومات الفيديو",
+    "Loading the first frames": "جارٍ تحميل الإطارات الأولى",
+    "Jumping to {time}": "الانتقال إلى {time}",
+    "Connecting to the source": "جارٍ الاتصال بالمصدر",
+    "Buffering": "جارٍ التخزين المؤقت",
+    "Finding the next episode": "جارٍ البحث عن الحلقة التالية",
+    "{n} s": "{n} ث",
+    "{n} peers": "{n} أقران",
+    "{mb} MB received": "تم استلام {mb} ميغابايت",
+    "{rate} MB/s": "{rate} ميغابايت/ث",
+    "slower than this video needs": "أبطأ مما يحتاجه هذا الفيديو",
+    "Press Back again to stop watching": "اضغط رجوع مرة أخرى لإيقاف المشاهدة"
   };
 
   // src/js/lib/i18n.js
@@ -10040,6 +10074,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
     var spinner = h("div.p-center", null, h("div.spinner"));
+    var stageTitle = h("div.p-stage-title");
+    var stageDetail = h("div.p-stage-detail");
+    var stageEl = h("div.p-stage", null, [stageTitle, stageDetail]);
     var msgEl = h("div.p-msg");
     var skipFill = h("i");
     var skipBtn = h("div.btn", {
@@ -10071,7 +10108,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), upNextTitle, upNextCount, h("div.un-buttons", {
       "data-group": ""
     }, [upNextPlay, upNextCancel])]);
-    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, msgEl]);
+    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, upNextBox, spinner, stageEl, msgEl]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
     var alive = true;
@@ -10101,6 +10138,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var nextRequest = null;
     var nextRequestId = 0;
     var mediaReady = false;
+    var failed = false;
+    var userPaused = false;
+    var lastPosition = 0;
+    var backArmedAt = 0;
+    var startedAt = 0;
+    var marks = {};
+    var stage = "";
+    var stageSince = 0;
+    var torrentProgress = {
+      bytes: 0,
+      at: 0,
+      rate: 0,
+      peers: 0,
+      delivered: 0,
+      length: 0,
+      checkedAt: 0
+    };
+    var statsBusy = false;
+    function mark(name) {
+      if (startedAt && marks[name] === void 0) marks[name] = Date.now() - startedAt;
+    }
     function clearStartup() {
       clearTimeout(startupTimer);
       startupTimer = null;
@@ -10183,11 +10241,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       mediaUrl = "";
       hasPlayed = false;
       gaveUp = false;
+      failed = false;
+      userPaused = false;
       currentAudio = null;
+      startedAt = Date.now();
+      marks = {};
+      torrentProgress = {
+        bytes: 0,
+        at: 0,
+        rate: 0,
+        peers: 0,
+        delivered: 0,
+        length: 0,
+        checkedAt: 0
+      };
+      updatePlayBtn();
       armStartup();
       setTitle();
       showSpinner(true);
       message("");
+      setStage(isTorrent(stream) ? isTorrentAvailable() ? "metadata" : "engine" : "opening");
       embedded = null;
       tracksPromise = null;
       addonSubs = null;
@@ -10206,6 +10279,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!alive || attempt !== startGeneration || !startupTimer && !isTorrent(stream)) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
+        mark("url");
+        if (isTorrent(stream)) setStage("peers");
         log.info("Tocando", mediaUrl);
         hasPlayed = false;
         videoEl.autoplay = true;
@@ -10310,6 +10385,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     videoEl.addEventListener("loadedmetadata", function () {
       if (!alive || !mediaUrl) return;
       mediaReady = true;
+      mark("metadata");
+      if (!hasPlayed) setStage(pendingStart > 0 ? "resume" : "frames");
       if (pendingStart > 0) {
         try {
           videoEl.currentTime = pendingStart / 1e3;
@@ -10322,7 +10399,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("playing", function () {
       clearStartup();
-      if (!hasPlayed) scheduleAudioPick();
+      if (!hasPlayed) {
+        scheduleAudioPick();
+        mark("playing");
+        logStartupTimeline();
+      }
       hasPlayed = true;
       showSpinner(false);
       message("");
@@ -10335,10 +10416,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       saveProgress2();
     });
     videoEl.addEventListener("waiting", function () {
-      return showSpinner(true);
+      showSpinner(true);
+      if (hasPlayed) setStage("buffering");
     });
     videoEl.addEventListener("canplay", function () {
-      return showSpinner(false);
+      mark("canplay");
+      showSpinner(false);
+      if (alive && mediaUrl && !hasPlayed && !failed && !userPaused && videoEl.paused) {
+        var p = videoEl.play();
+        if (p && p.catch) p.catch(function () {});
+      }
+    });
+    videoEl.addEventListener("canplaythrough", function () {
+      return mark("canplaythrough");
+    });
+    videoEl.addEventListener("loadeddata", function () {
+      return mark("firstFrame");
+    });
+    videoEl.addEventListener("seeked", function () {
+      return mark("seeked");
     });
     videoEl.addEventListener("timeupdate", function () {
       var now = Date.now();
@@ -10347,6 +10443,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (d > 0 && d < 3e3) watchedDelta += d;
       }
       lastTick = now;
+      if (mediaReady && videoEl.currentTime > 0) lastPosition = videoEl.currentTime;
       renderer.update(videoEl.currentTime);
       if (controlsOn) updateTimes();
       checkUpNext();
@@ -10399,7 +10496,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (nextRequest || upNextTimer || upNextCancelled || !opts.isSeries || seekTarget !== null || videoEl.paused) return;
       var d = videoEl.duration;
       var nv = nextVideo();
-      if (!nv || !(d > 300) || !isFinite(d) || videoEl.currentTime < upNextStart()) return;
+      if (!nv || !(d > 300) || !isFinite(d)) return;
+      if (hasPlayed && videoEl.currentTime >= upNextStart() - 60) prefetchNext();
+      if (videoEl.currentTime < upNextStart()) return;
       hideSkip();
       upNextTitle.textContent = epLabel(nv.season, nv.episode) + (nv.name || nv.title ? " · " + (nv.name || nv.title) : "");
       upNextLeft = UP_NEXT_COUNT;
@@ -10577,7 +10676,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function diag(ev) {
       log.info("video", ev, "t=" + videoEl.currentTime.toFixed(1), "dur=" + (isFinite(videoEl.duration) ? videoEl.duration.toFixed(0) : "?"), "ready=" + videoEl.readyState, "net=" + videoEl.networkState, "buf=" + bufferedInfo());
     }
-    ["waiting", "stalled", "suspend", "abort", "emptied", "seeking", "seeked", "ended", "loadeddata"].forEach(function (ev) {
+    ["waiting", "stalled", "suspend", "abort", "emptied", "seeking", "seeked", "ended", "loadeddata", "canplay", "canplaythrough", "playing"].forEach(function (ev) {
       return videoEl.addEventListener(ev, function () {
         return diag(ev);
       });
@@ -10622,7 +10721,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         stuckSince = Date.now();
         return;
       }
+      if (Date.now() - torrentProgress.checkedAt >= 2e3) pollTorrentProgress(true);
       var stuckFor = Date.now() - stuckSince;
+      if (isTorrent(stream) && torrentProgress.at && Date.now() - torrentProgress.at < 15e3) {
+        if (stuckFor > 15e3) stuckSince = Date.now();
+        return;
+      }
       if (stuckFor > 15e3) {
         stuckSince = 0;
         if (recoveries >= 3) {
@@ -10664,21 +10768,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, 300);
     }
     function fail(text, hint) {
+      failed = true;
       showSpinner(false);
       videoEl.pause();
       var box = h("div", null, [text, h("small", {
-        text: hint || t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
+        text: hint || t("Try again or choose another source.")
       })]);
       clear(msgEl);
       msgEl.appendChild(box);
+      updatePlayBtn();
       showControls(srcBtn);
     }
+    function retry() {
+      if (lastPosition > 0) pendingStart = lastPosition * 1e3;
+      autoDone = {
+        sub: false,
+        audio: false
+      };
+      start3();
+    }
     function togglePlay() {
-      if (videoEl.paused) videoEl.play();else videoEl.pause();
+      if (failed) return retry();
+      if (videoEl.paused) {
+        userPaused = false;
+        videoEl.play();
+      } else {
+        userPaused = true;
+        videoEl.pause();
+      }
       showControls();
     }
     function updatePlayBtn() {
-      playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t("Tocar") : '<span class="ico">❚❚</span>' + t("Pausar");
+      if (failed) playBtn.innerHTML = '<span class="ico">↻</span>' + t("Try again");else playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t("Tocar") : '<span class="ico">❚❚</span>' + t("Pausar");
     }
     function updateTimes() {
       var d = videoEl.duration;
@@ -10732,6 +10853,95 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function showSpinner(on) {
       spinner.style.display = on ? "" : "none";
+      stageEl.style.display = on && stage ? "" : "none";
+    }
+    var STAGES = {
+      engine: "Starting the TV torrent player",
+      metadata: "Getting the torrent file list",
+      peers: "Waiting for video data from peers",
+      header: "Reading the video information",
+      frames: "Loading the first frames",
+      resume: "Jumping to {time}",
+      opening: "Connecting to the source",
+      buffering: "Buffering",
+      next: "Finding the next episode"
+    };
+    function setStage(name) {
+      if (stage !== name) stageSince = Date.now();
+      stage = name || "";
+      renderStage();
+    }
+    function mb(bytes) {
+      return (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0);
+    }
+    function renderStage() {
+      if (!stage) {
+        stageEl.style.display = "none";
+        return;
+      }
+      stageTitle.textContent = t(STAGES[stage], {
+        time: fmtTime(pendingStart / 1e3 || videoEl.currentTime || 0)
+      });
+      var parts = [];
+      var secs = Math.floor((Date.now() - stageSince) / 1e3);
+      if (secs >= 3) parts.push(t("{n} s", {
+        n: secs
+      }));
+      var p = torrentProgress;
+      if (isTorrent(stream) && p.checkedAt && stage !== "next") {
+        parts.push(t("{n} peers", {
+          n: p.peers
+        }));
+        if (p.bytes) parts.push(t("{mb} MB received", {
+          mb: mb(p.bytes)
+        }));
+        if (p.rate > 0) parts.push(t("{rate} MB/s", {
+          rate: (p.rate / 1048576).toFixed(1)
+        }));
+        var d = videoEl.duration;
+        var need = p.length && d > 0 && isFinite(d) ? p.length / d : 0;
+        if (need && p.rate > 0 && p.rate < need * 0.9 && p.at && Date.now() - p.at < 1e4) parts.push(t("slower than this video needs"));
+      }
+      stageDetail.textContent = parts.join("  ·  ");
+    }
+    function pollTorrentProgress(force) {
+      if (statsBusy || !alive || !mediaUrl || !isTorrent(stream) || !force && spinner.style.display === "none") return;
+      var forUrl = mediaUrl;
+      statsBusy = true;
+      torrentStats(forUrl).then(function (stats) {
+        statsBusy = false;
+        if (!alive || forUrl !== mediaUrl || !stats) return;
+        var now = Date.now();
+        var p = torrentProgress;
+        var bytes = stats.downloaded || 0;
+        if (bytes > p.bytes) {
+          if (p.checkedAt && now > p.checkedAt) p.rate = (bytes - p.bytes) * 1e3 / (now - p.checkedAt);
+          p.at = now;
+        } else if (p.checkedAt && now - p.at > 4e3) p.rate = 0;
+        p.bytes = Math.max(p.bytes, bytes);
+        p.peers = stats.peers || 0;
+        p.length = stats.length || 0;
+        p.delivered = (stats.ranges || []).reduce(function (sum, range) {
+          return sum + (range.sent || 0);
+        }, 0);
+        p.checkedAt = now;
+        p.pieceLength = stats.pieceLength || 0;
+        if (stage === "peers" && p.delivered > 0) setStage("header");else renderStage();
+      }, function () {
+        statsBusy = false;
+      });
+    }
+    function logStartupTimeline() {
+      var p = torrentProgress;
+      log.info("Startup timeline", {
+        torrent: isTorrent(stream),
+        resumed: !!marks.seeked,
+        readyState: videoEl.readyState,
+        ms: marks,
+        pieceLength: p.pieceLength || 0,
+        receivedBytes: p.bytes,
+        peers: p.peers
+      });
     }
     function message(text) {
       msgEl.textContent = text;
@@ -11101,6 +11311,47 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
+    var NEXT_FRESH_MS = 10 * 6e4;
+    var nextLookup = null;
+    function lookupNext(nv) {
+      var cur = nextLookup;
+      if (cur && cur.id === nv.id && !cur.error && Date.now() - cur.at < NEXT_FRESH_MS) return cur;
+      var entry = {
+        id: nv.id,
+        at: Date.now(),
+        collected: [],
+        list: null,
+        done: false,
+        error: null,
+        listeners: []
+      };
+      nextLookup = entry;
+      var notify = function notify() {
+        return entry.listeners.slice().forEach(function (fn) {
+          return fn();
+        });
+      };
+      fetchStreams(meta.type, nv.id, function (addon, streams) {
+        entry.collected = entry.collected.concat(streams);
+        notify();
+      }).then(function (list2) {
+        entry.list = list2;
+        entry.done = true;
+        if (alive && video.id === entry.id) opts.streams = list2;
+        notify();
+      }, function (error) {
+        entry.error = error;
+        entry.done = true;
+        if (nextLookup === entry) nextLookup = null;
+        notify();
+      });
+      return entry;
+    }
+    function prefetchNext() {
+      if (!opts.isSeries || !hasPlayed || nextRequest) return;
+      var nv = nextVideo();
+      if (nv) lookupNext(nv);
+    }
     function playNext() {
       if (nextRequest) return nextRequest;
       var nv = nextVideo();
@@ -11124,33 +11375,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }) : null);
       };
       showSpinner(true);
-      message(t("Procurando o próximo episódio..."));
+      setStage("next");
+      var entry = lookupNext(nv);
       var lookup = new Promise(function (resolve, reject) {
         var settled = false;
-        var collected = [];
-        fetchStreams(meta.type, nv.id, function (addon, streams) {
-          collected = collected.concat(streams);
+        var check4 = function check4() {
           if (settled) return;
-          var match = choose(collected);
+          var match = choose(entry.collected);
           if (match) {
             settled = true;
             resolve({
               match: match,
-              streams: collected
+              streams: entry.done && entry.list ? entry.list : entry.collected
             });
-          }
-        }).then(function (list2) {
-          if (alive && video === nv) opts.streams = list2;
-          if (!settled) {
+          } else if (entry.error) {
+            settled = true;
+            reject(entry.error);
+          } else if (entry.done) {
             settled = true;
             resolve({
-              match: choose(list2),
-              streams: list2
+              match: choose(entry.list || []),
+              streams: entry.list || []
             });
           }
-        }).catch(function (error) {
-          if (!settled) reject(error);
-        });
+        };
+        entry.listeners.push(check4);
+        check4();
       });
       nextRequest = lookup.then(function (result) {
         if (!alive || requestId !== nextRequestId || previousVideo !== video || sourceAttempt !== startGeneration) return;
@@ -11162,10 +11412,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           opts.streams = result.streams;
           opts.fallbacks = [];
           pendingStart = 0;
+          lastPosition = 0;
           autoDone = {
             sub: false,
             audio: false
           };
+          if (opts.onVideoChange) opts.onVideoChange(nv);
           start3();
         } else {
           pop();
@@ -11178,7 +11430,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!alive || requestId !== nextRequestId) return;
         nextRequest = null;
         showSpinner(false);
-        message("");
+        setStage("");
         log.warn("Next episode source lookup failed", error.message);
         toast(t("Could not load the next episode. Try again."));
       });
@@ -11213,10 +11465,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       switch (k) {
         case KEY.PLAY:
-          videoEl.play();
+          if (failed) retry();else {
+            userPaused = false;
+            videoEl.play();
+          }
           showControls();
           return true;
         case KEY.PAUSE:
+          userPaused = true;
           videoEl.pause();
           return true;
         case KEY.PLAYPAUSE:
@@ -11234,7 +11490,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         case KEY.BACK:
         case KEY.ESC:
         case KEY.BACKSPACE:
-          if (seekTarget !== null) cancelSeek();else if (activeSeg && !controlsOn) dismissSkip();else if (controlsOn && !videoEl.paused) hideControls();else close();
+          if (seekTarget !== null) cancelSeek();else if (activeSeg && !controlsOn) dismissSkip();else if (hasPlayed && !videoEl.paused && Date.now() - backArmedAt > 3e3) {
+            backArmedAt = Date.now();
+            hideControls();
+            toast(t("Press Back again to stop watching"), 2500);
+          } else close();
           return true;
       }
       if (!controlsOn && activeSeg) {
@@ -11278,6 +11538,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
             checkSkip();
+            if (spinner.style.display !== "none" && stage) {
+              if (Date.now() - torrentProgress.checkedAt >= 1500) pollTorrentProgress();
+              renderStage();
+            }
             if (!nativeOffDone && !(currentSub.kind === "embedded" && !currentSub.extracted)) nativeSubsOff();
             if (currentSub.extracted) ensureSegments();
           }, 250);
@@ -11605,6 +11869,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var libBtn = null;
     var tmdbInfo = null;
     var lastTorrentError = "";
+    var playerVideo = null;
     var isSeries = function isSeries() {
       return meta && sortedVideos(meta).length > 0 && meta.type !== "movie";
     };
@@ -12210,7 +12475,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       status3();
-      (serverOk ? Promise.resolve() : check2().then(function (r) {
+      var servicesKnown = false;
+      var queuedReplies = [];
+      var services = (serverOk ? Promise.resolve() : check2().then(function (r) {
         return serverOk = r.ok;
       })).then(function () {
         if (tvOk && torrentOk) return null;
@@ -12218,52 +12485,61 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           tvOk = r.ok;
           torrentOk = r.torrent;
         });
-      }).then(function () {
-        status3();
-        return fetchStreams(meta.type, video.id, function (addon, streams) {
-          if (!alive || streamsVideo !== video) return;
-          pendingCount--;
-          var g = groups.find(function (x) {
-            return x.addon === addon;
-          });
-          if (g) {
-            g.done = true;
-            var shown = orderSources(streams.filter(function (s) {
-              return isPlayableType(s) && (isTorrent(s) ? torrentOk : canTryDirect(s));
-            }));
-            var hidden = streams.length - shown.length;
-            g.count = shown.length;
-            g.streams = shown;
-            g.countEl.textContent = String(shown.length);
-            shown.forEach(function (s) {
-              all2.push(s);
-              g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all2));
-            });
-            if (hidden) g.body.appendChild(h("div.loading-line", {
-              text: t("{name}: {n} torrent sources hidden (TV torrent player unavailable)", {
-                name: addon.manifest.name || addon.manifest.id,
-                n: hidden
-              })
-            }));
-            applyFilter(false);
-          }
-          if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
-            var first = firstVisibleItem();
-            if (first) {
-              autoFocused = first;
-              focus(first);
-            }
-          }
-          if (pendingCount <= 0) {
-            if (loadingLine.parentNode) list2.removeChild(loadingLine);
-            if (!all2.length) list2.appendChild(h("div.loading-line", {
-              text: t("Nenhuma fonte encontrada.")
-            }));
-          }
-          status3();
-          decideSmart(false);
-        });
+      });
+      fetchStreams(meta.type, video.id, function (addon, streams) {
+        if (servicesKnown) renderAddon(addon, streams);else queuedReplies.push([addon, streams]);
       }).catch(function () {});
+      services.catch(function () {}).then(function () {
+        servicesKnown = true;
+        if (!alive || streamsVideo !== video) return;
+        status3();
+        queuedReplies.splice(0).forEach(function (reply) {
+          return renderAddon(reply[0], reply[1]);
+        });
+      });
+      function renderAddon(addon, streams) {
+        if (!alive || streamsVideo !== video) return;
+        pendingCount--;
+        var g = groups.find(function (x) {
+          return x.addon === addon;
+        });
+        if (g) {
+          g.done = true;
+          var shown = orderSources(streams.filter(function (s) {
+            return isPlayableType(s) && (isTorrent(s) ? torrentOk : canTryDirect(s));
+          }));
+          var hidden = streams.length - shown.length;
+          g.count = shown.length;
+          g.streams = shown;
+          g.countEl.textContent = String(shown.length);
+          shown.forEach(function (s) {
+            all2.push(s);
+            g.body.appendChild(streamItem(s, addon.manifest.name || addon.manifest.id, video, serverOk, tvOk, torrentOk, all2));
+          });
+          if (hidden) g.body.appendChild(h("div.loading-line", {
+            text: t("{name}: {n} torrent sources hidden (TV torrent player unavailable)", {
+              name: addon.manifest.name || addon.manifest.id,
+              n: hidden
+            })
+          }));
+          applyFilter(false);
+        }
+        if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
+          var first = firstVisibleItem();
+          if (first) {
+            autoFocused = first;
+            focus(first);
+          }
+        }
+        if (pendingCount <= 0) {
+          if (loadingLine.parentNode) list2.removeChild(loadingLine);
+          if (!all2.length) list2.appendChild(h("div.loading-line", {
+            text: t("Nenhuma fonte encontrada.")
+          }));
+        }
+        status3();
+        decideSmart(false);
+      }
     }
     function streamItem(s, addonName, video, serverOk, tvOk, torrentOk, all2) {
       var playableType = isPlayableType(s);
@@ -12330,7 +12606,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           startTime: ms,
           isSeries: isSeries(),
           fallbacks: fallbacks || [],
-          onError: onError
+          onError: onError,
+          onVideoChange: function onVideoChange(v) {
+            playerVideo = v;
+          }
         });
       };
       if (resumeMs > 3e4) {
@@ -12414,6 +12693,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el,
       onShow: function onShow() {
         if (meta && watchBtn) updateButtons();
+        var returned = playerVideo;
+        playerVideo = null;
+        if (returned && mode === "streams" && isSeries() && streamsVideo && returned.id !== streamsVideo.id) {
+          season = returned.season || 0;
+          showEpisodes(returned.id);
+        }
         loadVisibleImages(panel, 300);
       },
       onBack: function onBack() {
@@ -13517,7 +13802,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/stremio-kai-tizen";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T16:51:10.334Z";
+  var BUILD = "2026-11-05T17:08:51.121Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
@@ -15095,9 +15380,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (home && home.refreshContinue) home.refreshContinue();
       }).catch(function () {});
     }
-    Promise.all([check2(), check(), load().catch(function () {
+    check2();
+    check();
+    load().catch(function () {
       return null;
-    })]).then(function () {
+    }).then(function () {
       var bootEl = document.getElementById("boot");
       if (bootEl) bootEl.parentNode.removeChild(bootEl);
       goTab("home");

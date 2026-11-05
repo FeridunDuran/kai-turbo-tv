@@ -108,7 +108,11 @@ function start() {
       .catch(() => {});
   }
 
-  Promise.all([server.check(), tvproxy.check(), addons.load().catch(() => null)]).then(() => {
+  // Service discovery (PC server timeout, TV player service launch) runs in the background;
+  // the home screen needs only the add-ons. Source lists share the same pending check.
+  server.check();
+  tvproxy.check();
+  addons.load().catch(() => null).then(() => {
     const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.parentNode.removeChild(bootEl);
     router.goTab('home');

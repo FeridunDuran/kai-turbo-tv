@@ -55,7 +55,10 @@ function h(tag, props, children) {
 }
 const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); el.value = ''; };
 
-async function sourceFixture(ready = true, initialStreams = null) {
+async function sourceFixture(ready = true, initialStreams = null, options = {}) {
+  const requested = [];
+  let releaseCheck = null;
+  const deferredCheck = options.deferCheck ? new Promise((resolve) => { releaseCheck = () => resolve({ ok: true, torrent: ready }); }) : null;
   const installed = ['Torrentio', 'Comet ELF', 'Direct addon'].map((name, i) => ({
     transportUrl: 'https://fixture.invalid/' + i + '/manifest.json', manifest: { name, resources: ['stream'], types: ['series'], idPrefixes: ['tt'] },
   }));
@@ -65,13 +68,14 @@ async function sourceFixture(ready = true, initialStreams = null) {
     [{ url: 'https://fixture.invalid/video.mp4', name: 'Direct video' }],
   ];
   const addonApi = evaluate('src/js/api/addons.js', {
-    http: { getJSON: (url) => Promise.resolve({ streams: streams[Number(new URL(url).pathname.split('/')[1])] }) },
+    http: { getJSON: (url) => { requested.push(url); return Promise.resolve({ streams: streams[Number(new URL(url).pathname.split('/')[1])] }); } },
     stremio: { isLoggedIn: () => true, cachedAddons: () => null, getAddonCollection: () => Promise.resolve(installed) },
     store: {}, log: { log: { warn() {} } }, i18n: { t },
   });
   await addonApi.load(true);
-  const tvproxy = { isAvailable: () => true, isTorrentAvailable: () => ready,
-    check: () => Promise.resolve({ ok: true, torrent: ready }) };
+  let checked = !deferredCheck;
+  const tvproxy = { isAvailable: () => checked, isTorrentAvailable: () => checked && ready,
+    check: () => deferredCheck ? deferredCheck.then((r) => { checked = true; return r; }) : Promise.resolve({ ok: true, torrent: ready }) };
   const server = evaluate('src/js/api/server.js', { http: {}, store: { settings: () => ({}) }, luna: {}, i18n: { t }, tvproxy });
   let focused, view, played;
   const addonMocks = { ...addonApi, fetchMeta: () => Promise.resolve({ id: 'tt0460649', type: 'series', name: 'HIMYM',
@@ -82,13 +86,13 @@ async function sourceFixture(ready = true, initialStreams = null) {
     addons: addonMocks, stremio: { libraryItem: () => null, isInLibrary: () => false },
     store: { settings: () => ({ smartChoice: false }) }, server, tvproxy,
     hero: { logo: () => '', background: () => '' }, ui: { spinnerLine: () => h('div.loading-line'), toast() {} },
-    router: { push: (v) => { view = v; } }, player: { openPlayer: (opts) => { played = opts; } }, person: {}, watched: {},
+    router: { push: (v) => { view = v; } }, player: { openPlayer: (opts) => { played = opts; } }, person: {}, watched: { isWatched: () => false, progress: () => 0 },
     trailer: { trailerIds: () => [] }, extras: { ratings: () => Promise.resolve([]), hasTmdb: () => false },
     img: {}, skip: { isAnime: () => false }, i18n: { t, epLabel: () => 'S1E1' },
   });
   ctx.openDetails('series', 'tt0460649', { videoId: 'tt0460649:1:1', autoStreams: true });
   await new Promise(setImmediate);
-  return { root: view.el, addonApi, get played() { return played; }, view, selectTorrent: () => {
+  return { root: view.el, addonApi, requested, releaseCheck, get played() { return played; }, view, selectTorrent: () => {
     const torrentChip = view.el.querySelectorAll('.chip').find((chip) => /^Torrent/.test(chip.textContent));
     torrentChip.__select();
     const torrent = view.el.querySelectorAll('.stream')[0];
@@ -152,4 +156,30 @@ test('HTTP sources sort by resolution and torrents by reported seeds inside addo
  assert.deepEqual(groups[0].querySelectorAll('.s-title').map(n=>n.textContent),['many','1080p 👤 87','zero','unknown']);
  assert.deepEqual(groups[2].querySelectorAll('.s-title').map(n=>n.textContent),['4K','1080p','720p','Unknown']);
  assert.match(groups[0].textContent,/Seeds: 200/);
+});
+
+test('add-on stream requests start while TV service discovery is still pending', async () => {
+  const f = await sourceFixture(true, null, { deferCheck: true });
+  const streamRequests = f.requested.filter((url) => url.includes('/stream/'));
+  assert.equal(streamRequests.length, 3, 'all add-ons requested before the service check finished');
+  assert.equal(f.root.querySelectorAll('.stream').length, 0, 'torrent visibility waits for the service state');
+  f.releaseCheck();
+  await new Promise(setImmediate); await new Promise(setImmediate);
+  assert.equal(f.root.querySelectorAll('.stream').length, 4, 'queued replies render once the engine state is known');
+  assert.equal(f.requested.filter((url) => url.includes('/stream/')).length, 3, 'no duplicate add-on requests');
+});
+
+test('returning from a player that moved to the next episode shows that episode instead of stale sources', async () => {
+  const f = await sourceFixture();
+  f.selectTorrent();
+  assert.equal(typeof f.played.onVideoChange, 'function');
+  f.played.onVideoChange({ id: 'tt0460649:1:2', season: 1, episode: 2 });
+  f.view.onShow();
+  assert.equal(f.root.querySelectorAll('.stream').length, 0);
+  assert.ok(f.root.querySelectorAll('.episode').length > 0);
+  // Same episode: the source list (and its focus) is kept for choosing another source.
+  const g = await sourceFixture();
+  g.selectTorrent();
+  g.view.onShow();
+  assert.equal(g.root.querySelectorAll('.stream').length, 4);
 });

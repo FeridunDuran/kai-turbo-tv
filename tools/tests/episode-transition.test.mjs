@@ -29,7 +29,7 @@ test('unreleased episodes and specials cannot be auto-started after a normal sea
  for(const next of [{id:'future',season:1,episode:2,released:'2999-01-01'},{id:'special',season:0,episode:1}]){const f=await fixture({videos:[{id:'tt:1:1',season:1,episode:1},next]});f.next();assert.equal(f.lookups.length,0);f.close();}
 });
 test('up-next countdown pauses with playback and stops when seeking away from credits',async()=>{
- const f=await fixture();f.video.currentTime=1310;f.video.emit('timeupdate');let tick=[...f.intervals.values()].find(t=>t.ms===1000);assert.ok(tick);f.video.paused=true;for(let i=0;i<15;i++)tick.fn();assert.equal(f.lookups.length,0);f.video.paused=false;f.video.currentTime=200;tick.fn();assert.equal([...f.intervals.values()].some(t=>t.ms===1000),false);f.close();
+ const f=await fixture();f.video.currentTime=1310;f.video.emit('timeupdate');let tick=[...f.intervals.values()].find(t=>t.ms===1000);assert.ok(tick);f.video.paused=true;for(let i=0;i<15;i++)tick.fn();assert.equal(f.plays.length,1,'paused countdown must not start the next episode');f.video.paused=false;f.video.currentTime=200;tick.fn();assert.equal([...f.intervals.values()].some(t=>t.ms===1000),false);f.close();
 });
 
 

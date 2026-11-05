@@ -81,3 +81,34 @@ it does not increase torrent peer throughput. Torrent tracker/DHT discovery, add
 requests, and MP4 head/tail selections were already concurrent. Their existing request/cache
 budgets are preserved. Regressions cover a ready service with both legacy probes unresolved,
 and subtitle discovery while the playback preparation promise remains pending.
+
+## Critical path review: playback start versus buffering
+
+A reported 13.2 GB, ~1 h 50 min source reached the first decoded data and then `readyState=4`
+about 15 seconds later, with the download peaking near 1.3 MB/s against an average file need of
+about 2 MB/s. The service cannot hand the player unverified bytes, so the playback piece must
+finish before any of it is delivered. Speculatively fetching an estimated resume piece was not
+adopted: the time-to-byte estimate is unreliable for variable bitrate files, and the extra
+piece would share the bandwidth the header and first playable piece need.
+
+Two player-side waits were found in code instead:
+
+1. The player relied only on `autoplay`. In Chromium's
+   [html_media_element.cc](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/core/html/media/html_media_element.cc)
+   autoplay-by-attribute runs only on the transition to `kHaveEnoughData`, while `canplay`
+   fires at `kHaveFutureData`. In
+   [web_media_player_impl.cc](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/platform/media/web_media_player_impl.cc)
+   the step from future to enough data requires `CanPlayThrough()`, a download-rate estimate,
+   when the `kSpecCompliantCanPlayThrough` feature is enabled. A torrent slower than the file
+   bitrate may not satisfy it early. Whether the TV's engine has that feature is unknown; without
+   it both states arrive together and this change makes no difference. An explicit `play()` at
+   `canplay` now starts playback as soon as the decoder has data, unless the user paused during
+   loading.
+2. The 15-second stall watchdog reopened torrent playback even while data kept arriving,
+   discarding the player's buffer. It now treats recent received bytes from the local
+   torrent-status endpoint as buffering.
+
+Whether the reported 15 seconds was spent between `canplay` and `canplaythrough` is not yet
+established: the previous diagnostics did not log either event. The player now logs both, plus
+a one-line startup timeline, so the next TV run shows how much of the wait was piece delivery
+and how much was the browser's own buffering threshold. No startup gain is claimed until then.

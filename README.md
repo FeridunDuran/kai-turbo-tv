@@ -93,6 +93,43 @@ next episode’s source list. Duplicate transition requests are blocked, and the
 fallback sources and delayed playback actions cannot carry over to the next episode.
 These transition cases pass local integration tests; TV automatic-transition verification is pending.
 
+The next episode's add-on sources are requested about a minute before the up-next point (as
+stremio-core requests next-episode streams in advance), so the countdown or the Next button
+usually does not wait for add-ons. Lookups older than ten minutes are not reused, because HTTP
+links can expire. Only add-on lists are prefetched; no next-episode torrent data is downloaded.
+After the player moves to another episode, Back from the player shows that episode in the
+episode list instead of the previous episode's sources.
+
+### Shorter waits before playback
+- A source list requests every add-on immediately; service discovery (PC server check, TV player
+  service launch) runs at the same time instead of first. Torrent rows still appear only after
+  the TV engine state is known.
+- The home screen no longer waits for the PC server or TV player service checks at startup.
+- Chromium starts autoplay only at its "enough data" state; with its spec-compliant
+  can-play-through feature, that state also depends on a download-rate estimate covering the rest
+  of the file. A slow torrent can already have playable data before that. The player now starts
+  playback as soon as the browser reports that it can play (`canplay`), unless you paused it
+  during loading. Whether the TV's browser engine behaves this way is not yet measured.
+- A slow torrent that is still receiving data is treated as buffering, not as a stalled stream,
+  so the player no longer reopens it (and throws away its buffer) after 15 seconds.
+Piece verification and the 48 MiB cache limit are unchanged. These are code-path changes with
+local tests; their effect on TV startup time has not been measured yet.
+
+### While loading and watching
+- The loading screen names the step actually in progress: starting the TV torrent player,
+  getting the torrent file list, waiting for video data from peers, reading the video
+  information, jumping to the resume position, buffering, finding the next episode. For torrents
+  a small line shows connected peers, data received and the current download rate, plus a note
+  when the download is slower than the file's average bitrate. There are no estimated percentages.
+- Each start logs a startup timeline (milliseconds to URL, metadata, seek, first frame,
+  `canplay`, `canplaythrough`, playing) to the remote log when it is enabled.
+- After an error the Play button becomes **Try again** (same source, from the last position that
+  played); Sources stays next to it. Errors that do not establish a codec problem no longer
+  suggest choosing a different codec.
+- While a video plays, Back first hides the controls and asks for a second press; a second Back
+  within three seconds leaves. Paused, loading or failed playback leaves with one press. Stop
+  always leaves.
+
 ### Other changes
 - The loader and in-app updater point to this repository, so the TV runs this fork's code.
 - English is the default language; Samsung on-screen keyboard Done / Cancel work in text fields.
