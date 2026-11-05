@@ -17717,6 +17717,7 @@ var TV_TORRENT = (function () {
   var AHEAD_BYTES = 32 * 1024 * 1024;
   var BEHIND_BYTES = 8 * 1024 * 1024;
   var OPEN_TIMEOUT_MS = 20000;
+  var FIRST_OPEN_TIMEOUT_MS = 45000;
   var IDLE_MS = 3 * 60 * 1000;
   var STALL_MS = 20000;
   var MAX_SESSIONS = 2;
@@ -18366,12 +18367,15 @@ var TV_TORRENT = (function () {
         + 'Metadata peers: ' + metadataPeerCount + ' · blocks received: ' + metadataPieceCount + '/' + (metadataExpectedPieces || '?');
       finish(new Error(detail));
     }
-    function touchMetadata() {
+    function touchMetadata(ms) {
       if (done) return;
       clearTimeout(timer);
-      timer = setTimeout(metadataDeadline, OPEN_TIMEOUT_MS);
+      timer = setTimeout(metadataDeadline, ms || OPEN_TIMEOUT_MS);
     }
-    touchMetadata();
+    // A fresh service (after a TV restart) still has to bootstrap DHT and hear from trackers
+    // before any peer can send metadata: the first wait is longer (TV trace: the first open after
+    // a restart failed, the retry a minute later got metadata in about a second).
+    touchMetadata(FIRST_OPEN_TIMEOUT_MS);
 
     function finish(err, file, fileIdx) {
       if (done) return;

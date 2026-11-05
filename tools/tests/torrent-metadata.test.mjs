@@ -29,7 +29,9 @@ test('metadata discovery includes HTTP alternatives and preserves addon trackers
   assert.ok(trackers.some((url) => url.startsWith('udp://')));
   assert.ok(trackers.includes('https://tracker.example/announce'));
   assert.deepEqual(engine.peers, ['1.2.3.4:6881']);
-  assert.equal(timers[0].ms, 20000);
+  assert.equal(timers[0].ms, 45000, 'first metadata wait covers a cold DHT/tracker start');
+  engine.emit('metadata-piece', 0, 32768);
+  assert.equal(timers.at(-1).ms, 20000, 'later inactivity deadline unchanged');
 });
 
 test('metadata deadline distinguishes socket attempts from completed handshakes', () => {

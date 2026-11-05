@@ -90,7 +90,9 @@ Peerflix and qBittorrent, checked against their source code and the TV's own log
   in parallel; the home screen no longer waits for the PC or TV service checks.
 - **Slow is not broken.** A torrent that is still receiving data counts as buffering, not as a
   stall. The TV's player gives up after about 30 s without the first bytes; if data is still
-  arriving, the app reopens the stream instead of showing an error.
+  arriving, the app reopens the stream instead of showing an error. Right after a TV restart the
+  engine waits 45 s (instead of 20 s) for the first torrent details, and a torrent that still
+  finds no peers or details is retried once automatically before an error is shown.
 - **A long episode keeps its connection.** The TV service no longer treats a stream that has
   been playing for minutes as idle; it used to remove it after about 3.5 minutes, so playback
   stopped and could not reconnect. If the service still loses a stream, the player opens the

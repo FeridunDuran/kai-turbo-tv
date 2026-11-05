@@ -140,6 +140,8 @@ function PlayerView(opts) {
   let playedPosition = 0;
   let prematureEnds = 0;
   let sessionRestarts = 0;
+  // One automatic retry of a torrent open per source chosen by the user.
+  let openRetried = false;
   let backArmedAt = 0;
   // Startup timeline: milliseconds from start() to each player milestone, logged once.
   let startedAt = 0;
@@ -175,6 +177,7 @@ function PlayerView(opts) {
   function tryFallback() {
     if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
     stream = opts.fallbacks.shift();
+    openRetried = false;
     toast(t('Essa fonte não tocou. Tentando outra...'));
     autoDone = { sub: false, audio: false };
     start();
@@ -284,6 +287,15 @@ function PlayerView(opts) {
       .catch((e) => {
         if (!alive || attempt !== startGeneration) return;
         clearStartup();
+        log.warn('Playback source could not be opened', { torrent: server.isTorrent(stream), message: String(e && e.message || '').split(/\r?\n/)[0] });
+        // Peer discovery or metadata that did not arrive in time often succeeds on a second try
+        // (TV trace: failed right after a TV restart, worked when opened again). One automatic retry.
+        if (e.torrentOpen && !openRetried && /metadata|no peers|handshake/i.test(String(e.message))) {
+          openRetried = true;
+          log.info('Retrying torrent open once');
+          start();
+          return;
+        }
         if (e.torrentOpen && opts.onError) opts.onError(e);
         if (!tryFallback()) fail(e.message, e.torrentOpen ? t('Bu tanı TV torrent servisinden geldi.') : null);
       });
@@ -856,6 +868,7 @@ function PlayerView(opts) {
 
   // Same source again, from the last position that actually played.
   function retry() {
+    openRetried = false;
     if (playedPosition > 0) pendingStart = playedPosition * 1000;
     autoDone = { sub: false, audio: false };
     start();
@@ -1408,6 +1421,7 @@ function PlayerView(opts) {
         saveProgress();
         pendingStart = videoEl.currentTime * 1000;
         stream = s;
+        openRetried = false;
         autoDone = { sub: false, audio: false };
         start();
       },
@@ -1496,6 +1510,7 @@ function PlayerView(opts) {
         mediaReady = false;
         video = nv;
         stream = result.match;
+        openRetried = false;
         opts.streams = result.streams;
         opts.fallbacks = [];
         pendingStart = 0;

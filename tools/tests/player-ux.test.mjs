@@ -7,7 +7,7 @@ const flush = () => new Promise(setImmediate);
 const KEY = { BACK: 10009, ESC: 27, BACKSPACE: 8, ENTER: 13, PLAY: 415, PAUSE: 19, LEFT: 37, RIGHT: 39, UP: 38, DOWN: 40 };
 
 // Player fixture with controllable clock, torrent statistics and media events.
-async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false, remoteLog = false } = {}) {
+async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = false, holdOpen = false, remoteLog = false, failOpen = '', failAlways = false } = {}) {
   const nodes = [], events = {}, intervals = new Map(), timers = new Map(), lookups = [], plays = [], toasts = [], logs = [];
   let id = 0, view, focused, popped = 0, playCalls = 0, now = 1000000, statsCalls = 0;
   const resumedCalls = [];
@@ -37,7 +37,7 @@ async function fixture({ torrent = true, startTime = 0, statsSeq = [], fail = fa
     subs: { Renderer: () => ({ clear() {}, update() {}, setOffset() {}, set() {}, offset: () => 0 }) }, substyle: { apply() {} },
     store: { settings: () => settings, saveSettings: (patch) => Object.assign(settings, patch), get: () => ({}), set() {} }, log: { log: { info: (...a) => logs.push(a), warn: (...a) => logs.push(a) } }, http: {}, mediaerror: { explainTorrentError: () => ({ title: 'Torrent playback failed.', hint: '' }), explainVideoError: () => Promise.resolve({ title: 'failed', hint: '' }) },
     server: { isTorrent: (s) => !!s.infoHash, isPlayableType: (s) => !!(s.infoHash || s.url), isAvailable: () => false,
-      toPlayable(s, series, options) { plays.push({ s, series, options, startTime: null }); if (holdOpen) return new Promise(() => {}); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
+      toPlayable(s, series, options) { plays.push({ s, series, options, startTime: null }); if (holdOpen) return new Promise(() => {}); if (failOpen && (failAlways || plays.length === 1)) return Promise.reject(Object.assign(new Error(failOpen), { torrentOpen: true })); return fail && plays.length === 1 ? Promise.reject(new Error('open failed')) : Promise.resolve({ url: 'http://127.0.0.1:8097/torrent/' + String(plays.length).repeat(16) }); } },
     tvproxy: { isTorrentAvailable: () => true, torrentResumed: (url) => { resumedCalls.push(url); return Promise.resolve(true); }, torrentStats: () => { statsCalls++; return Promise.resolve(statsSeq.length ? statsSeq.shift() : null); } },
     addons: { fetchStreams(type, episode, callback) { return new Promise((resolve, reject) => lookups.push({ episode, callback, resolve, reject })); }, fetchSubtitles: () => Promise.resolve([]) },
     stremio: { saveProgress() {} }, skip: {},
@@ -311,4 +311,17 @@ test('a lost TV service session reopens the torrent at the played position inste
   assert.equal(f.plays[1].options.resume, true);
   assert.ok(!f.byHtml('Try again'), 'no error shown');
   f.close();
+});
+
+test('a torrent open that times out on metadata is retried once automatically, then shown', async () => {
+  const f = await fixture({ failOpen: 'torrent metadata transfer stalled for 20 seconds\nNo peers found; tracker/DHT discovery may be blocked' });
+  await flush(); await flush();
+  assert.equal(f.plays.length, 2, 'one automatic retry');
+  assert.ok(f.logs.some((l) => l[0] === 'Playback source could not be opened'));
+  assert.ok(!f.byHtml('Try again'));
+  const g = await fixture({ failOpen: 'torrent metadata transfer stalled for 20 seconds', failAlways: true });
+  await flush(); await flush(); await flush();
+  assert.equal(g.plays.length, 2, 'only one automatic retry');
+  assert.ok(g.byHtml('Try again'), 'second failure is shown');
+  f.close(); g.close();
 });

@@ -10230,6 +10230,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var playedPosition = 0;
     var prematureEnds = 0;
     var sessionRestarts = 0;
+    var openRetried = false;
     var backArmedAt = 0;
     var startedAt = 0;
     var marks = {};
@@ -10275,6 +10276,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function tryFallback() {
       if (hasPlayed || !opts.fallbacks || !opts.fallbacks.length) return false;
       stream = opts.fallbacks.shift();
+      openRetried = false;
       toast(t("Essa fonte não tocou. Tentando outra..."));
       autoDone = {
         sub: false,
@@ -10391,6 +10393,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).catch(function (e) {
         if (!alive || attempt !== startGeneration) return;
         clearStartup();
+        log.warn("Playback source could not be opened", {
+          torrent: isTorrent(stream),
+          message: String(e && e.message || "").split(/\r?\n/)[0]
+        });
+        if (e.torrentOpen && !openRetried && /metadata|no peers|handshake/i.test(String(e.message))) {
+          openRetried = true;
+          log.info("Retrying torrent open once");
+          start3();
+          return;
+        }
         if (e.torrentOpen && opts.onError) opts.onError(e);
         if (!tryFallback()) fail(e.message, e.torrentOpen ? t("Bu tanı TV torrent servisinden geldi.") : null);
       });
@@ -10945,6 +10957,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       showControls(srcBtn);
     }
     function retry() {
+      openRetried = false;
       if (playedPosition > 0) pendingStart = playedPosition * 1e3;
       autoDone = {
         sub: false,
@@ -11613,6 +11626,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           saveProgress2();
           pendingStart = videoEl.currentTime * 1e3;
           stream = s;
+          openRetried = false;
           autoDone = {
             sub: false,
             audio: false
@@ -11719,6 +11733,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           mediaReady = false;
           video = nv;
           stream = result.match;
+          openRetried = false;
           opts.streams = result.streams;
           opts.fallbacks = [];
           pendingStart = 0;
@@ -14131,7 +14146,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "FeridunDuran/kai-turbo-tv";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
-  var BUILD = "2026-11-05T18:42:51.608Z";
+  var BUILD = "2026-11-05T18:52:15.674Z";
   var RAW = "https://raw.githubusercontent.com/" + REPO + "/main/";
   var PURGE = "https://purge.jsdelivr.net/gh/" + REPO + "/";
   var FILES = ["package.json", "dist/index.html", "dist/loader.js", "dist/app.js", "dist/app.css", "dist/remote-service.js", "dist/player-service.js", "dist/build.json", "dist/vendor/hls.min.js", "dist/vendor/dash.all.min.js"];
