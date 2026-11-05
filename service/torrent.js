@@ -74,6 +74,7 @@ var TV_TORRENT = (function () {
     engine.on('invalid-piece', function () { d.hashFails++; });
     engine.on('hotswap', function () { d.hotswaps++; });
     engine.on('pex-peer', function () { d.pexPeers = (d.pexPeers || 0) + 1; });
+    engine.on('finishing-retry', function () { d.finishingRetries = (d.finishingRetries || 0) + 1; });
     engine.on('idle-peer-rotation', function () { d.idleRotations = (d.idleRotations || 0) + 1; });
     engine.on('snub', function () { d.snubs = (d.snubs || 0) + 1; });
     engine.on('utp-fallback', function (addr, reason) { d.utpTries = (d.utpTries || 0) + 1; if (reason === 'timeout') d.utpTimeoutProbes = (d.utpTimeoutProbes || 0) + 1; });

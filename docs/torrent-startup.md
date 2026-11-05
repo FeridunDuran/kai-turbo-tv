@@ -414,3 +414,26 @@ full-tail eviction without additional requests. The network fixture passes fake-
 UPnP/PEX/uTP-fallback/incoming checks. These are controlled local tests, not TV speed measurements.
 Timeout-only uTP probes have their own utpTimeoutProbes counter. Fresh TV trials must compare
 cold starts and warm reopenings separately. Premature-ended behavior remains an open investigation.
+
+## Delivery-aware peer scheduling (2026-11-06)
+
+A regression reproduced an actual scheduling bug: a fast but choked peer caused speedRanker
+to refuse work to a usable slower peer. Full queues and snubbed peers had the same issue.
+The ranker now considers eligibility, advertised request capacity and estimated next-block
+arrival (queued bytes / measured speed + best observed response latency). It only defers a
+peer's small remainder when a faster eligible peer can finish sooner. Scheduler updates visit
+shorter estimated queues first, on a copy of the wire list. Existing per-peer/global budgets,
+playhead priority and speculative tail limits remain unchanged.
+
+Unmeasured peers still receive one validation block before filling their pipelines; the existing
+behavior is covered explicitly. First-block response time and best observed block response time
+are measured from actual requests. These are response estimates including remote queuing,
+not pure network RTT. For a critical piece with <=four missing16KiB blocks, once-only recovery
+may start after2s rather than the usual4-15s, and only if an eligible measured peer has a delivery
+estimate at least250ms shorter. Cancellation ownership and one retry per block remain enforced.
+
+Logs add at most six unchoked peerQueues (rate, block count, ETA, first-block response) and
+finishingRetries. They contain no peer addresses.124 tests pass; the new eligibility regression
+fails on the former ranker. Build/ES5 and Node4.4.3 TCP/HTTP4MiB269ms,16MiB19040ms and fake-network
+1485ms fixtures pass. Local times are regression checks, not TV speed claims. The16MiB fixture
+has a45s test-process deadline; production playback deadlines are unchanged.

@@ -25,7 +25,7 @@ test('actual engine request accounting caps outstanding blocks and releases canc
 test('engine recovery cancels the old request before reserving it on the alternative peer',()=>{
  const old=peer(4096),fast=peer(131072),request={wire:old,index:10,offset:0,size:16384,at:0},events=[],activeRequests=[request];
  old.cancel=()=>{events.push('cancel');activeRequests.length=0;};let tick;
- const context={lastRotation:0,swarm:{queued:0,size:55},engine:{selection:[{from:10,to:10,priority:2}],emit:()=>events.push('event')},streamPolicy:policy,activeRequests,wires:[old,fast],retriedBlocks:{},criticalRetries:0,Date:{now:()=>20000},setInterval(fn){tick=fn;return 1;},onrequest(wire,index){assert.equal(wire,fast);assert.equal(index,10);events.push('request');}};
+ const context={pieces:{10:{missing:1000000}},piece:{BLOCK_LENGTH:16384},lastRotation:0,swarm:{queued:0,size:55},engine:{selection:[{from:10,to:10,priority:2}],emit:()=>events.push('event')},streamPolicy:policy,activeRequests,wires:[old,fast],retriedBlocks:{},criticalRetries:0,Date:{now:()=>20000},setInterval(fn){tick=fn;return 1;},onrequest(wire,index){assert.equal(wire,fast);assert.equal(index,10);events.push('request');}};
  const start=source.indexOf('recoveryIntervalId = setInterval('),end=source.indexOf('}, 1000)',start)+8;vm.runInNewContext('var '+source.slice(start,end),context);tick();assert.deepEqual(events,['cancel','request','event']);assert.equal(context.retriedBlocks['10:0'],true);
 });
 
@@ -90,4 +90,47 @@ test('connection rotation preserves data providers and only replaces old empty c
  assert.equal(policy.rotationCandidate(peers,20,55,100000),null);
  assert.equal(policy.rotationCandidate(peers,20,5,50000),null);
  idle.requests=[{}];assert.equal(policy.rotationCandidate(peers,20,5,100000),null);
+});
+
+
+test('a choked, snubbed or queue-full fast peer cannot prevent a slower peer serving the playhead',()=>{
+ const slow=peer(4096,{10:true}),fast=peer(1000000,{10:true});
+ const c={streamPolicy:policy,wires:[slow,fast],pieces:{10:{missing:65536}},piece:{BLOCK_LENGTH:16384},SPEED_THRESHOLD:49152,thruthy:()=>true};
+ vm.runInNewContext(source.slice(source.indexOf('var speedRanker ='),source.indexOf('var shufflePriority =')),c);
+ fast.peerChoking=true;assert.equal(c.speedRanker(slow)(10),true,'choked fast peer is unavailable');
+ fast.peerChoking=false;fast.snubbed=true;assert.equal(c.speedRanker(slow)(10),true,'snubbed fast peer is unavailable');
+ fast.snubbed=false;fast.requests=Array.from({length:250},()=>({piece:10,length:16384}));assert.equal(c.speedRanker(slow)(10),true,'full fast queue is unavailable');
+ fast.requests=[];assert.equal(c.speedRanker(slow)(10),false,'idle productive fast peer can finish the small remainder sooner');
+});
+
+
+test('delivery estimates prefer a short responsive queue over raw historical throughput',()=>{
+ const fast=peer(1000000,{10:true}),responsive=peer(300000,{10:true});
+ fast.requests=Array.from({length:150},()=>({piece:11,length:16384}));fast.kaiLatencyMs=800;responsive.kaiLatencyMs=40;
+ assert.ok(policy.deliveryTime(responsive)<policy.deliveryTime(fast));
+ fast.peerChoking=true;assert.equal(policy.deliveryTime(fast),Infinity);fast.peerChoking=false;fast.snubbed=true;assert.equal(policy.deliveryTime(fast),Infinity);
+ const unknown=peer(0,{10:true});assert.ok(Number.isFinite(policy.deliveryTime(unknown)));assert.equal(policy.pipeline(0),5);
+});
+
+test('finishing blocks recover earlier only to a shorter eligible queue and never retry twice',()=>{
+ const old=peer(4096,{10:true}),fast=peer(131072,{10:true}),request={wire:old,index:10,offset:0,at:0};
+ assert.equal(policy.recovery([request],[old,fast],{10:true},2500),null);
+ assert.equal(policy.recovery([request],[old,fast],{10:true},2500,{10:true}).wire,fast);
+ assert.equal(policy.recovery([request],[old,fast],{10:true},1900,{10:true}),null);
+ request.retried=true;assert.equal(policy.recovery([request],[old,fast],{10:true},2500,{10:true}),null);request.retried=false;
+ fast.snubbed=true;assert.equal(policy.recovery([request],[old,fast],{10:true},2500,{10:true}),null);
+});
+
+test('new peers probe only one block before a first successful delivery',()=>{
+ const requests=[],wire={requests:[],peerPieces:{10:true,11:true}},c={engine:{selection:[{from:10,to:11,offset:0,priority:2}]},onrequest(w,index){requests.push(index);w.requests.push({piece:index});return true;}};
+ vm.runInNewContext(source.slice(source.indexOf('var onvalidatewire ='),source.indexOf('var speedRanker =')),c);
+ c.onvalidatewire(wire);c.onvalidatewire(wire);assert.deepEqual(requests,[10]);
+});
+
+
+test('actual scheduler visits shorter delivery queues first without changing swarm order',()=>{
+ const blocked=peer(1000000),busy=peer(1000000),responsive=peer(300000);blocked.peerChoking=true;busy.requests=Array.from({length:100},()=>({length:16384}));
+ const wires=[blocked,busy,responsive],seen=[],c={wires,streamPolicy:policy,onupdatewire:w=>seen.push(w)};
+ vm.runInNewContext(source.slice(source.indexOf('var onupdate = function'),source.indexOf('var onwire = function')),c);c.onupdate();
+ assert.deepEqual(seen,[responsive,busy,blocked]);assert.deepEqual(wires,[blocked,busy,responsive]);
 });

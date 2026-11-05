@@ -529,3 +529,8 @@ the same file, rotate long-idle nonproductive peers only when the connection poo
 try a rate-limited uTP fallback after TCP connect timeouts. Recent measured transfer history
 helps rank torrent sources; it expires after24hours and does not guarantee future speed.
 Remote diagnostics expose probe-cache use and peer rotation counters for comparing TV trials.
+
+Peer scheduling also considers queued work and observed block response time. Choked, snubbed
+or queue-full peers cannot reserve preference over usable peers. The playhead piece's final
+blocks can recover earlier when another eligible peer has a shorter estimated delivery time.
+Remote diagnostics include bounded queue estimates and first-block response timings.

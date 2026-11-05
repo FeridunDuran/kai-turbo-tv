@@ -17069,27 +17069,33 @@ var TorrentEngine = function () {
         if (typeof reqq === "number" && reqq > 0) length = Math.min(length, reqq);
         return Math.max(1, length);
       };
-      exports.recovery = function (requests, wires, urgent, now) {
+      exports.recovery = function (requests, wires, urgent, now, finishing) {
         for (var i = 0; i < requests.length; i++) {
           var request = requests[i];
           if (!urgent[request.index] || request.retried) continue;
           var oldSpeed = request.wire.downloadSpeed() || 0;
-          var deadline = Math.max(4e3, Math.min(15e3, 2 * 16384 / Math.max(1, oldSpeed) * 1e3));
+          var nearEnd = finishing && finishing[request.index];
+          var deadline = nearEnd ? 2e3 : Math.max(4e3, Math.min(15e3, 2 * 16384 / Math.max(1, oldSpeed) * 1e3));
           if (now - request.at < deadline) continue;
-          var best = null;
+          var best = null,
+            bestTime = Infinity;
+          var oldTime = exports.deliveryTime(request.wire, request);
           for (var j = 0; j < wires.length; j++) {
             var wire = wires[j],
               speed = wire.downloadSpeed() || 0;
-            if (wire === request.wire || wire.peerChoking || !wire.peerPieces[request.index]) continue;
-            if (speed <= Math.max(16384, oldSpeed * 1.5) || wire.requests.length >= exports.pipeline(speed, wire.peerReqq)) continue;
+            if (wire === request.wire || !exports.available(wire, request.index) || speed < 16384) continue;
             if (wire.requests.some(function (r) {
               return r.piece === request.index && r.offset === request.offset;
             })) continue;
-            if (!best || speed > best.downloadSpeed()) best = wire;
+            var time = exports.deliveryTime(wire);
+            if (time + 0.25 >= oldTime || time >= bestTime) continue;
+            best = wire;
+            bestTime = time;
           }
           if (best) return {
             request,
-            wire: best
+            wire: best,
+            finishing: !!nearEnd
           };
         }
         return null;
@@ -17157,6 +17163,32 @@ var TorrentEngine = function () {
         }
         return candidate;
       };
+      exports.deliveryTime = function (wire, request) {
+        if (wire.peerChoking || wire.snubbed) return Infinity;
+        var speed = wire.downloadSpeed() || 65536;
+        var bytes = 16384;
+        var requests = wire.requests || [];
+        for (var i = 0; i < requests.length; i++) {
+          var r = requests[i];
+          if (request && r.piece === request.index && r.offset === request.offset) break;
+          bytes += r.length || 16384;
+        }
+        return bytes / Math.max(1, speed) + (wire.kaiLatencyMs || 0) / 1e3;
+      };
+      exports.available = function (wire, index) {
+        return !wire.peerChoking && !wire.snubbed && wire.peerPieces[index] && wire.requests.length < exports.pipeline(wire.downloadSpeed(), wire.peerReqq);
+      };
+      exports.preferCurrent = function (wire, index, wires, missing) {
+        var speed = wire.downloadSpeed() || 0;
+        var current = exports.deliveryTime(wire);
+        for (var i = 0; i < wires.length; i++) {
+          var other = wires[i],
+            otherSpeed = other.downloadSpeed() || 0;
+          if (other === wire || !exports.available(other, index) || otherSpeed <= speed) continue;
+          if (otherSpeed * 2 >= missing && exports.deliveryTime(other) + 0.1 < current) return false;
+        }
+        return true;
+      };
     }
   });
 
@@ -17197,9 +17229,6 @@ var TorrentEngine = function () {
       var noop = function noop() {};
       var sha1 = function sha1(data) {
         return crypto.createHash("sha1").update(data).digest("hex");
-      };
-      var thruthy = function thruthy() {
-        return true;
       };
       var falsy = function falsy() {
         return false;
@@ -17263,7 +17292,19 @@ var TorrentEngine = function () {
         engine.streamingStats = function () {
           return {
             activeBlocks: activeRequests.length,
-            criticalRetries
+            criticalRetries,
+            peerQueues: wires.filter(function (w) {
+              return !w.peerChoking && !w.snubbed;
+            }).map(function (w) {
+              return {
+                rateKBs: Math.round(w.downloadSpeed() / 1024),
+                blocks: w.requests.length,
+                etaMs: Math.round(streamPolicy.deliveryTime(w) * 1e3),
+                firstBlockMs: w.kaiFirstBlockMs || null
+              };
+            }).sort(function (a, b) {
+              return a.etaMs - b.etaMs;
+            }).slice(0, 6)
           };
         };
         engine._flood = opts.flood;
@@ -17463,6 +17504,11 @@ var TorrentEngine = function () {
             };
             activeRequests.push(active);
             wire.request(index, offset, size, function (err, block) {
+              if (!err && block && block.length) {
+                var responseMs = Math.max(1, Date.now() - active.at);
+                if (!wire.kaiFirstBlockMs) wire.kaiFirstBlockMs = responseMs;
+                wire.kaiLatencyMs = Math.min(wire.kaiLatencyMs || responseMs, responseMs);
+              }
               var activeAt = activeRequests.indexOf(active);
               if (activeAt >= 0) activeRequests.splice(activeAt, 1);
               var ownsReservation = r[i] === wire;
@@ -17508,24 +17554,8 @@ var TorrentEngine = function () {
             }
           };
           var speedRanker = function speedRanker(wire) {
-            var speed = wire.downloadSpeed() || 1;
-            if (speed > SPEED_THRESHOLD) return thruthy;
-            var secs = streamPolicy.pipeline(speed, wire.peerReqq) * piece.BLOCK_LENGTH / speed;
-            var tries = 10;
-            var ptr = 0;
             return function (index) {
-              if (!tries || !pieces[index]) return true;
-              var missing = pieces[index].missing;
-              for (; ptr < wires.length; ptr++) {
-                var other = wires[ptr];
-                var otherSpeed = other.downloadSpeed();
-                if (otherSpeed < SPEED_THRESHOLD) continue;
-                if (otherSpeed <= speed || !other.peerPieces[index]) continue;
-                if ((missing -= otherSpeed * secs) > 0) continue;
-                tries--;
-                return false;
-              }
-              return true;
+              return !pieces[index] || streamPolicy.preferCurrent(wire, index, wires, pieces[index].missing);
             };
           };
           var shufflePriority = function shufflePriority(i) {
@@ -17575,7 +17605,9 @@ var TorrentEngine = function () {
             select(wire, false) || select(wire, true);
           };
           var onupdate = function onupdate() {
-            wires.forEach(onupdatewire);
+            wires.slice().sort(function (a, b) {
+              return streamPolicy.deliveryTime(a) - streamPolicy.deliveryTime(b);
+            }).forEach(onupdatewire);
           };
           var onwire = function onwire(wire) {
             wire.kaiConnectedAt = Date.now();
@@ -17712,12 +17744,16 @@ var TorrentEngine = function () {
                 for (var q = 0; q < pendingRequests.length; q++) slow.cancel(pendingRequests[q].piece, pendingRequests[q].offset, pendingRequests[q].length);
                 engine.emit("snub", slow);
               }
-              var urgent = {};
+              var urgent = {},
+                finishing = {};
               engine.selection.forEach(function (selection) {
                 if (selection.priority < 2) return;
-                for (var i = selection.from; i <= selection.to; i++) urgent[i] = true;
+                for (var i = selection.from; i <= selection.to; i++) {
+                  urgent[i] = true;
+                  if (pieces[i] && pieces[i].missing <= 4 * piece.BLOCK_LENGTH) finishing[i] = true;
+                }
               });
-              var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now());
+              var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now(), finishing);
               if (!recovery) return;
               var request = recovery.request;
               retriedBlocks[request.index + ":" + request.offset] = true;
@@ -17725,6 +17761,7 @@ var TorrentEngine = function () {
               onrequest(recovery.wire, request.index, false);
               criticalRetries++;
               engine.emit("critical-retry", request.index, request.offset);
+              if (recovery.finishing) engine.emit("finishing-retry");
             }, 1e3);
             process.nextTick(function () {
               engine.emit("ready");
@@ -18187,6 +18224,7 @@ var TV_TORRENT = (function () {
     engine.on('invalid-piece', function () { d.hashFails++; });
     engine.on('hotswap', function () { d.hotswaps++; });
     engine.on('pex-peer', function () { d.pexPeers = (d.pexPeers || 0) + 1; });
+    engine.on('finishing-retry', function () { d.finishingRetries = (d.finishingRetries || 0) + 1; });
     engine.on('idle-peer-rotation', function () { d.idleRotations = (d.idleRotations || 0) + 1; });
     engine.on('snub', function () { d.snubs = (d.snubs || 0) + 1; });
     engine.on('utp-fallback', function (addr, reason) { d.utpTries = (d.utpTries || 0) + 1; if (reason === 'timeout') d.utpTimeoutProbes = (d.utpTimeoutProbes || 0) + 1; });

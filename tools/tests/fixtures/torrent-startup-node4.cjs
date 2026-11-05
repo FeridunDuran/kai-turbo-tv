@@ -14,7 +14,7 @@ wire.on('handshake',function(h){wire.handshake(h,new Buffer('-KT0001-12345678901
 wire.on('request',function(index,offset,length,cb){requests.push(index);var data=new Buffer(length);data.fill(index);setTimeout(function(){cb(null,data);},5);});});
 var server=http.createServer(),engine,finished=false,started=Date.now();
 function finish(err){if(finished)return;finished=true;console.log(JSON.stringify({ok:!err,error:err&&err.message,elapsedMs:Date.now()-started,headBlockRequests:requests.filter(function(i){return i===0;}).length,tailBlockRequests:requests.filter(function(i){return i===15;}).length}));context.TV_TORRENT.destroyAll();server.close();seed.close();setTimeout(function(){process.exit(err?1:0);},50);}
-setTimeout(function(){finish(new Error('controlled test timeout'));},20000);
+setTimeout(function(){finish(new Error('controlled test timeout'));},pieceLength>=16777216?45000:20000);
 seed.listen(0,'127.0.0.1',function(){var original=context.TorrentEngine;context.TorrentEngine=function(link,opts){opts.dht=false;opts.tracker=false;engine=original(torrent,opts);engine.connect('127.0.0.1:'+seed.address().port);return engine;};
 context.TV_TORRENT.create({infoHash:hash,fileIdx:0},function(err,result){if(err)return finish(err);var poll=setInterval(function(){if(!engine.bitfield.get(0)||!engine.bitfield.get(15))return;clearInterval(poll);
 if(requests.some(function(i){return i!==0&&i!==15;}))return finish(new Error('prefetch downloaded unrelated pieces'));

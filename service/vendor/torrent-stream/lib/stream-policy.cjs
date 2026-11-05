@@ -3,7 +3,7 @@
 // default request_queue_time) plus two blocks, as in WebTorrent's getBlockPipelineLength. Without
 // that slack a peer with a long round trip is held to the rate its own small queue allows and
 // never grows (the previous 0.75 s formula fell back to 2 blocks above 0.75 s RTT). The per-peer
-// cap is 64 blocks (1 MiB); the engine-wide MAX_ACTIVE_BLOCKS cap still bounds the total. A
+// cap is 250 blocks; the engine-wide MAX_ACTIVE_BLOCKS cap still bounds the total. A
 // peer's advertised reqq (BEP 10 extended handshake) is honoured when it is lower.
 // TV trace: one fast peer delivered nearly all data and sat at exactly 64 outstanding blocks
 // (1 MiB), which at a 0.4 s round trip caps it near 2.5 MB/s, about the file's bitrate, so every
@@ -15,22 +15,25 @@ exports.pipeline = function (speed, reqq) {
   if (typeof reqq === 'number' && reqq > 0) length = Math.min(length, reqq);
   return Math.max(1, length);
 };
-exports.recovery = function (requests, wires, urgent, now) {
+exports.recovery = function (requests, wires, urgent, now, finishing) {
   for (var i = 0; i < requests.length; i++) {
     var request = requests[i];
     if (!urgent[request.index] || request.retried) continue;
     var oldSpeed = request.wire.downloadSpeed() || 0;
-    var deadline = Math.max(4000, Math.min(15000, 2 * 16384 / Math.max(1, oldSpeed) * 1000));
+    var nearEnd = finishing && finishing[request.index];
+    var deadline = nearEnd ? 2000 : Math.max(4000, Math.min(15000, 2 * 16384 / Math.max(1, oldSpeed) * 1000));
     if (now - request.at < deadline) continue;
-    var best = null;
+    var best = null, bestTime = Infinity;
+    var oldTime = exports.deliveryTime(request.wire, request);
     for (var j = 0; j < wires.length; j++) {
       var wire = wires[j], speed = wire.downloadSpeed() || 0;
-      if (wire === request.wire || wire.peerChoking || !wire.peerPieces[request.index]) continue;
-      if (speed <= Math.max(16384, oldSpeed * 1.5) || wire.requests.length >= exports.pipeline(speed, wire.peerReqq)) continue;
+      if (wire === request.wire || !exports.available(wire, request.index) || speed < 16384) continue;
       if (wire.requests.some(function (r) { return r.piece === request.index && r.offset === request.offset; })) continue;
-      if (!best || speed > best.downloadSpeed()) best = wire;
+      var time = exports.deliveryTime(wire);
+      if (time + 0.25 >= oldTime || time >= bestTime) continue;
+      best = wire; bestTime = time;
     }
-    if (best) return { request: request, wire: best };
+    if (best) return { request: request, wire: best, finishing: !!nearEnd };
   }
   return null;
 };
@@ -109,4 +112,35 @@ exports.rotationCandidate = function (wires, queued, size, now) {
     if (!candidate || w.kaiConnectedAt < candidate.kaiConnectedAt) candidate = w;
   }
   return candidate;
+};
+
+
+// Estimate next-block delivery using queued bytes and the peer's best observed response time.
+// Unknown peers keep a conservative estimate and are still given one validation block.
+exports.deliveryTime = function (wire, request) {
+  if (wire.peerChoking || wire.snubbed) return Infinity;
+  var speed = wire.downloadSpeed() || 65536;
+  var bytes = 16384;
+  var requests = wire.requests || [];
+  for (var i = 0; i < requests.length; i++) {
+    var r = requests[i];
+    if (request && r.piece === request.index && r.offset === request.offset) break;
+    bytes += r.length || 16384;
+  }
+  return bytes / Math.max(1, speed) + (wire.kaiLatencyMs || 0) / 1000;
+};
+exports.available = function (wire, index) {
+  return !wire.peerChoking && !wire.snubbed && wire.peerPieces[index] &&
+    wire.requests.length < exports.pipeline(wire.downloadSpeed(), wire.peerReqq);
+};
+exports.preferCurrent = function (wire, index, wires, missing) {
+  var speed = wire.downloadSpeed() || 0;
+  var current = exports.deliveryTime(wire);
+  for (var i = 0; i < wires.length; i++) {
+    var other = wires[i], otherSpeed = other.downloadSpeed() || 0;
+    if (other === wire || !exports.available(other, index) || otherSpeed <= speed) continue;
+    // Reserve a small remainder for a genuinely available peer, not a blocked historical speed.
+    if (otherSpeed * 2 >= missing && exports.deliveryTime(other) + 0.1 < current) return false;
+  }
+  return true;
 };

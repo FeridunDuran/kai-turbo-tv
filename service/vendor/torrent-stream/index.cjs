@@ -120,7 +120,11 @@ var torrentStream = function (link, opts, cb) {
   engine.store = null
   engine.swarm = swarm
   engine.streamingStats = function () {
-    return { activeBlocks: activeRequests.length, criticalRetries: criticalRetries }
+    return { activeBlocks: activeRequests.length, criticalRetries: criticalRetries,
+      peerQueues: wires.filter(function (w) { return !w.peerChoking && !w.snubbed; }).map(function (w) {
+        return { rateKBs: Math.round(w.downloadSpeed() / 1024), blocks: w.requests.length,
+          etaMs: Math.round(streamPolicy.deliveryTime(w) * 1000), firstBlockMs: w.kaiFirstBlockMs || null };
+      }).sort(function (a, b) { return a.etaMs - b.etaMs; }).slice(0, 6) }
   }
   engine._flood = opts.flood
   engine._pulse = opts.pulse
@@ -354,6 +358,11 @@ var torrentStream = function (link, opts, cb) {
       var active = { wire: wire, index: index, offset: offset, size: size, at: Date.now(), retried: !!retriedBlocks[requestKey] };
       activeRequests.push(active);
       wire.request(index, offset, size, function (err, block) {
+        if (!err && block && block.length) {
+          var responseMs = Math.max(1, Date.now() - active.at);
+          if (!wire.kaiFirstBlockMs) wire.kaiFirstBlockMs = responseMs;
+          wire.kaiLatencyMs = Math.min(wire.kaiLatencyMs || responseMs, responseMs);
+        }
         var activeAt = activeRequests.indexOf(active);
         if (activeAt >= 0) activeRequests.splice(activeAt, 1);
         var ownsReservation = r[i] === wire
@@ -414,30 +423,8 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var speedRanker = function (wire) {
-      var speed = wire.downloadSpeed() || 1
-      if (speed > SPEED_THRESHOLD) return thruthy
-
-      var secs = streamPolicy.pipeline(speed, wire.peerReqq) * piece.BLOCK_LENGTH / speed
-      var tries = 10
-      var ptr = 0
-
       return function (index) {
-        if (!tries || !pieces[index]) return true
-
-        var missing = pieces[index].missing
-        for (; ptr < wires.length; ptr++) {
-          var other = wires[ptr]
-          var otherSpeed = other.downloadSpeed()
-
-          if (otherSpeed < SPEED_THRESHOLD) continue
-          if (otherSpeed <= speed || !other.peerPieces[index]) continue
-          if ((missing -= otherSpeed * secs) > 0) continue
-
-          tries--
-          return false
-        }
-
-        return true
+        return !pieces[index] || streamPolicy.preferCurrent(wire, index, wires, pieces[index].missing);
       }
     }
 
@@ -500,7 +487,10 @@ var torrentStream = function (link, opts, cb) {
     }
 
     var onupdate = function () {
-      wires.forEach(onupdatewire)
+      // Shortest estimated delivery queue first; never mutate the swarm's own wire order.
+      wires.slice().sort(function (a, b) {
+        return streamPolicy.deliveryTime(a) - streamPolicy.deliveryTime(b);
+      }).forEach(onupdatewire)
     }
 
     var onwire = function (wire) {
@@ -663,12 +653,15 @@ var torrentStream = function (link, opts, cb) {
           for (var q = 0; q < pendingRequests.length; q++) slow.cancel(pendingRequests[q].piece, pendingRequests[q].offset, pendingRequests[q].length);
           engine.emit('snub', slow);
         }
-        var urgent = {};
+        var urgent = {}, finishing = {};
         engine.selection.forEach(function (selection) {
           if (selection.priority < 2) return;
-          for (var i = selection.from; i <= selection.to; i++) urgent[i] = true;
+          for (var i = selection.from; i <= selection.to; i++) {
+            urgent[i] = true;
+            if (pieces[i] && pieces[i].missing <= 4 * piece.BLOCK_LENGTH) finishing[i] = true;
+          }
         });
-        var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now());
+        var recovery = streamPolicy.recovery(activeRequests, wires, urgent, Date.now(), finishing);
         if (!recovery) return;
         var request = recovery.request;
         retriedBlocks[request.index + ':' + request.offset] = true;
@@ -676,6 +669,7 @@ var torrentStream = function (link, opts, cb) {
         onrequest(recovery.wire, request.index, false);
         criticalRetries++;
         engine.emit('critical-retry', request.index, request.offset);
+        if (recovery.finishing) engine.emit('finishing-retry');
       }, 1000)
 
       process.nextTick(function () {
