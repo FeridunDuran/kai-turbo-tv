@@ -208,3 +208,22 @@ test('a session with an open player response is never removed as idle (TV trace:
  context.TV_TORRENT.sweepIdle(4*60*1000+4*60*1000);
  assert.equal(context.TV_TORRENT.isOpen(playing.id),false);
 });
+
+test('peer retries wait behind untried peers and come in small batches',()=>{
+ let now=0,tick=null;const context={require:id=>id==='crypto'?{randomBytes:()=>Buffer.alloc(8)}:{},setInterval(fn){tick=fn;return 1;},clearInterval(){},Buffer};
+ vm.runInNewContext(fs.readFileSync(new URL('../../service/torrent.js',import.meta.url),'utf8').replace('supported: supported,','retryFailedPeers: retryFailedPeers, supported: supported,'),context);
+ const connects=[],engine=new EventEmitter();
+ Object.assign(engine,{swarm:{_peers:{},wires:[],queued:300},connect(a){connects.push(a);},destroy(){},diag:{}});
+ context.TV_TORRENT.retryFailedPeers(engine,()=>now);
+ for(let i=0;i<120;i++)engine.emit('peer','10.0.'+Math.floor(i/250)+'.'+(i%250)+':6881');
+ now+=10000;tick();
+ assert.equal(connects.length,0,'untried peers are still queued: no retries yet');
+ engine.swarm.queued=3;tick();
+ assert.equal(connects.length,20,'at most 20 retries per tick');
+});
+
+test('engine keeps choked peers 15 s and gives TCP connects 5 s (TV trace: 550 queued peers, all dropped at 5 s)',()=>{
+ const source=fs.readFileSync(new URL('../../service/vendor/torrent-stream/index.cjs',import.meta.url),'utf8');
+ assert.match(source,/var CHOKE_TIMEOUT = 15000/);
+ assert.match(source,/connectTimeout: opts\.connectTimeout \|\| 5000/);
+});

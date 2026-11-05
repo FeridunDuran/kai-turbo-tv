@@ -88,6 +88,11 @@ var TV_TORRENT = (function () {
   // has few connections. This adds connection attempts only, not downloads.
   var PEER_RETRY_WAIT = [5000, 15000, 30000];
   var PEER_RETRY_BELOW = 20;
+  // Retries go behind peers never tried: only when the swarm's queue is nearly empty, and a few
+  // at a time. A TV trace re-queued 100+ peers at once, which delayed untried peers and made the
+  // engine drop choked connections sooner (its drop rule depends on the queue length).
+  var PEER_RETRY_QUEUE_MAX = 10;
+  var PEER_RETRY_BATCH = 20;
   function retryFailedPeers(engine, now) {
     var known = {};
     engine.peerRetries = known;
@@ -97,13 +102,17 @@ var TV_TORRENT = (function () {
     var timer = setInterval(function () {
       var swarm = engine.swarm;
       if (!swarm || !swarm._peers || swarm.wires.length >= PEER_RETRY_BELOW) return;
+      if ((swarm.queued || 0) > PEER_RETRY_QUEUE_MAX) return;
       var t = (now || Date.now)();
+      var batch = 0;
       Object.keys(known).forEach(function (addr) {
         var entry = known[addr];
+        if (batch >= PEER_RETRY_BATCH) return;
         if (swarm._peers[addr] || entry.tries >= PEER_RETRY_WAIT.length) return;
         if (t - entry.at < PEER_RETRY_WAIT[entry.tries]) return;
         entry.tries++;
         entry.at = t;
+        batch++;
         if (engine.diag) engine.diag.peerRetries = (engine.diag.peerRetries || 0) + 1;
         engine.connect(addr);
       });

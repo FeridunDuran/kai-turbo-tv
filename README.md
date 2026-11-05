@@ -83,9 +83,11 @@ Peerflix and qBittorrent, checked against their source code and the TV's own log
   read just before the jump to the end of the file is kept for the re-read that follows.
 - **Nothing downloaded for nothing.** When resuming, only the pieces the player reads at the
   start and end of the file are fetched until it reaches the resume position.
-- **More peers.** Connections get 10 s instead of 3 s, a peer that failed once is retried up to
-  three times, and peers that delivered data before are tried first the next time the same
-  torrent opens.
+- **More peers that actually send.** A connected peer that has not unchoked us yet is kept 15 s
+  (peers following libtorrent's defaults hand out uploads every 15 s) instead of being dropped
+  after 5 s when many peers are waiting. Peers that failed to connect are retried a few at a time
+  once untried peers run out, and peers that delivered data before are tried first the next time
+  the same torrent opens.
 - **Nothing waits for unrelated work.** Add-on requests, service checks and subtitle lookups run
   in parallel; the home screen no longer waits for the PC or TV service checks.
 - **Slow is not broken.** A torrent that is still receiving data counts as buffering, not as a

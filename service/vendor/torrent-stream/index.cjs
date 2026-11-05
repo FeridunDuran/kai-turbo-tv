@@ -22,7 +22,11 @@ var fileStream = require('./lib/file-stream.cjs')
 
 var streamPolicy = require('./lib/stream-policy.cjs')
 var MAX_ACTIVE_BLOCKS = 256
-var CHOKE_TIMEOUT = 5000
+// How long a choked connection is kept while other peers wait in the queue. Upstream used 5 s
+// (as WebTorrent does), but peers following libtorrent defaults rechoke every 15 s
+// (unchoke_interval) and optimistically unchoke every 30 s. TV trace: with 550 peers queued, every
+// connection was dropped after 5 s with 0 KB, so almost no peer got the chance to unchoke us.
+var CHOKE_TIMEOUT = 15000
 var REQUEST_TIMEOUT = 30000
 var SPEED_THRESHOLD = 3 * piece.BLOCK_LENGTH
 var DEFAULT_PORT = 6881
@@ -76,10 +80,11 @@ var torrentStream = function (link, opts, cb) {
   }
 
   var engine = new events.EventEmitter()
-  // peer-wire-swarm gives a TCP connect 3 s. WebTorrent uses 5 s and libtorrent 15 s
-  // (peer_connect_timeout); TV Wi-Fi to distant peers needs the longer window.
+  // peer-wire-swarm gives a TCP connect 3 s; WebTorrent uses 5 s. Pending connects count toward
+  // the connection limit, so a longer timeout (10 s was tried) slowed the search through many
+  // unreachable peers to a third (TV trace: 550 found, one or two connected).
   var swarm = pws(infoHash, opts.id, { size: (opts.connections || opts.size), speed: 10,
-    connectTimeout: opts.connectTimeout || 10000 })
+    connectTimeout: opts.connectTimeout || 5000 })
   var torrentPath = path.join(opts.tmp, opts.name, infoHash + '.torrent')
 
   if (cb) engine.on('ready', cb.bind(null, engine))

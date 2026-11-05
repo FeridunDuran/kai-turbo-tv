@@ -264,3 +264,17 @@ looked idle. Sessions with an open player response are now never idle, delivered
 updates `lastUsed`, and the idle time counts from the end of the last response. The player also
 opens the torrent again at the played position when the service reports the session missing.
 
+## Correction: connections dropped after 5 s (TV trace, slower download)
+
+The next TV trace was slower: 550 peers discovered, one or two connected, and every closed
+connection had lasted 5-6 s with 0 KB. The engine drops a choked connection after 5 s whenever
+the queue of waiting peers exceeds twice the free connection slots (WebTorrent has the same
+rule). With hundreds of queued peers, no connection lived long enough to be unchoked; peers with
+libtorrent defaults rechoke every 15 s and optimistically unchoke every 30 s.
+
+The previous round made this worse: a 10 s connect timeout let unreachable peers hold the 55
+connection slots three times longer, and the retry pass re-queued 100+ peers at once, lengthening
+the queue that triggers the drop. Now: choked connections are kept 15 s, TCP connects time out
+after 5 s (as in WebTorrent), and retries run only when fewer than ten peers are queued, at most
+20 per pass. Effect on the TV not measured yet.
+
